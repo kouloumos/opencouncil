@@ -1,7 +1,7 @@
 "use server";
 import prisma from './prisma';
 import { withUserAuthorizedToEdit } from '../auth';
-import { CouncilMeeting, City, Utterance, Prisma } from '@prisma/client';
+import { CouncilMeeting, City, SpeakerSegment, Utterance, SpeakerTag, TopicLabel, Topic, Summary, Prisma } from '@prisma/client';
 import { PersonWithRelations } from './people';
 import { isRoleActiveAt } from '../utils';
 
@@ -20,44 +20,44 @@ const speakerSegmentTranscriptInclude = {
 } satisfies Prisma.SpeakerSegmentInclude;
 
 // Define the include for speaker segments with full relations (for queries)
-const speakerSegmentWithRelationsInclude = {
-    utterances: {
-        orderBy: { startTimestamp: 'asc' as const }
-    },
-    speakerTag: {
-        include: {
-            speaker: {
-                include: {
-                    person: {
-                        include: {
-                            roles: {
-                                include: {
-                                    party: true,
-                                    city: true,
-                                    administrativeBody: true
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-    summary: true,
-    topicLabels: {
-        include: {
-            topic: true
-        }
-    }
-} satisfies Prisma.SpeakerSegmentInclude;
+// const speakerSegmentWithRelationsInclude = {
+//     utterances: {
+//         orderBy: { startTimestamp: 'asc' as const }
+//     },
+//     speakerTag: {
+//         include: {
+//             speaker: {
+//                 include: {
+//                     person: {
+//                         include: {
+//                             roles: {
+//                                 include: {
+//                                     party: true,
+//                                     city: true,
+//                                     administrativeBody: true
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     },
+//     summary: true,
+//     topicLabels: {
+//         include: {
+//             topic: true
+//         }
+//     }
+// } satisfies Prisma.SpeakerSegmentInclude;
 
 export type SpeakerSegmentForTranscript = Prisma.SpeakerSegmentGetPayload<{
     include: typeof speakerSegmentTranscriptInclude
 }>;
 
-export type SpeakerSegmentWithRelations = Prisma.SpeakerSegmentGetPayload<{
-    include: typeof speakerSegmentWithRelationsInclude
-}>;
+// export type SpeakerSegmentWithRelations = Prisma.SpeakerSegmentGetPayload<{
+//     include: typeof speakerSegmentWithRelationsInclude
+// }>;
 
 export type SegmentWithRelations = {
     id: string;
@@ -70,6 +70,31 @@ export type SegmentWithRelations = {
     text: string;
     summary: { text: string } | null;
 };
+
+// const speakerSegmentWithRelationsInclude = {
+//     utterances: true,
+//     speakerTag: {
+//         include: {
+//             person: {
+//                 include: {
+//                     roles: {
+//                         include: {
+//                             party: true,
+//                             city: true,
+//                             administrativeBody: true
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     },
+//     summary: true,
+//     topicLabels: {
+//         include: {
+//             topic: true
+//         }
+//     }
+// } satisfies Prisma.SpeakerSegmentInclude;
 
 export async function createEmptySpeakerSegmentAfter(
     afterSegmentId: string,
@@ -128,6 +153,61 @@ export async function createEmptySpeakerSegmentAfter(
     });
 
     console.log(`Created a new speaker segment starting at ${startTimestamp} and ending at ${endTimestamp}. Previous segment ended at ${currentSegment.endTimestamp}, next segment starts at ${nextSegment?.startTimestamp}`);
+
+    return newSegment;
+}
+
+export async function createEmptySpeakerSegmentBefore(
+    beforeSegmentId: string,
+    cityId: string,
+    meetingId: string
+): Promise<SpeakerSegmentForTranscript> {
+    // First get the segment we're inserting before to get its start timestamp
+    const firstSegment = await prisma.speakerSegment.findUnique({
+        where: { id: beforeSegmentId },
+        include: {
+            utterances: true,
+            speakerTag: true
+        }
+    });
+
+    if (!firstSegment) {
+        throw new Error('Segment not found');
+    }
+
+    await withUserAuthorizedToEdit({ cityId });
+
+    // Calculate timestamps for the new segment
+    // We want to create a small segment before the first segment
+    const endTimestamp = firstSegment.startTimestamp - 0.01;
+    const startTimestamp = Math.max(0, endTimestamp - 0.01);
+
+    // If the first segment starts too close to 0, we need to adjust or throw an error
+    if (startTimestamp < 0 || startTimestamp >= endTimestamp) {
+        throw new Error('Cannot create segment before first segment: insufficient timestamp space');
+    }
+
+    // Create a new speaker tag
+    const newSpeakerTag = await prisma.speakerTag.create({
+        data: {
+            label: "New speaker segment",
+            speakerId: null // Reset the person association for the new tag
+        }
+    });
+
+    // Create the new segment
+    const newSegment = await prisma.speakerSegment.create({
+        data: {
+            startTimestamp,
+            endTimestamp,
+            workspaceId: cityId,
+            transcriptId: meetingId,
+            speakerTagId: newSpeakerTag.id
+        },
+        include: speakerSegmentTranscriptInclude
+    });
+
+    console.log(`Created a new speaker segment before first segment: ${startTimestamp} - ${endTimestamp}. First segment starts at ${firstSegment.startTimestamp}`);
 
     return newSegment;
 }
