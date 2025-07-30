@@ -143,6 +143,7 @@ export default function Transcript() {
                         <SpeakerSegment
                             segment={segment}
                             renderMock={!shouldRender}
+                            isFirstSegment={index === 0}
                         />
                     </div>
                 );
