@@ -9,6 +9,7 @@ import { Loader2, CheckCircle, XCircle, AlertTriangle, Clock, X, ChevronDown, Ch
 import { buildSyncQuery } from '@/lib/elasticsearch/queryTemplate';
 import Combobox from '@/components/Combobox';
 import ElasticsearchStatus from './Status';
+import DocumentPreview from './DocumentPreview';
 import { useElasticsearchConnector } from '@/hooks/useElasticsearchConnector';
 import { City } from '@/types/elasticsearch';
 
@@ -277,6 +278,11 @@ export default function ElasticsearchManagement() {
                       </div>
                     </div>
                   )}
+                  <DocumentPreview 
+                    selectedCityIds={selectedCityIds}
+                    cities={cities}
+                    connectorInfo={connectorInfo}
+                  />
                 </div>
               )}
             </div>
