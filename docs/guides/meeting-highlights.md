@@ -223,7 +223,7 @@ This categorization provides better organization and helps users understand the 
     *   `CouncilMeeting`: `src/components/meetings/CouncilMeeting.tsx`
     *   `HighlightsList`: `src/components/meetings/HighlightsList.tsx` (main list interface)
     *   `HighlightView`: `src/components/meetings/HighlightView.tsx` (individual highlight view with responsive video)
-    *   `HighlightVideo`: `src/components/meetings/HighlightVideo.tsx` (adaptive video player with aspect ratio detection)
+    *   `VideoPlayer`: `src/components/meetings/VideoPlayer.tsx` (unified video player supporting both local HTML5 and MUX playback)
     *   `CreateHighlightButton`: `src/components/meetings/CreateHighlightButton.tsx` (streamlined highlight creation)
     *   `HighlightDialog`: `src/components/meetings/HighlightDialog.tsx` (create/edit dialog)
     *   `HighlightPreview`: `src/components/meetings/HighlightPreview.tsx` (content preview)

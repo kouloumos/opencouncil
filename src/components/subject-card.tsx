@@ -10,7 +10,7 @@ import { cn, getPartyFromRoles } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import { PersonAvatarList } from "./persons/PersonAvatarList";
 import { PersonWithRelations } from '@/lib/db/people';
-import { HighlightVideo } from "./meetings/HighlightVideo";
+import { VideoPlayer } from "./meetings/VideoPlayer";
 import { HighlightWithUtterances } from "@/lib/db/highlights";
 
 interface SubjectCardProps {
@@ -106,12 +106,14 @@ export function SubjectCard({ subject, city, meeting, parties, persons, fullWidt
                 </CardHeader>
                 <CardContent className="flex-1 pb-2 max-w-full overflow-hidden">
                     {highlight?.muxPlaybackId && (
-                        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
-                            <HighlightVideo
+                        <div className="mb-4">
+                            <VideoPlayer
                                 id={highlight.id}
                                 title={highlight.name}
                                 playbackId={highlight.muxPlaybackId}
                                 videoUrl={highlight.videoUrl || undefined}
+                                containerClassName="rounded-lg overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
                             />
                         </div>
                     )}

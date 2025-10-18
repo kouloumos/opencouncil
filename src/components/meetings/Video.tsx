@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useRef } from 'react';
-import MuxVideo from '@mux/mux-video-react';
 import { useVideo } from './VideoProvider';
 import { cn } from '@/lib/utils';
 import { ArrowDownLeft, ArrowUpRight, Minimize2, Move, ArrowDownLeftSquare, Scaling } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
+import { VideoPlayer } from './VideoPlayer';
 
 export const Video: React.FC<{ className?: string, expandable?: boolean, onExpandChange?: (expanded: boolean) => void }> = ({ className, expandable = false, onExpandChange }) => {
     const { playerRef, meeting, isPlaying, currentTime, setIsPlaying, seekTo } = useVideo();
@@ -83,7 +83,7 @@ export const Video: React.FC<{ className?: string, expandable?: boolean, onExpan
     };
 
     const renderVideoElement = () => {
-        return <VideoElement id={meeting.id} title={meeting.name} playbackId={meeting.transcript?.muxPlaybackId!} isExpanded={isExpanded} />
+        return <VideoElement id={meeting.id} title={meeting.name} playbackId={meeting.transcript?.muxPlaybackId!} videoUrl={meeting.transcript?.videoUrl ?? undefined} isExpanded={isExpanded} />
     };
 
     if (isExpanded) {
@@ -169,32 +169,20 @@ export const Video: React.FC<{ className?: string, expandable?: boolean, onExpan
     );
 };
 
-const VideoElement = ({ id, title, playbackId, isExpanded }: { id: string; title: string; playbackId: string; isExpanded?: boolean }) => {
+const VideoElement = ({ id, title, playbackId, videoUrl, isExpanded }: { id: string; title: string; playbackId: string; videoUrl?: string; isExpanded?: boolean }) => {
     const { onSeeked, onSeeking, onTimeUpdate, playerRef } = useVideo();
     return (
-        <div className="w-full h-full flex items-center justify-center bg-black">
-            <MuxVideo
-                ref={playerRef as any}
-                streamType="on-demand"
-                playbackId={playbackId}
-                metadata={{
-                    video_id: id,
-                    video_title: title,
-                }}
-                playsInline
-                disablePictureInPicture
-                className={cn(
-                    "w-full h-full object-contain",
-                    isExpanded && "absolute inset-0"
-                )}
-                style={{
-                    width: '100%',
-                    height: '100%',
-                }}
-                onSeeked={onSeeked}
-                onSeeking={onSeeking}
-                onTimeUpdate={onTimeUpdate}
-            />
-        </div>
+        <VideoPlayer
+            ref={playerRef}
+            id={id}
+            title={title}
+            playbackId={playbackId}
+            videoUrl={videoUrl}
+            containerClassName="w-full h-full flex items-center justify-center"
+            className={cn(isExpanded && "absolute inset-0")}
+            onSeeked={onSeeked}
+            onSeeking={onSeeking}
+            onTimeUpdate={onTimeUpdate}
+        />
     );
 };

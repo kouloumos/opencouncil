@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Users, Star, Edit, Trash, Download, ArrowLeft, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { HighlightVideo } from './HighlightVideo';
+import { VideoPlayer } from './VideoPlayer';
 import { formatTime, formatRelativeTime } from "@/lib/utils";
 import { HighlightPreview } from "./HighlightPreview";
 import { useHighlight } from "./HighlightContext";
@@ -313,14 +313,13 @@ export function HighlightView({ highlight }: HighlightViewProps) {
                       {t('highlightView.video')}
                     </h4>
                   </div>
-                  <div className="rounded-lg overflow-hidden">
-                    <HighlightVideo
-                      id={highlight.id}
-                      title={highlight.name}
-                      playbackId={highlight.muxPlaybackId!}
-                      videoUrl={highlight.videoUrl || undefined}
-                    />
-                  </div>
+                  <VideoPlayer
+                    id={highlight.id}
+                    title={highlight.name}
+                    playbackId={highlight.muxPlaybackId!}
+                    videoUrl={highlight.videoUrl || undefined}
+                    containerClassName="rounded-lg overflow-hidden"
+                  />
                 </div>
               </div>
             ) : (
