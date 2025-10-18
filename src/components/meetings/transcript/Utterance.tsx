@@ -48,8 +48,8 @@ const UtteranceC: React.FC<{
     const { openShareDropdownAndCopy } = useShare();
     const t = useTranslations('transcript.utterance');
 
-    const canStartHighlight = options.canCreateHighlights && !editingHighlight && !options.editable;
-    const canShare = !editingHighlight && !options.editable;
+    const canStartHighlight = options.canCreateHighlights && !editingHighlight && !options.editable && !options.isGenericMode;
+    const canShare = !editingHighlight && !options.editable && !options.isGenericMode;
     const hasContextMenuOptions = canStartHighlight || options.editable || canShare;
 
     // Check if selected in Editing Context
