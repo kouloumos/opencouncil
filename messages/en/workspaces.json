@@ -1,0 +1,145 @@
+{
+  "list": {
+    "title": "My Workspaces",
+    "noWorkspaces": "You don't have any workspaces yet",
+    "noWorkspacesDescription": "Contact your administrator for workspace access",
+    "createWorkspace": "Create Workspace",
+    "transcriptsCount": "{count, plural, =0 {No transcripts} one {# transcript} other {# transcripts}}",
+    "membersCount": "{count, plural, =0 {No members} one {# member} other {# members}}"
+  },
+  "dashboard": {
+    "title": "Transcripts",
+    "noTranscripts": "No transcripts yet",
+    "noTranscriptsDescription": "Upload your first file to get started",
+    "viewTranscript": "View",
+    "uploadNewTranscript": "Upload New File",
+    "backToWorkspaces": "Back to Workspaces"
+  },
+  "upload": {
+    "title": "Upload New Transcript",
+    "transcriptName": "Transcript Name",
+    "transcriptNamePlaceholder": "e.g. Team Meeting - January 15",
+    "videoLabel": "Video",
+    "audioLabel": "Audio",
+    "dropFiles": "Drop files here or select from your computer",
+    "pasteLink": "Or paste a link",
+    "linkPlaceholder": "https://...",
+    "uploadButton": "Upload & Create",
+    "uploading": "Uploading...",
+    "cancel": "Cancel",
+    "errors": {
+      "nameRequired": "Name is required",
+      "fileOrLinkRequired": "Please upload a file or provide a link",
+      "uploadFailed": "Upload failed. Please try again."
+    },
+    "success": {
+      "title": "Transcript created!",
+      "description": "You can now start transcribing."
+    }
+  },
+  "transcribe": {
+    "startTranscription": "Start Transcription",
+    "transcribing": "Transcribing...",
+    "transcriptionInProgress": "Transcription in progress",
+    "transcriptionComplete": "Transcription complete",
+    "transcriptionFailed": "Transcription failed",
+    "retryTranscription": "Retry Transcription",
+    "errors": {
+      "failed": "Failed to start transcription. Please try again.",
+      "noMedia": "No media file available for transcription"
+    }
+  },
+  "viewer": {
+    "editMode": "Edit Mode",
+    "viewMode": "View Mode",
+    "noTranscript": "No transcript yet",
+    "noTranscriptDescription": "Start transcription to see content",
+    "loading": "Loading...",
+    "backToWorkspace": "Back to Workspace"
+  },
+  "speakers": {
+    "unknownSpeaker": "Unknown Speaker",
+    "editSpeaker": "Edit Speaker",
+    "speakerName": "Speaker Name",
+    "speakerNamePlaceholder": "e.g. John Doe",
+    "setLabel": "Set label to \"{{label}}\"",
+    "removePerson": "Remove person",
+    "segmentCount": "{{count}} segments",
+    "segmentCount_one": "{{count}} segment"
+  },
+  "members": {
+    "title": "Workspace Members",
+    "inviteMember": "Invite Member",
+    "email": "Email",
+    "emailPlaceholder": "email@example.com",
+    "name": "Name (optional)",
+    "namePlaceholder": "e.g. John Doe",
+    "invite": "Send Invitation",
+    "inviting": "Sending...",
+    "cancel": "Cancel",
+    "removeMember": "Remove Member",
+    "confirmRemove": "Are you sure you want to remove this member?",
+    "noMembers": "No members yet",
+    "noMembersDescription": "Invite team members to start collaborating",
+    "errors": {
+      "inviteFailed": "Failed to send invitation. Please try again.",
+      "alreadyMember": "This user is already a member",
+      "removeFailed": "Failed to remove member. Please try again.",
+      "invalidEmail": "Please enter a valid email address"
+    },
+    "success": {
+      "invited": "Invitation sent successfully!",
+      "invitedDescription": "The user received an email with sign-in instructions",
+      "removed": "Member removed successfully"
+    }
+  },
+  "admin": {
+    "title": "Workspace Management",
+    "createWorkspace": "Create Workspace",
+    "workspaceName": "Workspace Name",
+    "workspaceNamePlaceholder": "e.g. Marketing Team",
+    "create": "Create",
+    "creating": "Creating...",
+    "cancel": "Cancel",
+    "editWorkspace": "Edit Workspace",
+    "deleteWorkspace": "Delete Workspace",
+    "confirmDelete": "Are you sure you want to delete this workspace?",
+    "confirmDeleteDescription": "This action cannot be undone. All transcripts and data will be permanently deleted.",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "save": "Save",
+    "saving": "Saving...",
+    "noWorkspaces": "No workspaces yet",
+    "noWorkspacesDescription": "Create your first workspace to get started",
+    "manageMembers": "Manage Members",
+    "viewWorkspace": "View Workspace",
+    "errors": {
+      "createFailed": "Failed to create workspace. Please try again.",
+      "updateFailed": "Failed to update workspace. Please try again.",
+      "deleteFailed": "Failed to delete workspace. Please try again.",
+      "nameRequired": "Name is required"
+    },
+    "success": {
+      "created": "Workspace created successfully!",
+      "updated": "Workspace updated successfully!",
+      "deleted": "Workspace deleted successfully!"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "close": "Close",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "search": "Search",
+    "noResults": "No results found",
+    "actions": "Actions"
+  }
+}
+

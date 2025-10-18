@@ -1,48 +1,8 @@
 import { getCurrentUser } from "@/lib/auth"
-import prisma from "@/lib/db/prisma"
-import { sendEmail } from "@/lib/email/resend"
-import { renderAsync } from "@react-email/render"
-import { UserInviteEmail } from "@/lib/email/templates/user-invite"
 import { NextResponse } from "next/server"
-import { createHash } from "crypto"
-import { env } from "@/env.mjs"
 import { createUser, getUsers, updateUser } from "@/lib/db/users"
 import { sendUserOnboardedAdminAlert } from "@/lib/discord"
-
-async function generateSignInLink(email: string) {
-    // Create a token that expires in 24 hours
-    const token = createHash('sha256')
-        .update(email + Date.now().toString())
-        .digest('hex')
-
-    // Save the token in the database
-    await prisma.verificationToken.create({
-        data: {
-            identifier: email,
-            token,
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-        }
-    })
-
-    // Generate the sign-in URL
-    const signInUrl = `${env.NEXT_PUBLIC_BASE_URL}/sign-in?token=${token}&email=${encodeURIComponent(email)}`
-    return signInUrl
-}
-
-async function sendInviteEmail(email: string, name: string) {
-    const signInUrl = await generateSignInLink(email)
-    const emailHtml = await renderAsync(UserInviteEmail({
-        name: name || email,
-        inviteUrl: signInUrl
-    }))
-
-    await sendEmail({
-        from: "OpenCouncil <auth@opencouncil.gr>",
-        to: email,
-        subject: "You've been invited to OpenCouncil",
-        html: emailHtml,
-    })
-}
+import { sendInviteEmail } from "@/lib/invitations"
 
 export async function GET() {
     const user = await getCurrentUser()
