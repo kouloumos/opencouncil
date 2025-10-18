@@ -61,9 +61,9 @@ export async function POST(
       }
     });
 
-    // Send workspace invitation email
+    // Send workspace invitation email with workspace ID for redirect
     try {
-      await sendWorkspaceInviteEmail(email, user.name || email, workspace.name);
+      await sendWorkspaceInviteEmail(email, user.name || email, workspace.name, params.workspaceId);
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError);
       // Don't fail the whole request if email fails
