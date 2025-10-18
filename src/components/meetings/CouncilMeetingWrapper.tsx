@@ -20,13 +20,15 @@ type CouncilMeetingWrapperProps = {
     editable: boolean,
     canCreateHighlights: boolean,
     meetingData: MeetingData,
+    /** A workspace transcript that is not a council meeting. */
+    isGenericMode?: boolean,
     children: React.ReactNode
 }
 
 const LayoutContext = createContext<{ isWide: boolean }>({ isWide: false });
 export const useLayout = () => useContext(LayoutContext);
 
-export default function CouncilMeetingWrapper({ meetingData, editable, canCreateHighlights, children }: CouncilMeetingWrapperProps) {
+export default function CouncilMeetingWrapper({ meetingData, editable, canCreateHighlights, isGenericMode = false, children }: CouncilMeetingWrapperProps) {
     const [isWide, setIsWide] = useState(false);
 
     const memoizedUtterances = useMemo(() => {
@@ -49,7 +51,7 @@ export default function CouncilMeetingWrapper({ meetingData, editable, canCreate
     return (
         <LayoutContext.Provider value={{ isWide }}>
             <CouncilMeetingDataProvider data={meetingData}>
-                <TranscriptOptionsProvider editable={editable} canCreateHighlights={canCreateHighlights}>
+                <TranscriptOptionsProvider editable={editable} canCreateHighlights={canCreateHighlights} isGenericMode={isGenericMode}>
                     <SpeakerIdentificationsProvider>
                     <VideoProvider meeting={memoizedMeeting} utterances={memoizedUtterances}>
                         <BarDataProvider>

@@ -16,7 +16,9 @@
     "backToWorkspaces": "Back to Workspaces",
     "confirmDelete": "Are you sure you want to delete the transcript \"{name}\"? This action cannot be undone.",
     "deleteSuccess": "Transcript deleted successfully",
-    "deleteError": "Failed to delete transcript"
+    "deleteError": "Failed to delete transcript",
+    "transcribing": "Transcribing",
+    "failed": "Failed"
   },
   "upload": {
     "title": "Upload New Transcript",
@@ -148,7 +150,11 @@
     "export": "Export",
     "exporting": "Exporting...",
     "exportSuccess": "Transcript exported successfully",
-    "exportError": "Failed to export transcript"
+    "exportError": "Failed to export transcript",
+    "noTranscript": "No transcript available",
+    "noTranscriptDescription": "Start transcription to view the content",
+    "transcriptionInProgress": "Transcription is in progress. The page will refresh automatically when complete.",
+    "transcriptionFailed": "Transcription failed. Please try again or contact support."
   },
   "landing": {
     "generic": {
