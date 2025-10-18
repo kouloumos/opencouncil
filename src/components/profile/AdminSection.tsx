@@ -1,4 +1,4 @@
-import { Building, ChevronRight, Flag, Landmark, ShieldCheck, User, type LucideIcon } from "lucide-react";
+import { Building, ChevronRight, Flag, Folder, FolderOpen, Landmark, ShieldCheck, User, type LucideIcon } from "lucide-react";
 // The locale-aware Link: next/link would drop the locale prefix.
 import { Link } from "@/i18n/routing";
 import { RailCard } from "@/components/ui/rail-card";
@@ -8,7 +8,7 @@ type AdminSectionProps = {
         isSuperAdmin: boolean;
         administers: Array<{
             id: string;
-            city?: { id: string; name: string } | null;
+            workspace?: { id: string; name: string; city: { id: string; name: string } | null } | null;
             party?: { id: string; cityId: string; name: string } | null;
             person?: { id: string; cityId: string; name: string } | null;
             administrativeBody?: { id: string; cityId: string; name: string } | null;
@@ -28,17 +28,20 @@ interface AdminEntry {
 
 /**
  * What this account can edit, as a rail card of links: the admin panel for
- * a superadmin, and one row per city, party, person or body it administers. The
+ * a superadmin, and one row per workspace, city, party, person or body it administers. The
  * label says the kind, the name says which, and the whole row is the link.
  */
 export function AdminSection({ user, t }: AdminSectionProps) {
     const entries: AdminEntry[] = [];
     if (user.isSuperAdmin) {
         entries.push({ key: "superadmin", href: "/admin", icon: ShieldCheck, label: t("superAdminAccess"), name: t("goToAdmin") });
+        entries.push({ key: "workspaces", href: "/workspaces", icon: FolderOpen, label: t("superAdminAccess"), name: t("goToWorkspaces") });
     }
     for (const admin of user.administers) {
-        if (admin.city) {
-            entries.push({ key: admin.id, href: `/${admin.city.id}`, icon: Building, label: t("adminCity"), name: admin.city.name });
+        if (admin.workspace?.city) {
+            entries.push({ key: admin.id, href: `/${admin.workspace.city.id}`, icon: Building, label: t("adminCity"), name: admin.workspace.city.name });
+        } else if (admin.workspace) {
+            entries.push({ key: admin.id, href: `/workspaces/${admin.workspace.id}`, icon: Folder, label: t("adminWorkspace"), name: admin.workspace.name });
         } else if (admin.party) {
             entries.push({ key: admin.id, href: `/${admin.party.cityId}/parties/${admin.party.id}`, icon: Flag, label: t("adminParty"), name: admin.party.name });
         } else if (admin.person) {
