@@ -248,7 +248,7 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
       >
         <ContextBridge speakerTags={data.speakerTags}>
           <ShareProvider>
-            <TranscriptOptionsProvider editable={data.editable}>
+            <TranscriptOptionsProvider editable={data.editable} isGenericMode={true}>
               <VideoProvider
                 meeting={meeting as any}
                 utterances={utterances}
