@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withUserAuthorizedToEdit } from '@/lib/auth';
+import { withUserAuthorizedToEdit, getCurrentUser } from '@/lib/auth';
 import { getTranscript, updateTranscript, deleteTranscript } from '@/lib/db/transcripts';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -77,14 +77,21 @@ export async function PUT(
 
 /**
  * DELETE /api/workspaces/[workspaceId]/transcripts/[transcriptId]
- * Delete transcript
+ * Delete transcript (super admin only)
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { workspaceId: string; transcriptId: string } }
 ) {
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
+    // Only super admins can delete transcripts
+    const user = await getCurrentUser();
+    if (!user || !user.isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Only super admins can delete transcripts.' },
+        { status: 403 }
+      );
+    }
     
     await deleteTranscript(params.workspaceId, params.transcriptId);
 
