@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Search, Building2 } from "lucide-react"
 import { useRouter, useSelectedLayoutSegment } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
+import { env } from "@/env.mjs"
 
 export interface PathElement {
     name: string
@@ -39,6 +40,8 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const searchOverlayRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const isGenericMode = env.NEXT_PUBLIC_APP_MODE === 'generic';
+    const appName = isGenericMode ? 'OpenTranscripts' : 'OpenCouncil';
 
     // Add dynamic path elements based on the current segment
     const dynamicPath = [...path];
@@ -120,7 +123,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                                 />
                             </div>
                             {dynamicPath.length === 0 && (
-                                <span className="text-sm sm:text-lg md:text-xl md:hidden">OpenCouncil</span>
+                                <span className="text-sm sm:text-lg md:text-xl md:hidden">{appName}</span>
                             )}
                         </Link>
                     </div>
@@ -128,7 +131,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                     {dynamicPath.length === 0 && (
                         <div className="absolute left-0 right-0 hidden md:flex justify-center items-center pointer-events-none">
                             <Link href="/" className="pointer-events-auto hover:no-underline">
-                                <span className="text-xl font-medium">OpenCouncil</span>
+                                <span className="text-xl font-medium">{appName}</span>
                             </Link>
                         </div>
                     )}
@@ -187,6 +190,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                     <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0 ml-1 sm:ml-2 md:ml-4">
                         {children}
                         <div className="flex items-center gap-1 sm:gap-2">
+                            {!isGenericMode && (
                             <button
                                 onClick={() => setIsSearchOpen(true)}
                                 className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-accent transition-colors"
@@ -194,6 +198,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                             >
                                 <Search className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                             </button>
+                            )}
                             <UserDropdown currentEntity={currentEntity} />
                         </div>
                     </div>
@@ -215,7 +220,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                                     />
                                 </div>
                                 {dynamicPath.length === 0 && (
-                                    <span className="text-sm sm:text-lg md:text-xl md:hidden">OpenCouncil</span>
+                                    <span className="text-sm sm:text-lg md:text-xl md:hidden">{appName}</span>
                                 )}
                             </Link>
                         </div>
@@ -223,7 +228,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                         {dynamicPath.length === 0 && (
                             <div className="absolute left-0 right-0 hidden md:flex justify-center items-center pointer-events-none">
                                 <Link href="/" className="pointer-events-auto hover:underline">
-                                    <span className="text-xl font-medium">OpenCouncil</span>
+                                    <span className="text-xl font-medium">{appName}</span>
                                 </Link>
                             </div>
                         )}
@@ -282,6 +287,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                         <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
                             {children}
                             <div className="flex items-center gap-1 sm:gap-2">
+                                {!isGenericMode && (
                                 <button
                                     onClick={() => setIsSearchOpen(true)}
                                     className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full hover:bg-accent transition-colors"
@@ -289,6 +295,7 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                                 >
                                     <Search className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                 </button>
+                                )}
                                 <UserDropdown currentEntity={currentEntity} />
                             </div>
                         </div>
