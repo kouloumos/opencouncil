@@ -43,6 +43,19 @@ const transcriptMinimalInclude = {
       name_en: true
     }
   },
+  taskStatuses: {
+    take: 1,
+    orderBy: { createdAt: 'desc' as const },
+    select: {
+      id: true,
+      status: true,
+      type: true,
+      stage: true,
+      percentComplete: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  },
   _count: {
     select: {
       speakerSegments: true,
