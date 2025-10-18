@@ -4,13 +4,15 @@ import { getWorkspace } from '@/lib/db/workspaces';
 import { listTranscripts } from '@/lib/db/transcripts';
 import { TranscriptList } from '@/components/workspaces/TranscriptList';
 import { UploadTranscriptForm } from '@/components/workspaces/UploadTranscriptForm';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 export default async function WorkspacePage({
   params
 }: {
   params: { workspaceId: string; locale: string }
 }) {
+  setRequestLocale(params.locale);
+  
   const user = await getCurrentUser();
   
   if (!user) {
