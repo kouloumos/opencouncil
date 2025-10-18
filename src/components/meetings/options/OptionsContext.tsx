@@ -10,6 +10,7 @@ export interface TranscriptOptions {
     maxUtteranceDrift: number;
     playbackSpeed: number;
     skipInterval: number; // seconds to skip forward/backward
+    isGenericMode?: boolean;
 }
 
 interface TranscriptOptionsContextType {
@@ -26,7 +27,8 @@ const defaultOptions: TranscriptOptions = {
     highlightLowConfidenceWords: true,
     maxUtteranceDrift: 500,
     playbackSpeed: 1,
-    skipInterval: 5 // default to 5 seconds
+    skipInterval: 5, // default to 5 seconds,
+    isGenericMode: false
 };
 
 function useTranscriptOptionsProvider(initialOptions: TranscriptOptions) {
@@ -39,8 +41,20 @@ function useTranscriptOptionsProvider(initialOptions: TranscriptOptions) {
     return { options, updateOptions };
 }
 
-export function TranscriptOptionsProvider({ children, editable }: { children: React.ReactNode, editable: boolean }) {
-    const { options, updateOptions } = useTranscriptOptionsProvider({ ...defaultOptions, editsAllowed: editable });
+export function TranscriptOptionsProvider({ 
+    children, 
+    editable, 
+    isGenericMode = false 
+}: { 
+    children: React.ReactNode, 
+    editable: boolean,
+    isGenericMode?: boolean
+}) {
+    const { options, updateOptions } = useTranscriptOptionsProvider({ 
+        ...defaultOptions, 
+        editsAllowed: editable,
+        isGenericMode
+    });
 
     return (
         <TranscriptOptionsContext.Provider value={{ options, updateOptions }}>

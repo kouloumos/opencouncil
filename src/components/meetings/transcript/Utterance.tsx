@@ -49,8 +49,8 @@ const UtteranceC: React.FC<{
     const canEdit = options.editsAllowed;
     const t = useTranslations('transcript.utterance');
 
-    const canStartHighlight = canEdit && !editingHighlight && !options.editable;
-    const canShare = !editingHighlight && !options.editable;
+    const canStartHighlight = canEdit && !editingHighlight && !options.editable && !options.isGenericMode;
+    const canShare = !editingHighlight && !options.editable && !options.isGenericMode;
     const hasContextMenuOptions = canStartHighlight || options.editable || canShare;
 
     // Check if selected in Editing Context
