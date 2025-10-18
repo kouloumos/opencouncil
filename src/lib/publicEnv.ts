@@ -7,4 +7,6 @@
 export const publicEnv = {
     NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '',
     NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    /** 'generic' runs the app as OpenTranscripts. src/env.mjs gives the same default. */
+    NEXT_PUBLIC_APP_MODE: process.env.NEXT_PUBLIC_APP_MODE === 'generic' ? 'generic' : 'council',
 };

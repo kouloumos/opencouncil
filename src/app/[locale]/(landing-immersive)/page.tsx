@@ -11,6 +11,8 @@ import { getListedCitiesCached, getMapCitiesCached, getPetitionedMapCitiesCached
 import { getUpcomingMeetingsCached } from '@/lib/db/meetings';
 import { DEFAULT_RANGE, HOT_SUBJECTS_LIMIT, HOT_SUBJECTS_MONTHS, rangeToSubjectFilters } from '@/lib/landing/landingCore';
 import { meetingLabel } from '@/lib/meetingName';
+import { GenericLandingPage } from '@/components/landing/GenericLandingPage';
+import { env } from '@/env.mjs';
 
 export async function generateMetadata(props: {
     params: Promise<{ locale: string }>;
@@ -54,6 +56,10 @@ export async function generateMetadata(props: {
 }
 
 export default async function HomePage() {
+    if (env.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return <GenericLandingPage />;
+    }
+
     const realm = await getRealm();
     const locale = await getLocale();
     const initialFilters = rangeToSubjectFilters(DEFAULT_RANGE);

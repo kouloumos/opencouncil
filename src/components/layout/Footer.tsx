@@ -13,6 +13,7 @@ import { REOPEN_CONSENT_EVENT } from "@/lib/utils/analyticsConsent";
 import { hasExplainPage } from "@/lib/explain/availability";
 import { Realm } from "@prisma/client";
 import { getRealmContactPhone, telHref } from "@/lib/realm";
+import { publicEnv } from '@/lib/publicEnv';
 
 interface FooterProps {
     className?: string;
@@ -33,6 +34,11 @@ const LINK = "py-0.5 text-[13px] leading-snug text-muted-foreground transition-c
 export default function Footer({ className, realm }: FooterProps) {
     const t = useTranslations("Footer")
     const contactPhone = getRealmContactPhone(realm)
+
+    // No footer in generic mode
+    if (publicEnv.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return null;
+    }
 
     const links = [
         { href: "/", label: t("linkHome") },
