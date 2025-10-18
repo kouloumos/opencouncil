@@ -89,17 +89,23 @@ export async function handleProcessAgendaResult(taskId: string, response: Proces
             id: taskId
         },
         include: {
-            councilMeeting: true
+            transcript: {
+                include: {
+                    councilMeeting: true
+                }
+            }
         }
     });
 
-    if (!task) {
-        throw new Error('Task not found');
+    if (!task || !task.transcript?.councilMeeting) {
+        throw new Error('Task or council meeting not found');
     }
+
+    const councilMeeting = task.transcript.councilMeeting;
 
     await createSubjectsForMeeting(
         response.subjects,
-        task.councilMeeting.cityId,
-        task.councilMeeting.id
+        councilMeeting.cityId,
+        councilMeeting.id
     );
 }

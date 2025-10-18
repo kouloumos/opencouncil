@@ -1,6 +1,7 @@
 "use client"
 import React, { createContext, useContext, useState, useRef, useEffect, SyntheticEvent, useCallback } from 'react';
-import { CouncilMeeting, Utterance } from "@prisma/client";
+import { Utterance } from "@prisma/client";
+import { CouncilMeetingWithAdminBody } from '@/lib/db/meetings';
 import { useTranscriptOptions } from './options/OptionsContext';
 
 /**
@@ -41,7 +42,7 @@ interface VideoContextType {
     playerRef: React.MutableRefObject<HTMLVideoElement | null>;
     isSeeking: boolean;
     setIsPlaying: (isPlaying: boolean) => void;
-    meeting: CouncilMeeting;
+    meeting: CouncilMeetingWithAdminBody;
     onTimeUpdate: (time: SyntheticEvent<HTMLVideoElement, Event>) => void;
     onSeeked: () => void;
     onSeeking: () => void;
@@ -59,7 +60,7 @@ export const useVideo = () => {
 
 interface VideoProviderProps {
     children: React.ReactNode;
-    meeting: CouncilMeeting;
+    meeting: CouncilMeetingWithAdminBody;
     utterances: Utterance[];
 }
 

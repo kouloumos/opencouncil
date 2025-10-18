@@ -236,8 +236,8 @@ export function joinTranscriptSegments(speakerSegments: Transcript): Transcript 
 
   for (let i = 1; i < speakerSegments.length; i++) {
     const nextSegment = speakerSegments[i];
-    if (nextSegment.speakerTag.personId && currentSegment.speakerTag.personId
-      && nextSegment.speakerTag.personId === currentSegment.speakerTag.personId
+    if (nextSegment.speakerTag.speakerId && currentSegment.speakerTag.speakerId
+      && nextSegment.speakerTag.speakerId === currentSegment.speakerTag.speakerId
       && nextSegment.startTimestamp >= currentSegment.startTimestamp) {
       // Join adjacent segments with the same speaker
       currentSegment = {
@@ -369,9 +369,14 @@ export function getMeetingState(meeting: {
   muxPlaybackId?: string | null;
   agendaUrl?: string | null;
   subjects?: any[];
+  transcript?: {
+    audioUrl?: string | null;
+    videoUrl?: string | null;
+    muxPlaybackId?: string | null;
+  } | null;
 }): { label: string; icon: string } {
   // Video state - if there's a video and mux playback id
-  if (meeting.videoUrl && meeting.muxPlaybackId && !meeting.videoUrl.endsWith('mp3')) {
+  if (meeting.transcript?.videoUrl && meeting.transcript?.muxPlaybackId && !meeting.transcript.videoUrl.endsWith('mp3')) {
     return {
       label: "Bίντεο",
       icon: "video"
@@ -379,7 +384,7 @@ export function getMeetingState(meeting: {
   }
 
   // Audio state - if there's audio and mux playback id
-  if (meeting.audioUrl && meeting.muxPlaybackId) {
+  if (meeting.transcript?.audioUrl && meeting.transcript?.muxPlaybackId) {
     return {
       label: "Ήχος",
       icon: "audio"
@@ -387,7 +392,7 @@ export function getMeetingState(meeting: {
   }
 
   // Agenda state - if there's an agenda and at least one subject but no media
-  if (meeting.agendaUrl && meeting.subjects && meeting.subjects.length > 0 && !meeting.muxPlaybackId) {
+  if (meeting.agendaUrl && meeting.subjects && meeting.subjects.length > 0 && !meeting.transcript?.muxPlaybackId) {
     return {
       label: "Διάταξη",
       icon: "fileText"

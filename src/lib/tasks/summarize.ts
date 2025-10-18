@@ -27,15 +27,19 @@ export async function handleSummarizeResult(taskId: string, response: SummarizeR
             id: taskId
         },
         include: {
-            councilMeeting: true
+            transcript: {
+                include: {
+                    councilMeeting: true
+                }
+            }
         }
     });
 
-    if (!task) {
-        throw new Error('Task not found');
+    if (!task || !task.transcript?.councilMeeting) {
+        throw new Error('Task or council meeting not found');
     }
 
-    const { councilMeeting } = task;
+    const councilMeeting = task.transcript.councilMeeting;
 
     const availableSpeakerSegmentIds = await getAvailableSpeakerSegmentIds(councilMeeting.id, councilMeeting.cityId);
 

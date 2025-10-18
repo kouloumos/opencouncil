@@ -42,7 +42,7 @@ export default function AdminActions({
     const [forceTranscribe, setForceTranscribe] = React.useState(false);
     const [topics, setTopics] = React.useState(['']);
     const [additionalInstructions, setAdditionalInstructions] = React.useState('');
-    const [isReleased, setIsReleased] = React.useState(meeting.released);
+    const [isReleased, setIsReleased] = React.useState(meeting.transcript?.released ?? false);
     const [forceAgenda, setForceAgenda] = React.useState(false);
     React.useEffect(() => {
         setMediaUrl(meeting.youtubeUrl || '');
@@ -180,10 +180,10 @@ export default function AdminActions({
     const handleReleaseToggle = async () => {
         try {
             const updatedMeeting = await toggleMeetingRelease(meeting.cityId, meeting.id, !isReleased);
-            setIsReleased(updatedMeeting.released);
+            setIsReleased(updatedMeeting.transcript?.released ?? false);
             toast({
-                title: updatedMeeting.released ? "Meeting Released" : "Meeting Unreleased",
-                description: `The meeting has been ${updatedMeeting.released ? 'released' : 'unreleased'}.`,
+                title: updatedMeeting.transcript?.released ? "Meeting Released" : "Meeting Unreleased",
+                description: `The meeting has been ${updatedMeeting.transcript?.released ? 'released' : 'unreleased'}.`,
             });
         } catch (error) {
             console.error('Error toggling meeting release:', error);

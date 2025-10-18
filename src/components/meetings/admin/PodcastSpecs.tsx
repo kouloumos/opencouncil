@@ -115,8 +115,8 @@ export default function PodcastSpecs() {
                                             )}
                                             {part.podcastPartAudioUtterances.map((utterance, index) => {
                                                 const speakerSegment = getSpeakerSegmentById(utterance.utterance.speakerSegmentId);
-                                                const speakerTag = speakerSegment?.speakerTagId ? getSpeakerTag(speakerSegment.speakerTagId) : null;
-                                                const person = speakerTag?.personId ? getPerson(speakerTag.personId) : null;
+                                                const speakerTag = speakerSegment ? getSpeakerTag(speakerSegment.speakerTagId) : null;
+                                                const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : null;
                                                 return (
                                                     <div key={index} className="flex items-center space-x-2">
                                                         <PersonBadge

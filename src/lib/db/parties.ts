@@ -1,7 +1,8 @@
 "use server";
-import { City, AdministrativeBody, Party, Person, Role } from '@prisma/client';
+import { Party } from '@prisma/client';
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit } from "../auth";
+import { PersonWithRelations } from './people';
 
 export async function deleteParty(id: string): Promise<void> {
     await withUserAuthorizedToEdit({ partyId: id });
@@ -43,13 +44,7 @@ export async function editParty(id: string, partyData: Partial<Omit<Party, 'id' 
 }
 
 export type PartyWithPersons = Omit<Party, 'roles'> & {
-    people: (Person & {
-        roles: (Role & {
-            city?: City | null;
-            administrativeBody?: AdministrativeBody | null;
-            party?: Party | null;
-        })[]
-    })[];
+    people: PersonWithRelations[];
 }
 
 export async function getParty(id: string): Promise<PartyWithPersons | null> {
@@ -67,7 +62,8 @@ export async function getParty(id: string): Promise<PartyWithPersons | null> {
                                         administrativeBody: true,
                                         party: true
                                     }
-                                }
+                                },
+                                speaker: true
                             }
                         }
                     },
@@ -92,8 +88,11 @@ export async function getParty(id: string): Promise<PartyWithPersons | null> {
 
         if (!party) return null;
 
-        // Extract people from roles and include all their roles
-        const people = party.roles.map(role => role.person);
+        // Extract people from roles and flatten speaker data for backward compatibility
+        const people: PersonWithRelations[] = party.roles.map(role => ({
+            ...role.person,
+            image: role.person.speaker?.image ?? null,
+        }));
 
         // Create a new object without the roles property
         const { roles, ...partyWithoutRoles } = party;
@@ -103,7 +102,7 @@ export async function getParty(id: string): Promise<PartyWithPersons | null> {
             people
         };
 
-        return partyWithPersons as PartyWithPersons;
+        return partyWithPersons;
     } catch (error) {
         console.error('Error fetching party:', error);
         throw new Error('Failed to fetch party');
@@ -125,7 +124,8 @@ export async function getPartiesForCity(cityId: string): Promise<PartyWithPerson
                                         administrativeBody: true,
                                         party: true
                                     }
-                                }
+                                },
+                                speaker: true
                             }
                         }
                     },
@@ -148,16 +148,19 @@ export async function getPartiesForCity(cityId: string): Promise<PartyWithPerson
             }
         });
 
-        // Add people property to each party and remove roles
+        // Add people property to each party, remove roles, and flatten speaker data
         const partiesWithPeople = parties.map(party => {
             const { roles, ...partyWithoutRoles } = party;
             return {
                 ...partyWithoutRoles,
-                people: roles.map(role => role.person)
+                people: roles.map(role => ({
+                    ...role.person,
+                    image: role.person.speaker?.image ?? null,
+                }))
             };
         });
 
-        return partiesWithPeople as PartyWithPersons[];
+        return partiesWithPeople;
     } catch (error) {
         console.error('Error fetching parties for city:', error);
         throw new Error('Failed to fetch parties for city');

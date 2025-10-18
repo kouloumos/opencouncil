@@ -4,6 +4,7 @@ import { TEST_USERS } from '@/lib/dev/test-users'
 import { IS_DEV } from '@/lib/utils'
 import { env } from '@/env.mjs'
 import { createUser } from '@/lib/db/users'
+import { Prisma } from '@prisma/client'
 
 const DEV_TEST_CITY_ID = env.DEV_TEST_CITY_ID
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
       // Determine user name and permissions based on admin type
       let finalName: string = testUser.name
-      let administers: any[] = []
+      let administers: Prisma.AdministersUncheckedCreateWithoutUserInput[] = []
 
       switch (testUser.adminType) {
         case 'superadmin':
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
           break
         case 'city':
           finalName = `${testCity.name.charAt(0).toUpperCase() + testCity.name.slice(1)} Admin (${testCity.name})`
-          administers = [{ cityId: testCity.id }]
+          administers = [{ workspaceId: testCity.id }]
           break
         case 'party':
           if (testParty) {
@@ -102,9 +103,9 @@ export async function POST(request: NextRequest) {
         email: newUser.email,
         name: newUser.name,
         permissions: newUser.administers.map(a => ({
-          type: a.cityId ? 'city' : a.partyId ? 'party' : 'person',
-          name: a.city?.name || a.party?.name || a.person?.name,
-          id: a.cityId || a.partyId || a.personId
+          type: a.workspaceId ? 'city' : a.partyId ? 'party' : 'person',
+          name: a.workspace?.city?.name || a.party?.name || a.person?.name,
+          id: a.workspaceId || a.partyId || a.personId
         }))
       })
     }

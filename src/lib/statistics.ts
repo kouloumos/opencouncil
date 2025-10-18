@@ -1,5 +1,5 @@
 "use server"
-import { City, CouncilMeeting, Party, Person, SpeakerSegment, Subject, Topic, TopicLabel, Role } from "@prisma/client";
+import { City, CouncilMeeting, Party, Person, SpeakerSegment, Subject, Topic, TopicLabel, Role, Speaker } from "@prisma/client";
 import prisma from "./db/prisma";
 import { PersonWithRelations } from "./db/people";
 import { getPartyFromRoles } from "./utils";
@@ -28,10 +28,12 @@ export interface Statistics {
 }
 type SpeakerSegmentInfo = SpeakerSegment & {
     speakerTag: {
-        person: (Person & {
-            roles: (Role & {
-                party: Party | null;
-            })[];
+        speaker: (Pick<Speaker, 'id' | 'image'> & {
+            person: (Person & {
+                roles: (Role & {
+                    party: Party | null;
+                })[];
+            }) | null;
         }) | null;
     },
     topicLabels: (TopicLabel & {
@@ -64,10 +66,10 @@ export async function getStatisticsFor(
 
     transcript = await prisma.speakerSegment.findMany({
         where: {
-            meetingId: meetingId,
-            cityId: cityId,
+            transcriptId: meetingId,
+            workspaceId: cityId,
             speakerTag: {
-                personId: personId,
+                speakerId: personId,
                 // Remove party filtering from query - we'll filter in application code
                 // to ensure we only include segments from when person was actually affiliated with the party
             },
@@ -78,8 +80,10 @@ export async function getStatisticsFor(
                     subjectId: subjectId
                 }
             } : undefined,
-            meeting: administrativeBodyId ? {
-                administrativeBodyId: administrativeBodyId
+            transcript: administrativeBodyId ? {
+                councilMeeting: {
+                    administrativeBodyId: administrativeBodyId
+                }
             } : undefined,
             NOT: {
                 summary: {
@@ -91,11 +95,15 @@ export async function getStatisticsFor(
         include: {
             speakerTag: {
                 include: {
-                    person: {
+                    speaker: {
                         include: {
-                            roles: {
+                            person: {
                                 include: {
-                                    party: true
+                                    roles: {
+                                        include: {
+                                            party: true
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -114,7 +122,7 @@ export async function getStatisticsFor(
     // Filter by party in application code to ensure role was active at meeting time
     if (partyId) {
         transcript = transcript.filter(segment => {
-            const person = segment.speakerTag.person;
+            const person = segment.speakerTag.speaker?.person;
             if (!person) return false;
             const activeParty = getPartyFromRoles(person.roles, meetingDate);
             return activeParty?.id === partyId;
@@ -133,8 +141,8 @@ function joinAdjacentSpeakerSegments(segments: SpeakerSegmentInfo[]): SpeakerSeg
     let currentSegment = segments[0];
 
     for (let i = 1; i < segments.length; i++) {
-        if (segments[i].speakerTag.person?.id && currentSegment.speakerTag.person?.id
-            && segments[i].speakerTag.person!.id === currentSegment.speakerTag.person.id
+        if (segments[i].speakerTag.speaker?.person?.id && currentSegment.speakerTag.speaker?.person?.id
+            && segments[i].speakerTag.speaker?.person?.id === currentSegment.speakerTag.speaker?.person?.id
             && segments[i].startTimestamp >= currentSegment.startTimestamp) {
             // Join adjacent segments with the same speaker
             currentSegment.endTimestamp = Math.max(currentSegment.endTimestamp, segments[i].endTimestamp);
@@ -171,21 +179,29 @@ export async function getStatisticsForTranscript(transcript: SpeakerSegmentInfo[
         const segmentDuration = Math.max(0, segment.endTimestamp - segment.startTimestamp);
         statistics.speakingSeconds += segmentDuration;
 
+        const speaker = segment.speakerTag.speaker;
+        const person = speaker?.person;
+
         // Handle person statistics
-        if (groupBy.includes("person") && segment.speakerTag.person) {
-            const personStatistics = statistics.people!.find(p => p.item.id === segment.speakerTag.person?.id);
+        if (groupBy.includes("person") && person && speaker) {
+            // Map person to include image from speaker (image moved to Speaker in migration)
+            const personWithImage = {
+                ...person,
+                image: speaker.image ?? null
+            };
+            const personStatistics = statistics.people!.find(p => p.item.id === person.id);
             if (personStatistics) {
                 personStatistics.speakingSeconds += segmentDuration;
                 personStatistics.count++;
             } else {
-                statistics.people!.push({ item: segment.speakerTag.person, speakingSeconds: segmentDuration, count: 1 });
+                statistics.people!.push({ item: personWithImage, speakingSeconds: segmentDuration, count: 1 });
             }
         }
 
         // Handle party statistics
-        if (groupBy.includes("party") && segment.speakerTag.person?.roles) {
+        if (groupBy.includes("party") && person?.roles) {
             // Get the party the person was affiliated with at the time of speaking
-            const activeParty = getPartyFromRoles(segment.speakerTag.person.roles, meetingDate);
+            const activeParty = getPartyFromRoles(person.roles, meetingDate);
             if (activeParty) {
                 const partyStatistics = statistics.parties!.find(p => p.item.id === activeParty.id);
                 if (partyStatistics) {

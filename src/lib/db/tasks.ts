@@ -8,8 +8,8 @@ export async function getTasksForMeeting(cityId: string, meetingId: string): Pro
     try {
         const tasks = await prisma.taskStatus.findMany({
             where: {
-                cityId: cityId,
-                councilMeetingId: meetingId,
+                workspaceId: cityId,
+                transcriptId: meetingId,
             },
             orderBy: {
                 createdAt: 'desc',
@@ -56,8 +56,8 @@ export async function getGenerateHighlightTasksForHighlight(cityId: string, meet
         const tasks = await prisma.taskStatus.findMany({
             where: {
                 type: 'generateHighlight',
-                cityId,
-                councilMeetingId: meetingId,
+                workspaceId: cityId,
+                transcriptId: meetingId,
             },
             orderBy: { createdAt: 'desc' },
         });

@@ -21,7 +21,7 @@ export default function CityMeetings({
     const t = useTranslations('CouncilMeeting');
 
     const orderedMeetings = [...councilMeetings]
-        .filter(meeting => canEdit || meeting.released)
+        .filter(meeting => canEdit || meeting.transcript?.released)
         .sort((a, b) => {
             const timeCompare = new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();
             if (timeCompare === 0) {

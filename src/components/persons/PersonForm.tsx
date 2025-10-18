@@ -17,7 +17,7 @@ import {
 } from "../../components/ui/form"
 import { Input } from "../../components/ui/input"
 import { SheetClose } from "../../components/ui/sheet"
-import { Party, Person, Role, AdministrativeBody } from '@prisma/client'
+import { Party, AdministrativeBody } from '@prisma/client'
 import { Loader2, Check } from "lucide-react"
 import { useTranslations } from 'next-intl'
 import React, { useRef } from "react"
@@ -26,6 +26,7 @@ import InputWithDerivatives from "../../components/InputWithDerivatives"
 import { toPhoneticLatin as toGreeklish } from 'greek-utils'
 import { useToast } from "@/hooks/use-toast"
 import RolesList from './RolesList'
+import { PersonWithRelations } from '@/lib/db/people'
 
 const formSchema = z.object({
     name: z.string().min(2, {
@@ -45,7 +46,7 @@ const formSchema = z.object({
 })
 
 interface PersonFormProps {
-    person?: Person & { roles?: (Role & { party?: Party | null, administrativeBody?: AdministrativeBody | null })[] }
+    person?: PersonWithRelations
     onSuccess?: () => void
     cityId: string,
     parties: Party[]
@@ -58,7 +59,7 @@ export default function PersonForm({ person, parties, administrativeBodies, onSu
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isSuccess, setIsSuccess] = useState(false)
     const [imagePreview, setImagePreview] = useState<string | null>(person?.image || null)
-    const [roles, setRoles] = useState<(Role & { party?: Party | null, administrativeBody?: AdministrativeBody | null })[]>(person?.roles || [])
+    const [roles, setRoles] = useState<PersonWithRelations['roles']>(person?.roles || [])
     const t = useTranslations('PersonForm')
     const { toast } = useToast()
     const nameInputRef = useRef<HTMLInputElement>(null)

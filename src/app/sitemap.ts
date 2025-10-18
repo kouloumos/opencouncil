@@ -78,7 +78,7 @@ export async function generateMeetingsSitemap(): Promise<MetadataRoute.Sitemap> 
 
     for (const city of cities) {
         for (const meeting of city.councilMeetings) {
-            if (!meeting.released) continue
+            if (!meeting.transcript?.released) continue
             routes.push({
                 url: `${baseUrl}/${city.id}/meetings/${meeting.id}`,
                 changeFrequency: 'weekly',
@@ -103,7 +103,7 @@ export async function generateSubjectsSitemap(): Promise<MetadataRoute.Sitemap> 
 
     for (const city of cities) {
         for (const meeting of city.councilMeetings) {
-            if (!meeting.released) continue
+            if (!meeting.transcript?.released) continue
             const subjects = await getSubjectsForMeeting(city.id, meeting.id)
             for (const subject of subjects) {
                 routes.push({

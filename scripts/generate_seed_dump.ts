@@ -277,10 +277,11 @@ async function extractParties(prisma: PrismaClient, cityIds: string[]) {
 
 /**
  * Extract persons with their roles, speakerTags, and voicePrints
+ * Note: speakerTags and voicePrints are accessed through the Speaker relation
  */
 async function extractPersons(prisma: PrismaClient, cityIds: string[]) {
   console.log('Extracting persons...');
-  return prisma.person.findMany({
+  const persons = await prisma.person.findMany({
     where: { cityId: { in: cityIds } },
     include: {
       // Include roles - these belong to the person (one-to-many)
@@ -299,24 +300,37 @@ async function extractPersons(prisma: PrismaClient, cityIds: string[]) {
           updatedAt: true,
         }
       },
-      // Include speakerTags - these belong to the person (one-to-many)
-      speakerTags: true,
-      // Include voicePrints - these belong to the person (one-to-many)
-      voicePrints: {
-        select: {
-          id: true,
-          embedding: true,
-          sourceAudioUrl: true,
-          startTimestamp: true,
-          endTimestamp: true,
-          createdAt: true,
-          updatedAt: true,
-          // Don't include sourceSegment which would cause duplication
-          sourceSegmentId: true,
+      // Include speaker with speakerTags and voicePrints
+      speaker: {
+        include: {
+          // Include speakerTags - these belong to the speaker (one-to-many)
+          speakerTags: true,
+          // Include voicePrints - these belong to the speaker (one-to-many)
+          voicePrints: {
+            select: {
+              id: true,
+              embedding: true,
+              sourceAudioUrl: true,
+              startTimestamp: true,
+              endTimestamp: true,
+              createdAt: true,
+              updatedAt: true,
+              // Don't include sourceSegment which would cause duplication
+              sourceSegmentId: true,
+            }
+          }
         }
       }
     }
   });
+
+  // Flatten speaker data to maintain backward compatibility with seed format
+  return persons.map(person => ({
+    ...person,
+    speakerTags: person.speaker?.speakerTags || [],
+    voicePrints: person.speaker?.voicePrints || [],
+    speaker: undefined, // Remove the nested speaker object
+  }));
 }
 
 /**
@@ -346,56 +360,75 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
           }
         },
         
-        // Task statuses - these belong to the meeting (one-to-many)
-        // TODO: Add task statuses to the seed data in a manageable way
-        taskStatuses: false,
-        
-        // Speaker segments with carefully selected relations
-        speakerSegments: {
+        // Include transcript with media URLs and speaker segments
+        // Task statuses and speakerSegments now belong to transcript, not meeting
+        transcript: {
           include: {
-            // Just include the speakerTag ID, not the full object with person
-            speakerTag: {
-              select: {
-                id: true,
-                label: true,
-                personId: true,
-                // Don't include the full person object
-              }
-            },
-            // Include utterances and words - these belong to the segment (one-to-many)
-            utterances: {
+            speakerSegments: {
               include: {
-                words: true,
-                // Just include IDs for highlightedUtterances to avoid duplication
-                highlightedUtterances: {
+                // Just include the speakerTag ID, not the full object with person
+                speakerTag: {
                   select: {
                     id: true,
-                    highlightId: true,
+                    label: true,
+                    speakerId: true, // Changed from personId
+                    // Don't include the full person object
+                  }
+                },
+                // Include utterances and words - these belong to the segment (one-to-many)
+                utterances: {
+                  include: {
+                    words: true,
+                    // Just include IDs for highlightedUtterances to avoid duplication
+                    highlightedUtterances: {
+                      select: {
+                        id: true,
+                        highlightId: true,
+                      }
+                    }
+                  }
+                },
+                // Include summary - this belongs to the segment (one-to-one)
+                summary: true,
+                // Include topicLabels with minimal topic information
+                topicLabels: {
+                  select: {
+                    id: true,
+                    topicId: true,
+                    // Don't include the full topic object
+                  }
+                },
+                // Include subject connections with minimal data
+                subjects: {
+                  select: {
+                    id: true,
+                    subjectId: true,
+                    summary: true,
+                    // Don't include full subject object
                   }
                 }
-              }
-            },
-            // Include summary - this belongs to the segment (one-to-one)
-            summary: true,
-            // Include topicLabels with minimal topic information
-            topicLabels: {
-              select: {
-                id: true,
-                topicId: true,
-                // Don't include the full topic object
-              }
-            },
-            // Include subject connections with minimal data
-            subjects: {
-              select: {
-                id: true,
-                subjectId: true,
-                summary: true,
-                // Don't include full subject object
               }
             }
           }
         },
+        
+        // Subjects belong to meeting
+        subjects: {
+          include: {
+            location: true,
+            topic: {
+              select: {
+                id: true,
+              }
+            },
+            introducedBy: {
+              select: {
+                id: true,
+              }
+            }
+          }
+        },
+        
         
         // Highlights with carefully selected relations
         highlights: {
@@ -411,45 +444,6 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
             subject: {
               select: {
                 id: true,
-              }
-            }
-          }
-        },
-        
-        // Subjects with carefully selected relations
-        subjects: {
-          include: {
-            // Just include the person ID
-            introducedBy: {
-              select: {
-                id: true,
-              }
-            },
-            // Just include the topic ID
-            topic: {
-              select: {
-                id: true,
-              }
-            },
-            // For locations, we'll get the ID now, but we'll fetch geometry separately below
-            location: {
-              select: {
-                id: true,
-                type: true,
-                text: true,
-              }
-            },
-            // Just include IDs for highlights
-            highlights: {
-              select: {
-                id: true,
-              }
-            },
-            // Just include IDs for speakerSegments
-            speakerSegments: {
-              select: {
-                id: true,
-                speakerSegmentId: true,
               }
             }
           }
@@ -475,12 +469,15 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
     });
     
     if (meeting) {
+      // Cast to any to bypass TypeScript's strict checking of included relations
+      const meetingWithRelations = meeting as any;
+      
       // Add the location data for subjects that have locations
-      if (meeting.subjects && meeting.subjects.length > 0) {
+      if (meetingWithRelations.subjects && meetingWithRelations.subjects.length > 0) {
         // Get location IDs for subjects that have locations
-        const locationIds = meeting.subjects
-          .filter(s => s.location != null)
-          .map(s => s.location!.id);
+        const locationIds = meetingWithRelations.subjects
+          .filter((s: any) => s.location != null)
+          .map((s: any) => s.location!.id);
         
         if (locationIds.length > 0) {
           try {
@@ -492,9 +489,9 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
             `;
             
             // Merge the geometry data into the location objects
-            meeting.subjects = meeting.subjects.map(subject => {
+            meetingWithRelations.subjects = meetingWithRelations.subjects.map((subject: any) => {
               if (subject.location != null) {
-                const locationData = locationGeometry.find(l => l.id === subject.location!.id);
+                const locationData = locationGeometry.find((l: any) => l.id === subject.location!.id);
                 if (locationData) {
                   try {
                     // Parse the GeoJSON string
@@ -514,7 +511,26 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
         }
       }
       
-      meetings.push(meeting);
+      // Flatten transcript data to maintain backward compatibility with seed format
+      const flattenedMeeting = {
+        ...meetingWithRelations,
+        audioUrl: meetingWithRelations.transcript?.audioUrl,
+        videoUrl: meetingWithRelations.transcript?.videoUrl,
+        muxPlaybackId: meetingWithRelations.transcript?.muxPlaybackId,
+        released: meetingWithRelations.transcript?.released,
+        // Extract speaker segments from transcript and update speakerTag references
+        speakerSegments: meetingWithRelations.transcript?.speakerSegments?.map((segment: any) => ({
+          ...segment,
+          speakerTag: segment.speakerTag ? {
+            ...segment.speakerTag,
+            personId: segment.speakerTag.speakerId, // Map speakerId back to personId for old seed format
+            speakerId: undefined,
+          } : segment.speakerTag
+        })),
+        transcript: undefined, // Remove the nested transcript object
+      };
+      
+      meetings.push(flattenedMeeting);
     }
   }
   
