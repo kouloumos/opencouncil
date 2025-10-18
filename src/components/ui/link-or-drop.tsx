@@ -180,6 +180,10 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
             }
         }, [])
 
+        const handleInputChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+            onUrlChange?.(e.target.value)
+        }, [onUrlChange])
+
         return (
             <>
                 <div
@@ -195,6 +199,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                     <Input
                         ref={combinedRef}
                         {...props}
+                        onChange={handleInputChange}
                         className={cn(
                             "pr-20",
                             uploadError && "border-destructive focus-visible:ring-destructive"
