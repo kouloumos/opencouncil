@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TranscriptMinimal } from '@/lib/db/transcripts';
 import { FileText, Clock } from 'lucide-react';
