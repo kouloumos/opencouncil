@@ -9,7 +9,7 @@ import { WorkspaceInviteEmail } from "@/lib/email/templates/workspace-invite";
 /**
  * Generates a sign-in link for a user invitation
  */
-export async function generateSignInLink(email: string): Promise<string> {
+export async function generateSignInLink(email: string, callbackUrl?: string): Promise<string> {
   // Create a token that expires in 24 hours
   const token = createHash('sha256')
     .update(email + Date.now().toString())
@@ -24,8 +24,11 @@ export async function generateSignInLink(email: string): Promise<string> {
     }
   });
 
-  // Generate the sign-in URL
-  const signInUrl = `${env.NEXT_PUBLIC_BASE_URL}/sign-in?token=${token}&email=${encodeURIComponent(email)}`;
+  // Generate the sign-in URL with optional callback
+  let signInUrl = `${env.NEXT_PUBLIC_BASE_URL}/sign-in?token=${token}&email=${encodeURIComponent(email)}`;
+  if (callbackUrl) {
+    signInUrl += `&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+  }
   return signInUrl;
 }
 
@@ -56,9 +59,13 @@ export async function sendInviteEmail(
 export async function sendWorkspaceInviteEmail(
   email: string,
   name: string,
-  workspaceName: string
+  workspaceName: string,
+  workspaceId?: string
 ): Promise<void> {
-  const signInUrl = await generateSignInLink(email);
+  // Generate callback URL to redirect to the workspace after sign-in
+  const callbackUrl = workspaceId ? `/workspaces/${workspaceId}` : '/workspaces';
+  const signInUrl = await generateSignInLink(email, callbackUrl);
+  
   const emailHtml = await renderAsync(WorkspaceInviteEmail({
     name: name || email,
     workspaceName,
@@ -68,7 +75,7 @@ export async function sendWorkspaceInviteEmail(
   await sendEmail({
     from: "OpenTranscripts <auth@opencouncil.gr>",
     to: email,
-    subject: `Invitation to join ${workspaceName} workspace`,
+    subject: `Πρόσκληση στο χώρο εργασίας ${workspaceName}`,
     html: emailHtml,
   });
 }

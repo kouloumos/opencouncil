@@ -13,6 +13,11 @@ const isDev = process.env.NODE_ENV === 'development'
 // APP_PORT is set by flake.nix when running multiple instances
 const port = process.env.APP_PORT || '3000'
 
+// Determine app name and sender based on mode
+const isGenericMode = env.NEXT_PUBLIC_APP_MODE === 'generic'
+const appName = isGenericMode ? 'OpenTranscripts' : 'OpenCouncil'
+const senderEmail = 'auth@opencouncil.gr'
+
 export default {
     trustHost: true,
     cookies: isDev ? {
@@ -22,11 +27,11 @@ export default {
         },
     } : undefined,
     providers: [Resend({
-        from: 'OpenCouncil <auth@opencouncil.gr>',
+        from: `${appName} <${senderEmail}>`,
         apiKey: env.RESEND_API_KEY,
         sendVerificationRequest: async (params) => {
             const { identifier: to, provider, url, theme } = params
-            const html = await renderReactEmailToHtml(AuthEmail({ url }))
+            const html = await renderReactEmailToHtml(AuthEmail({ url, appName }))
 
             // Redirect test user emails to DEV_EMAIL_OVERRIDE if set
             // This allows testing different admin roles with a single real inbox
@@ -45,9 +50,9 @@ export default {
                 body: JSON.stringify({
                     from: provider.from,
                     to: emailTo,
-                    subject: `Συνδεθείτε στο OpenCouncil`,
+                    subject: `Συνδεθείτε στο ${appName}`,
                     html,
-                    text: `Συνδεθείτε στο OpenCouncil: ${url}`,
+                    text: `Συνδεθείτε στο ${appName}: ${url}`,
                 }),
             })
 

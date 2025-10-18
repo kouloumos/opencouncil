@@ -18,7 +18,7 @@ interface WorkspaceInviteEmailProps {
 }
 
 export const WorkspaceInviteEmail = ({ name, workspaceName, inviteUrl }: WorkspaceInviteEmailProps) => {
-    const previewText = `You've been invited to join ${workspaceName}`
+    const previewText = `Προσκληθήκατε να συμμετάσχετε στο ${workspaceName}`
 
     return (
         <Html>
@@ -26,28 +26,28 @@ export const WorkspaceInviteEmail = ({ name, workspaceName, inviteUrl }: Workspa
             <Preview>{previewText}</Preview>
             <Body style={main}>
                 <Container style={container}>
-                    <Heading style={h1}>Workspace Invitation</Heading>
-                    <Text style={text}>Hi {name},</Text>
+                    <Heading style={h1}>Πρόσκληση σε Χώρο Εργασίας</Heading>
+                    <Text style={text}>Γεια σας {name},</Text>
                     <Text style={text}>
-                        You&apos;ve been invited to join the <strong>{workspaceName}</strong> workspace on OpenTranscripts.
-                        Click the link below to sign in and start collaborating:
+                        Προσκληθήκατε να συμμετάσχετε στο χώρο εργασίας <strong>{workspaceName}</strong> στο OpenTranscripts.
+                        Πατήστε τον παρακάτω σύνδεσμο για να συνδεθείτε και να αρχίσετε τη συνεργασία:
                     </Text>
                     <Link
                         href={inviteUrl}
                         style={button}
                     >
-                        Join {workspaceName}
+                        Συμμετοχή στο {workspaceName}
                     </Link>
                     <Text style={text}>
-                        Once you sign in, you&apos;ll have full access to view and edit transcripts in this workspace.
+                        Μόλις συνδεθείτε, θα έχετε πλήρη πρόσβαση για προβολή και επεξεργασία απομαγνητοφωνήσεων σε αυτόν τον χώρο εργασίας.
                     </Text>
                     <Text style={text}>
-                        If you need help, feel free to reply to this email or call us at {env.NEXT_PUBLIC_CONTACT_PHONE}.
+                        Αν χρειάζεστε βοήθεια, μπορείτε να απαντήσετε σε αυτό το email ή να μας καλέσετε στο {env.NEXT_PUBLIC_CONTACT_PHONE}.
                     </Text>
                     <Text style={text}>
-                        Best regards,
+                        Με εκτίμηση,
                         <br />
-                        The OpenTranscripts Team
+                        Η Ομάδα του OpenTranscripts
                     </Text>
                 </Container>
             </Body>

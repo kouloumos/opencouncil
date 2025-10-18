@@ -4,10 +4,11 @@ import { BaseTemplate } from '../components/BaseTemplate';
 
 interface AuthEmailProps {
     url: string;
+    appName?: string;
 }
 
-export const AuthEmail = ({ url }: AuthEmailProps): React.ReactElement => (
-    <BaseTemplate previewText="Συνδεθείτε στο OpenCouncil">
+export const AuthEmail = ({ url, appName = 'OpenCouncil' }: AuthEmailProps): React.ReactElement => (
+    <BaseTemplate previewText={`Συνδεθείτε στο ${appName}`}>
         <Section style={{ textAlign: 'center' }}>
             <Heading
                 style={{
@@ -17,7 +18,7 @@ export const AuthEmail = ({ url }: AuthEmailProps): React.ReactElement => (
                     margin: '30px 0',
                 }}
             >
-                Καλώς ήρθατε στο OpenCouncil
+                Καλώς ήρθατε στο {appName}
             </Heading>
 
             <Text
