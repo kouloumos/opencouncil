@@ -19,7 +19,7 @@ import { Transcript as TranscriptType } from '@/lib/db/transcript';
 import { SpeakerTag, Transcript as PrismaTranscript } from '@prisma/client';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
 
