@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FileText, Upload, Edit, LogIn, ArrowRight } from 'lucide-react';
-import { signIn, useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
@@ -16,7 +16,7 @@ export function GenericLandingPage() {
     if (session) {
       router.push('/workspaces');
     } else {
-      signIn(undefined, { callbackUrl: '/workspaces' });
+      router.push('/sign-in?callbackUrl=' + encodeURIComponent('/workspaces'));
     }
   };
 

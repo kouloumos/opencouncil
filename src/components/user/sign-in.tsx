@@ -5,10 +5,12 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { useSearchParams } from "next/navigation"
 import { signInWithEmail } from "@/lib/serverSignIn"
 import { useState } from "react"
+import { env } from "@/env.mjs"
 
 export function SignIn() {
     const searchParams = useSearchParams()
     const email = searchParams.get("email")
+    const callbackUrl = searchParams.get("callbackUrl")
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
 
@@ -19,6 +21,10 @@ export function SignIn() {
 
         try {
             const formData = new FormData(e.currentTarget)
+            // Add callback URL to form data if present
+            if (callbackUrl) {
+                formData.append("callbackUrl", callbackUrl)
+            }
             await signInWithEmail(formData)
         } catch (err) {
             setError("Υπήρξε πρόβλημα κατά την αποστολή του email. Παρακαλώ δοκιμάστε ξανά αργότερα.")
@@ -28,10 +34,12 @@ export function SignIn() {
         }
     }
 
+    const appName = env.NEXT_PUBLIC_APP_MODE === 'generic' ? 'OpenTranscripts' : 'OpenCouncil';
+
     return (
         <Card className="max-w-xl">
             <CardHeader>
-                <h2 className="text-2xl font-semibold text-center">Σύνδεση στο OpenCouncil</h2>
+                <h2 className="text-2xl font-semibold text-center">Σύνδεση στο {appName}</h2>
             </CardHeader>
             <form onSubmit={handleSubmit}>
                 <CardContent>
