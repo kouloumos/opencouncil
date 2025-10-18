@@ -26,6 +26,7 @@ export default async function WorkspacePage({
   }
 
   const canEdit = await isUserAuthorizedToEdit({ workspaceId: params.workspaceId });
+  const isSuperAdmin = user.isSuperAdmin || false;
   const transcripts = await listTranscripts(params.workspaceId);
   const t = await getTranslations('workspaces.list');
 
@@ -48,6 +49,7 @@ export default async function WorkspacePage({
         transcripts={transcripts} 
         workspaceId={params.workspaceId}
         canEdit={canEdit}
+        canDelete={isSuperAdmin}
         locale={params.locale}
       />
     </div>

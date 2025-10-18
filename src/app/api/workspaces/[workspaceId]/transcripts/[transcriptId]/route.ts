@@ -1,41 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
 import { getTranscript, updateTranscript, deleteTranscript } from '@/lib/db/transcripts';
-import { z } from 'zod';
+import { assertGenericWorkspace } from '@/lib/db/workspaces';
+import * as z from 'zod';
 import { revalidatePath } from 'next/cache';
+import { handleApiError, NotFoundError } from '@/lib/api/errors';
 
 const updateTranscriptSchema = z.object({
   name: z.string().min(1).optional(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
-  audioUrl: z.string().url().optional().or(z.literal('')),
+  videoUrl: z.url().optional().or(z.literal('')),
+  audioUrl: z.url().optional().or(z.literal('')),
   muxPlaybackId: z.string().optional(),
   released: z.boolean().optional()
 });
+
+type Params = { params: Promise<{ workspaceId: string; transcriptId: string }> };
 
 /**
  * GET /api/workspaces/[workspaceId]/transcripts/[transcriptId]
  * Get transcript details
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string; transcriptId: string } }
-) {
+export async function GET(request: NextRequest, props: Params) {
+  const { workspaceId, transcriptId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    const transcript = await getTranscript(params.workspaceId, params.transcriptId);
-    
+    await withUserAuthorizedToEdit({ workspaceId });
+    await assertGenericWorkspace(workspaceId);
+
+    const transcript = await getTranscript(workspaceId, transcriptId);
     if (!transcript) {
-      return NextResponse.json({ error: 'Transcript not found' }, { status: 404 });
+      throw new NotFoundError('Transcript not found');
     }
 
     return NextResponse.json(transcript);
   } catch (error) {
-    console.error('Failed to fetch transcript:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch transcript' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch transcript');
   }
 }
 
@@ -43,60 +41,40 @@ export async function GET(
  * PUT /api/workspaces/[workspaceId]/transcripts/[transcriptId]
  * Update transcript
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string; transcriptId: string } }
-) {
+export async function PUT(request: NextRequest, props: Params) {
+  const { workspaceId, transcriptId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    const body = await request.json();
-    const data = updateTranscriptSchema.parse(body);
+    await withUserAuthorizedToEdit({ workspaceId });
+    await assertGenericWorkspace(workspaceId);
 
-    const transcript = await updateTranscript(
-      params.workspaceId,
-      params.transcriptId,
-      data
-    );
+    const data = updateTranscriptSchema.parse(await request.json());
+    const transcript = await updateTranscript(workspaceId, transcriptId, data);
 
-    revalidatePath(`/workspaces/${params.workspaceId}`);
-    revalidatePath(`/workspaces/${params.workspaceId}/transcripts/${params.transcriptId}`);
+    revalidatePath(`/workspaces/${workspaceId}`);
+    revalidatePath(`/workspaces/${workspaceId}/transcripts/${transcriptId}`);
 
     return NextResponse.json(transcript);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error('Failed to update transcript:', error);
-    return NextResponse.json(
-      { error: 'Failed to update transcript' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to update transcript');
   }
 }
 
 /**
  * DELETE /api/workspaces/[workspaceId]/transcripts/[transcriptId]
- * Delete transcript
+ * Delete transcript (super admin only)
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string; transcriptId: string } }
-) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const { workspaceId, transcriptId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    await deleteTranscript(params.workspaceId, params.transcriptId);
+    await withUserAuthorizedToEdit({});
+    await assertGenericWorkspace(workspaceId);
 
-    revalidatePath(`/workspaces/${params.workspaceId}`);
+    await deleteTranscript(workspaceId, transcriptId);
+
+    revalidatePath(`/workspaces/${workspaceId}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to delete transcript:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete transcript' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to delete transcript');
   }
 }
-
