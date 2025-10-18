@@ -15,6 +15,7 @@ import { Metadata } from "next";
 import { getMetadataBaseFromRequest } from "@/lib/realm.server";
 import { siteOpenGraph } from "@/lib/og/siteOpenGraph";
 import { appleStartupImages } from "@/lib/pwa/splash";
+import { env } from "@/env.mjs";
 
 export async function generateMetadata(): Promise<Metadata> {
     // metadataBase is the realm's canonical domain (resolved from the request
@@ -24,6 +25,28 @@ export async function generateMetadata(): Promise<Metadata> {
     // preview's own origin instead, so an OG-image change is reviewable on its
     // own PR — see getMetadataBaseFromRequest.
     const metadataBase = await getMetadataBaseFromRequest();
+
+    if (env.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return {
+            title: 'OpenTranscripts',
+            description: 'Ανοιχτή απομαγνητοφώνηση',
+            // favicon.svg is the OpenCouncil mark.
+            icons: { icon: '/favicon.ico' },
+            metadataBase: new URL(metadataBase),
+            openGraph: {
+                ...siteOpenGraph,
+                title: 'OpenTranscripts',
+                description: 'Ανοιχτή απομαγνητοφώνηση',
+                images: [{ url: '/logo.png', width: 500, height: 500, alt: 'OpenTranscripts Logo' }],
+            },
+            twitter: {
+                card: 'summary_large_image',
+                title: 'OpenTranscripts',
+                description: 'Ανοιχτή απομαγνητοφώνηση',
+                images: ['/logo.png'],
+            },
+        };
+    }
 
     return {
         title: 'OpenCouncil',
