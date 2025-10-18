@@ -2,7 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ContactBadge } from "../layout/contact-badge";
-import { Flag, User } from "lucide-react";
+import { Flag, User, Folder } from "lucide-react";
 import { Users } from "lucide-react";
 import { Building } from "lucide-react";
 import { UserWithAdministers } from "@/lib/db/users";
@@ -13,27 +13,44 @@ type AdminSectionProps = {
 };
 
 export function AdminSection({ user, t }: AdminSectionProps) {
+    // Check if user has any workspace administrations
+    const hasWorkspaceAccess = user.administers.some(admin => admin.workspace && !admin.workspace.city);
+    
     return (
         <Card>
             <CardHeader>
                 <CardTitle>{t("administration")}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
                 {user.isSuperAdmin ? (
                     <div className="space-y-4">
                         <p className="text-green-600 font-medium">
                             {t("superAdminAccess")}
                         </p>
-                        <Button asChild>
-                            <Link href="/admin">{t("goToAdmin")}</Link>
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button asChild>
+                                <Link href="/admin">{t("goToAdmin")}</Link>
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/workspaces">{t("goToWorkspaces")}</Link>
+                            </Button>
+                        </div>
                     </div>
                 ) : user.administers.length > 0 ? (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {user.administers.map((admin) => (
-                            <AdminCard key={admin.id} admin={admin} t={t} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {user.administers.map((admin) => (
+                                <AdminCard key={admin.id} admin={admin} t={t} />
+                            ))}
+                        </div>
+                        {hasWorkspaceAccess && (
+                            <div className="pt-2">
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link href="/workspaces">{t("goToWorkspaces")}</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <div className="text-gray-600">
                         <p className="text-md">{t("noAdminAccess")}</p>
@@ -52,6 +69,27 @@ export function AdminSection({ user, t }: AdminSectionProps) {
 }
 function AdminCard({ admin, t }: { admin: AdminSectionProps['user']['administers'][0], t: AdminSectionProps['t'] }) {
     // Determine admin type based on which relation exists
+    // Check for workspace first (generic mode), then city/party/person
+    if (admin.workspace && !admin.workspace.city) {
+        // Generic workspace (not linked to a city)
+        return (
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex items-center gap-2">
+                        <Folder className="h-10 w-10" />
+                        <h3 className="font-medium">{t("adminWorkspace")}</h3>
+                    </div>
+                    <Link
+                        href={`/workspaces/${admin.workspace.id}`}
+                        className="text-blue-600 hover:underline mt-2 block"
+                    >
+                        {admin.workspace.name}
+                    </Link>
+                </CardContent>
+            </Card>
+        );
+    }
+    
     // workspace.city is the new way, cityId is kept for backward compatibility
     const city = admin.workspace?.city;
     const cityId = city?.id || admin.cityId;
