@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { WorkspaceMinimal } from '@/lib/db/workspaces';
+import type { WorkspaceMinimal } from '@/lib/db/workspaces';
 import { Folder } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
