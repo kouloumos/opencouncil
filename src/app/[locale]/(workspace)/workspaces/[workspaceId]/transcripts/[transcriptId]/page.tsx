@@ -3,12 +3,15 @@ import { getCurrentUser, isUserAuthorizedToEdit } from '@/lib/auth';
 import { getTranscript as getTranscriptData } from '@/lib/db/transcripts';
 import { getTranscript } from '@/lib/db/transcript';
 import { GenericTranscriptWrapper } from '@/components/workspaces/GenericTranscriptWrapper';
+import { setRequestLocale } from 'next-intl/server';
 
 export default async function GenericTranscriptPage({
   params
 }: {
-  params: { workspaceId: string; transcriptId: string }
+  params: { workspaceId: string; transcriptId: string; locale: string }
 }) {
+  setRequestLocale(params.locale);
+  
   const user = await getCurrentUser();
   
   if (!user) {

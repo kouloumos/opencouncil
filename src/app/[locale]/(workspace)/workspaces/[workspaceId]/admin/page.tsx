@@ -2,13 +2,15 @@ import { redirect, notFound } from 'next/navigation';
 import { getCurrentUser, isUserAuthorizedToEdit } from '@/lib/auth';
 import { getWorkspace } from '@/lib/db/workspaces';
 import { WorkspaceAdminPanel } from '@/components/workspaces/WorkspaceAdminPanel';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 export default async function WorkspaceAdminPage({
   params
 }: {
-  params: { workspaceId: string }
+  params: { workspaceId: string; locale: string }
 }) {
+  setRequestLocale(params.locale);
+  
   const user = await getCurrentUser();
   
   if (!user) {
