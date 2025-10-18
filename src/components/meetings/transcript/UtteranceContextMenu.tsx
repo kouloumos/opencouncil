@@ -69,8 +69,8 @@ export function UtteranceContextMenu({ children, canShareExcerpt = true }: { chi
     const t = useTranslations('transcript.utterance');
     const tSharing = useTranslations('sharing');
 
-    const canStartHighlight = options.canCreateHighlights && !editingHighlight && !options.editable;
-    const canShare = !editingHighlight && !options.editable;
+    const canStartHighlight = options.canCreateHighlights && !editingHighlight && !options.editable && !options.isGenericMode;
+    const canShare = !editingHighlight && !options.editable && !options.isGenericMode;
     const canRangeSelect = Boolean(editingHighlight);
     // "Copy text" is universally available, so the menu always opens on an
     // utterance. The original `hasAnyAction` gate is no longer needed.

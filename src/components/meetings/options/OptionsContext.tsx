@@ -8,6 +8,7 @@ export interface TranscriptOptions {
     canCreateHighlights: boolean;
     maxUtteranceDrift: number;
     skipInterval: number; // seconds to skip forward/backward
+    isGenericMode?: boolean;
 }
 
 interface TranscriptOptionsContextType {
@@ -43,13 +44,15 @@ const defaultOptions: TranscriptOptions = {
     canCreateHighlights: false,
     maxUtteranceDrift: 500,
     skipInterval: 5,
+    isGenericMode: false,
 };
 
-export function TranscriptOptionsProvider({ children, editable, canCreateHighlights }: { children: React.ReactNode, editable: boolean, canCreateHighlights: boolean }) {
+export function TranscriptOptionsProvider({ children, editable, canCreateHighlights, isGenericMode = false }: { children: React.ReactNode, editable: boolean, canCreateHighlights: boolean, isGenericMode?: boolean }) {
     const [options, setOptions] = useState<TranscriptOptions>(() => ({
         ...defaultOptions,
         editsAllowed: editable,
         canCreateHighlights,
+        isGenericMode,
     }));
     // The one option that outlives the page, so it is the one option that is stored.
     const [playbackSpeed, setPlaybackSpeed] = useStoredState(SPEED_STORAGE_KEY, parseStoredSpeed, 1);
