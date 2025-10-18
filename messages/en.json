@@ -387,5 +387,27 @@
         "error": "Error",
         "saveError": "Failed to save rankings. Please try again.",
         "resetError": "Failed to reset rankings. Please try again."
+    },
+    "Profile": {
+        "welcomeOnboard": "Welcome",
+        "personalInfo": "Personal Information",
+        "onboardingDescription": "Please fill in the information below to complete your registration.",
+        "fullName": "Full Name",
+        "email": "Email",
+        "phone": "Phone",
+        "allowContact": "Allow contact",
+        "allowContactDescription": "Allow us to contact you for important updates and announcements.",
+        "saving": "Saving...",
+        "saveProfile": "Save Profile",
+        "administration": "Administration",
+        "superAdminAccess": "You have system administrator access",
+        "goToAdmin": "Go to Administration",
+        "goToWorkspaces": "Go to Workspaces",
+        "noAdminAccess": "You do not have administrative privileges.",
+        "contactForAccess": "To get administrative access, please contact us:",
+        "adminCity": "City Administration",
+        "adminParty": "Party Administration",
+        "adminPerson": "Member Administration",
+        "adminWorkspace": "Workspace Administration"
     }
 }

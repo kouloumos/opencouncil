@@ -422,24 +422,26 @@
         "noItems": "Δεν υπάρχουν συνεδριάσεις στο OpenCouncil."
     },
     "Profile": {
-        "welcomeOnboard": "Καλώς ήρθατε στο OpenCouncil",
+        "welcomeOnboard": "Καλώς ήρθατε",
         "personalInfo": "Προσωπικές Πληροφορίες",
         "onboardingDescription": "Παρακαλούμε συμπληρώστε τις παρακάτω πληροφορίες για να ολοκληρώσετε την εγγραφή σας.",
         "fullName": "Ονοματεπώνυμο",
         "email": "Email",
         "phone": "Τηλέφωνο",
         "allowContact": "Επιτρέπω την επικοινωνία",
-        "allowContactDescription": "Επιτρέπω στο OpenCouncil να επικοινωνήσει μαζί μου για σημαντικές ενημερώσεις και ανακοινώσεις.",
+        "allowContactDescription": "Επιτρέπω την επικοινωνία μαζί μου για σημαντικές ενημερώσεις και ανακοινώσεις.",
         "saving": "Αποθήκευση...",
         "saveProfile": "Αποθήκευση Προφίλ",
         "administration": "Διαχείριση",
         "superAdminAccess": "Έχετε πρόσβαση διαχειριστή συστήματος",
         "goToAdmin": "Μετάβαση στη Διαχείριση",
+        "goToWorkspaces": "Μετάβαση στους Χώρους Εργασίας",
         "noAdminAccess": "Δεν έχετε δικαιώματα διαχείρισης.",
         "contactForAccess": "Για να αποκτήσετε πρόσβαση διαχείρισης, επικοινωνήστε μαζί μας:",
         "adminCity": "Διαχείριση Πόλης",
         "adminParty": "Διαχείριση Παράταξης",
-        "adminPerson": "Διαχείριση Μέλους"
+        "adminPerson": "Διαχείριση Μέλους",
+        "adminWorkspace": "Διαχείριση Χώρου Εργασίας"
     },
     "OfferForm": {
         "success": "Επιτυχία",
