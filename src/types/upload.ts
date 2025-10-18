@@ -1,6 +1,6 @@
 /**
  * Upload configuration for generating meaningful filenames
- * Simple and flexible: provide cityId, identifier, and optional suffix
+ * Simple and flexible: provide cityId/workspaceId, identifier, and optional suffix
  * 
  * Pattern: {cityId}_{identifier}_{suffix}.{ext}
  * 
@@ -8,6 +8,7 @@
  *   { cityId: 'chania', identifier: 'aug15_2025', suffix: 'recording' } → chania_aug15_2025_recording.mp4
  *   { cityId: 'chania', identifier: 'aug15_2025', suffix: 'agenda' } → chania_aug15_2025_agenda.pdf
  *   { cityId: 'chania', identifier: 'democrats', suffix: 'logo' } → chania_democrats_logo.png
+ *   { workspaceId: 'ws-123', identifier: 'meeting_jan15' } → ws-123_meeting_jan15.mp4
  */
 import { LOGO_IMAGE_TYPES } from '@/lib/utils/imageUpload';
 import type { AuthorizationScope } from '@/lib/auth';
@@ -16,8 +17,10 @@ import type { AuthorizationScope } from '@/lib/auth';
 export const ALLOWED_LOGO_CONTENT_TYPES = LOGO_IMAGE_TYPES;
 
 export interface UploadConfig {
-    /** City identifier for authorization and naming */
+    /** City identifier for authorization and naming (council mode) */
     cityId?: string
+    /** Workspace identifier for authorization and naming (generic mode) */
+    workspaceId?: string
     /** Entity identifier (e.g., meetingId, partySlug, personSlug) */
     identifier?: string
     /** Optional suffix for the filename (e.g., 'recording', 'agenda', 'logo') */
@@ -49,7 +52,7 @@ export interface UploadConfig {
 export function uploadBaseFilename(config: UploadConfig | undefined, extension: string): string | null {
     const identifier = config?.councilMeetingId ?? config?.identifier;
     const parts = [
-        config?.cityId,
+        config?.cityId ?? config?.workspaceId,
         !config?.councilMeetingId && config?.administrativeBodyId ? config.administrativeBodyId : undefined,
         identifier,
         config?.suffix,
@@ -60,10 +63,11 @@ export function uploadBaseFilename(config: UploadConfig | undefined, extension: 
 /**
  * Who may upload under a config: a superadmin with no city, a city admin with
  * a city, the editors of the meeting when the config names one, and the
- * admins of the body when it names a body for a meeting not yet created.
+ * admins of the body when it names a body for a meeting not yet created. A
+ * config with a workspace and no city lets the admins of the workspace upload.
  */
 export function uploadAuthorizationScope(config: UploadConfig | undefined): AuthorizationScope {
-    if (!config?.cityId) return {}
+    if (!config?.cityId) return config?.workspaceId ? { workspaceId: config.workspaceId } : {}
     if (config.councilMeetingId) return { cityId: config.cityId, councilMeetingId: config.councilMeetingId }
     if (config.administrativeBodyId) return { cityId: config.cityId, administrativeBodyId: config.administrativeBodyId }
     return { cityId: config.cityId }
