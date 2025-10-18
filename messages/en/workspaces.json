@@ -140,6 +140,29 @@
     "search": "Search",
     "noResults": "No results found",
     "actions": "Actions"
+  },
+  "landing": {
+    "generic": {
+      "tagline": "Upload, transcribe, and edit your videos",
+      "features": {
+        "upload": {
+          "title": "Easy Upload",
+          "description": "Upload video or audio from your computer or paste a link"
+        },
+        "transcribe": {
+          "title": "Automatic Transcription",
+          "description": "Let our system automatically convert your media to text"
+        },
+        "edit": {
+          "title": "Edit & Collaborate",
+          "description": "Edit transcripts and collaborate with your team"
+        }
+      },
+      "signIn": "Sign In",
+      "signInHint": "Sign in to start using OpenTranscripts",
+      "goToWorkspaces": "Go to Workspaces",
+      "accessWorkspaces": "Access your transcription workspaces"
+    }
   }
 }
 

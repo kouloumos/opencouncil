@@ -7,12 +7,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SiX, SiInstagram, SiFacebook, SiGithub, SiDiscord, SiSubstack } from 'react-icons/si';
+import { env } from "@/env.mjs"
 
 interface FooterProps {
     className?: string;
 }
 
 export default function Footer({ className }: FooterProps = {}) {
+    // Don't show footer in generic mode
+    if (env.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return null;
+    }
+
     return (
         <footer className={cn("w-full bg-background border-t print:hidden", className)}>
             <div className="container mx-auto px-4 py-12">
