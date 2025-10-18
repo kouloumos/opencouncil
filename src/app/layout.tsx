@@ -1,38 +1,44 @@
 import "./globals.css"
+import { Inter as FontSans } from "next/font/google"
 import { cn } from "../lib/utils"
 import React from "react"
 import PlausibleProvider from 'next-plausible'
 import { SessionProvider } from "next-auth/react"
 import { Toaster } from "@/components/ui/toaster";
 import { routing } from "@/i18n/routing";
-import { inter, roboto, robotoMono } from "@/lib/fonts";
+
+// Keep Inter as a fallback font
+const fontSans = FontSans({
+    subsets: ["latin"],
+    variable: "--font-sans",
+})
 
 export const metadata = {
-    title: 'OpenCouncil',
-    description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+    title: 'OpenTranscripts',
+    description: 'Ανοιχτή απομαγνητοφώνηση',
     icons: {
         icon: '/favicon.ico',
     },
     metadataBase: new URL('https://opencouncil.gr'),
     openGraph: {
-        title: 'OpenCouncil',
-        description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
         type: 'website',
         url: 'https://opencouncil.gr',
         images: [
             {
-                url: '/oc-theme.png',
+                url: '/logo.png',
                 width: 500,
                 height: 500,
-                alt: 'OpenCouncil Logo',
+                alt: 'OpenTranscripts Logo',
             },
         ],
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'OpenCouncil',
-        description: 'Ανοιχτή τοπική αυτοδιοίκηση',
-        images: ['/oc-theme.png'],
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
+        images: ['/logo.png'],
     },
 }
 
@@ -62,9 +68,7 @@ export default async function RootLayout({
             <body
                 className={cn(
                     "min-h-screen bg-background font-sans antialiased",
-                    inter.variable,
-                    roboto.variable,
-                    robotoMono.variable
+                    fontSans.variable
                 )}
             >
                 <SessionProvider>
