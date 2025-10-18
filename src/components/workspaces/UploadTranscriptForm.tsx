@@ -122,6 +122,7 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
             onUrlChange={setVideoUrl}
             placeholder={t('linkPlaceholder')}
             disabled={isCreating}
+            config={{ workspaceId }}
           />
         </div>
 

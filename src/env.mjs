@@ -31,6 +31,7 @@ export const env = createEnv({
     DO_SPACES_SECRET: z.string().min(1),
     DO_SPACES_BUCKET: z.string().min(1),
     CDN_URL: z.string().url(),
+    S3_PATH_PREFIX: z.string().optional(),
 
     // Task Server
     TASK_API_URL: z.string().url(),
@@ -100,6 +101,7 @@ export const env = createEnv({
     DO_SPACES_SECRET: process.env.DO_SPACES_SECRET,
     DO_SPACES_BUCKET: process.env.DO_SPACES_BUCKET,
     CDN_URL: process.env.CDN_URL,
+    S3_PATH_PREFIX: process.env.S3_PATH_PREFIX,
     TASK_API_URL: process.env.TASK_API_URL,
     TASK_API_KEY: process.env.TASK_API_KEY,
     ELASTICSEARCH_URL: process.env.ELASTICSEARCH_URL,

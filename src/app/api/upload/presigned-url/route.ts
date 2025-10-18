@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { s3Client, fileExists, constructPublicUrl } from '@/lib/s3'
+import { s3Client, fileExists, constructPublicUrl, constructS3Key } from '@/lib/s3'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { v4 as uuidv4 } from 'uuid'
@@ -9,15 +9,16 @@ import { UploadConfig } from '@/types/upload'
 
 /**
  * Generate a meaningful filename based on upload config
- * Pattern: {cityId}_{identifier}_{suffix}.{ext}
+ * Pattern: {cityId|workspaceId}_{identifier}_{suffix}.{ext}
  * Examples:
  *   - chania_aug15_2025_recording.mp4
  *   - chania_aug15_2025_agenda.pdf
  *   - chania_democrats_logo.png
+ *   - ws-123_meeting_jan15.mp4
  */
 function generateBaseFilename(config: UploadConfig | undefined, extension: string): string {
     const parts = [
-        config?.cityId,
+        config?.cityId || config?.workspaceId,
         config?.identifier,
         config?.suffix
     ].filter(Boolean)
@@ -39,7 +40,8 @@ async function fileExistsInBucket(key: string): Promise<boolean> {
  * e.g., file.pdf -> file.pdf, file_2.pdf, file_3.pdf, etc.
  */
 async function findAvailableFilename(baseFilename: string, prefix: string = 'uploads'): Promise<string> {
-    const key = `${prefix}/${baseFilename}`
+    const relativePath = `${prefix}/${baseFilename}`
+    const key = constructS3Key(relativePath)
     
     // Check if base filename is available
     if (!await fileExistsInBucket(key)) {
@@ -55,7 +57,8 @@ async function findAvailableFilename(baseFilename: string, prefix: string = 'upl
     let counter = 2
     while (counter <= 10) { // Limit to 10 attempts
         const newFilename = `${nameWithoutExt}_${counter}${extension}`
-        const newKey = `${prefix}/${newFilename}`
+        const newRelativePath = `${prefix}/${newFilename}`
+        const newKey = constructS3Key(newRelativePath)
         
         if (!await fileExistsInBucket(newKey)) {
             return newFilename
@@ -94,10 +97,13 @@ export async function POST(request: NextRequest) {
 
         // Check user authorization
         // If cityId is provided in config, check city-specific permissions
+        // If workspaceId is provided, check workspace-specific permissions
         // Otherwise, check general upload permissions
         const cityId = config?.cityId
+        const workspaceId = config?.workspaceId
+        
         const authorizedToEdit = await isUserAuthorizedToEdit(
-            cityId ? { cityId } : {}
+            cityId ? { cityId } : workspaceId ? { workspaceId } : {}
         )
 
         if (!authorizedToEdit) {
@@ -115,7 +121,8 @@ export async function POST(request: NextRequest) {
         
         // Find an available filename (handles collisions)
         const uniqueFilename = await findAvailableFilename(baseFilename, 'uploads')
-        const key = `uploads/${uniqueFilename}`
+        const relativePath = `uploads/${uniqueFilename}`
+        const key = constructS3Key(relativePath)
 
         // Create S3 PutObject command (without ACL for now)
         const command = new PutObjectCommand({
