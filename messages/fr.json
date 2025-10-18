@@ -872,11 +872,13 @@
     "administration": "Administration",
     "superAdminAccess": "Vous disposez d'un accès administrateur système",
     "goToAdmin": "Accéder à l'administration",
+    "goToWorkspaces": "Accéder aux espaces de travail",
     "noAdminAccess": "Vous ne disposez pas de droits d'administration.",
     "contactForAccess": "Pour obtenir un accès d'administration, contactez-nous :",
     "adminCity": "Gérer la ville",
     "adminParty": "Gérer le groupe",
     "adminPerson": "Gérer le membre",
+    "adminWorkspace": "Gérer l'espace de travail",
     "adminBody": "Gérer l'organe"
   },
   "ReportForm": {

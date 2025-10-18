@@ -701,7 +701,7 @@
         "voicePrintConsentOnPaper": "You gave your consent on a printed, written form with a physical signature. To withdraw it, send us an email at <mail>{email}</mail>.",
         "myHighlightsDescription": "See all the highlights you have created, from every meeting.",
         "viewMyHighlights": "View your highlights",
-        "welcomeOnboard": "Welcome to OpenCouncil",
+        "welcomeOnboard": "Welcome",
         "personalInfo": "Personal Information",
         "onboardingDescription": "Please fill in the following information to complete your registration.",
         "fullName": "Full Name",
@@ -767,11 +767,13 @@
         "administration": "Administration",
         "superAdminAccess": "You have system administrator access",
         "goToAdmin": "Go to Administration",
+        "goToWorkspaces": "Go to Workspaces",
         "noAdminAccess": "You do not have administration rights.",
         "contactForAccess": "To gain administration access, contact us:",
         "adminCity": "Manage City",
         "adminParty": "Manage Party",
         "adminPerson": "Manage Member",
+        "adminWorkspace": "Workspace Administration",
         "adminBody": "Manage Body"
     },
     "ReportForm": {
