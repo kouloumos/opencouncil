@@ -2,12 +2,18 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { listWorkspacesForUser } from '@/lib/db/workspaces';
 import { WorkspaceList } from '@/components/workspaces/WorkspaceList';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 import { env } from '@/env.mjs';
 
-export default async function WorkspacesPage() {
+export default async function WorkspacesPage({
+  params: { locale }
+}: {
+  params: { locale: string }
+}) {
+  setRequestLocale(locale);
+  
   const user = await getCurrentUser();
   
   if (!user) {
