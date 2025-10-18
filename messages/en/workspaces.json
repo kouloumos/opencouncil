@@ -141,6 +141,12 @@
     "noResults": "No results found",
     "actions": "Actions"
   },
+  "transcript": {
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportSuccess": "Transcript exported successfully",
+    "exportError": "Failed to export transcript"
+  },
   "landing": {
     "generic": {
       "tagline": "Upload, transcribe, and edit your videos",
