@@ -13,7 +13,10 @@
     "noTranscriptsDescription": "Upload your first file to get started",
     "viewTranscript": "View",
     "uploadNewTranscript": "Upload New File",
-    "backToWorkspaces": "Back to Workspaces"
+    "backToWorkspaces": "Back to Workspaces",
+    "confirmDelete": "Are you sure you want to delete the transcript \"{name}\"? This action cannot be undone.",
+    "deleteSuccess": "Transcript deleted successfully",
+    "deleteError": "Failed to delete transcript"
   },
   "upload": {
     "title": "Upload New Transcript",
