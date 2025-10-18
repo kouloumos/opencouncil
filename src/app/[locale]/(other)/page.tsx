@@ -1,12 +1,20 @@
 import { Landing } from "@/components/landing/landing";
+import { GenericLandingPage } from "@/components/landing/GenericLandingPage";
 import { LandingCity } from "@/lib/db/landing";
 import { fetchLatestSubstackPostCached, getAllCitiesMinimalCached, getCouncilMeetingsForCityCached } from "@/lib/cache/queries";
+import { env } from "@/env.mjs";
 
 export default async function HomePage({
     params: { locale }
 }: {
     params: { locale: string }
 }) {
+    // Show generic landing page if in generic mode
+    if (env.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return <GenericLandingPage />;
+    }
+
+    // Council mode - show existing landing page
     // Fetch all cities (minimal data) and substack post in parallel
     const [allCities, latestPost] = await Promise.all([
         getAllCitiesMinimalCached().catch(error => {
