@@ -39,10 +39,14 @@ export default async function GenericTranscriptPage({
     new Map(transcript.map(seg => [seg.speakerTag.id, seg.speakerTag])).values()
   );
 
+  // Get latest task status
+  const latestTask = transcriptMeta.taskStatuses?.[0] || null;
+
   const transcriptData = {
     transcript,
     speakerTags,
     transcriptMeta,
+    latestTask,
     workspaceId: params.workspaceId,
     transcriptId: params.transcriptId,
     editable: canEdit
