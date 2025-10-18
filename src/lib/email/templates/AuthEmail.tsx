@@ -3,6 +3,7 @@ import { Section, Heading, Text, Button } from '@react-email/components';
 import { BaseTemplate } from '../components/BaseTemplate';
 import { DEFAULT_LOCALE, type AppLocale } from '@/i18n/config';
 import { emailCopy } from '../copy';
+import { publicEnv } from '@/lib/publicEnv';
 
 /**
  * Copy for the magic-link email, per locale.
@@ -127,8 +128,19 @@ export function authEmailPurpose(magicLinkUrl: string): AuthEmailPurpose {
 }
 
 /** The auth email's copy for a locale, falling back to the app default. */
+/** The product the email names: OpenTranscripts in generic mode. */
+const APP_NAME = publicEnv.NEXT_PUBLIC_APP_MODE === 'generic' ? 'OpenTranscripts' : 'OpenCouncil';
+
 export function authEmailCopy(locale: string, purpose: AuthEmailPurpose = 'signIn') {
-    return emailCopy(purpose === 'confirmComment' ? CONFIRM_COMMENT_COPY : COPY, locale, DEFAULT_LOCALE);
+    const copy = emailCopy(purpose === 'confirmComment' ? CONFIRM_COMMENT_COPY : COPY, locale, DEFAULT_LOCALE);
+    const named = (text: string) => text.replaceAll('OpenCouncil', APP_NAME);
+    return {
+        subject: named(copy.subject),
+        heading: named(copy.heading),
+        body: named(copy.body),
+        cta: named(copy.cta),
+        disclaimer: named(copy.disclaimer),
+    };
 }
 
 interface AuthEmailProps {

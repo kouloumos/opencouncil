@@ -1,91 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import prisma from '@/lib/db/prisma';
-import { z } from 'zod';
-import { findOrCreateUser, sendWorkspaceInviteEmail } from '@/lib/invitations';
+import * as z from 'zod';
+import { sendWorkspaceInviteEmail } from '@/lib/invitations';
+import {
+  addWorkspaceMember,
+  assertGenericWorkspace,
+  getWorkspaceMinimal,
+  listWorkspaceMembers,
+  removeWorkspaceMember,
+} from '@/lib/db/workspaces';
+import { BadRequestError, handleApiError } from '@/lib/api/errors';
 
 const inviteSchema = z.object({
-  email: z.string().email("Valid email required"),
+  email: z.email("Valid email required"),
   name: z.string().optional()
 });
+
+type Params = { params: Promise<{ workspaceId: string }> };
 
 /**
  * POST /api/workspaces/[workspaceId]/invite
  * Invite a user to a workspace
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string } }
-) {
+export async function POST(request: NextRequest, props: Params) {
+  const { workspaceId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    const body = await request.json();
-    const { email, name } = inviteSchema.parse(body);
+    await withUserAuthorizedToEdit({ workspaceId });
+    await assertGenericWorkspace(workspaceId);
 
-    // Get workspace info for the invitation email
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: params.workspaceId }
-    });
+    const { email, name } = inviteSchema.parse(await request.json());
 
-    if (!workspace) {
-      return NextResponse.json(
-        { error: 'Workspace not found' },
-        { status: 404 }
-      );
-    }
+    const user = await addWorkspaceMember(workspaceId, email, name);
+    const workspace = await getWorkspaceMinimal(workspaceId);
 
-    // Find or create user
-    const user = await findOrCreateUser(email, name);
-
-    // Check if user is already an administrator
-    const existingAdmin = await prisma.administers.findFirst({
-      where: {
-        userId: user.id,
-        workspaceId: params.workspaceId
-      }
-    });
-
-    if (existingAdmin) {
-      return NextResponse.json(
-        { error: 'User is already a member of this workspace' },
-        { status: 409 }
-      );
-    }
-
-    // Create administration relationship
-    await prisma.administers.create({
-      data: {
-        userId: user.id,
-        workspaceId: params.workspaceId
-      }
-    });
-
-    // Send workspace invitation email
     try {
-      await sendWorkspaceInviteEmail(email, user.name || email, workspace.name);
+      await sendWorkspaceInviteEmail(user.email, user.name || user.email, workspace?.name ?? '', workspaceId, request);
     } catch (emailError) {
+      // The membership stands without the email.
       console.error('Failed to send invitation email:', emailError);
-      // Don't fail the whole request if email fails
     }
 
-    return NextResponse.json({ 
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name
-      }
-    }, { status: 201 });
+    return NextResponse.json({ success: true, user }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error('Failed to invite user:', error);
-    return NextResponse.json(
-      { error: 'Failed to invite user' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to invite user');
   }
 }
 
@@ -93,33 +50,15 @@ export async function POST(
  * GET /api/workspaces/[workspaceId]/invite
  * List workspace members
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string } }
-) {
+export async function GET(request: NextRequest, props: Params) {
+  const { workspaceId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    const members = await prisma.administers.findMany({
-      where: { workspaceId: params.workspaceId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true
-          }
-        }
-      }
-    });
+    await withUserAuthorizedToEdit({ workspaceId });
+    await assertGenericWorkspace(workspaceId);
 
-    return NextResponse.json(members);
+    return NextResponse.json(await listWorkspaceMembers(workspaceId));
   } catch (error) {
-    console.error('Failed to fetch members:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch members' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch members');
   }
 }
 
@@ -127,34 +66,21 @@ export async function GET(
  * DELETE /api/workspaces/[workspaceId]/invite
  * Remove a user from workspace
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { workspaceId: string } }
-) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const { workspaceId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-    
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    await withUserAuthorizedToEdit({ workspaceId });
+    await assertGenericWorkspace(workspaceId);
 
+    const userId = request.nextUrl.searchParams.get('userId');
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+      throw new BadRequestError('userId is required');
     }
 
-    await prisma.administers.deleteMany({
-      where: {
-        userId,
-        workspaceId: params.workspaceId
-      }
-    });
+    await removeWorkspaceMember(workspaceId, userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to remove member:', error);
-    return NextResponse.json(
-      { error: 'Failed to remove member' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to remove member');
   }
 }
-

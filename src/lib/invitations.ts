@@ -1,25 +1,30 @@
 import "server-only";
 import { render } from "@react-email/render";
-import prisma from "@/lib/db/prisma";
 import { sendEmail } from "@/lib/email/resend";
 import { generateSignInLink } from "@/lib/auth/invite";
 import { WorkspaceInviteEmail } from "@/lib/email/templates/workspace-invite";
 
 /**
- * Sends a workspace invitation email to a user. `request` repoints the sign-in
- * link at the host the inviter uses (see generateSignInLink).
+ * Sends a workspace invitation email to a user. After sign-in, the link
+ * leads to the workspace. `request` repoints the sign-in link at the host
+ * the inviter uses (see generateSignInLink).
  */
 export async function sendWorkspaceInviteEmail(
   email: string,
   name: string,
   workspaceName: string,
+  workspaceId?: string,
   request?: Request
 ): Promise<void> {
   const { signInUrl } = await generateSignInLink(email, request);
+  // The sign-in page sends a signed-in reader to callbackUrl, a local path only.
+  const callbackUrl = workspaceId ? `/workspaces/${workspaceId}` : '/workspaces';
+  const inviteUrl = `${signInUrl}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+
   const emailHtml = await render(WorkspaceInviteEmail({
     name: name || email,
     workspaceName,
-    inviteUrl: signInUrl
+    inviteUrl
   }));
 
   const result = await sendEmail({
@@ -31,18 +36,4 @@ export async function sendWorkspaceInviteEmail(
   if (!result.success) {
     throw new Error("Failed to send the workspace invitation email");
   }
-}
-
-/**
- * Finds or creates a user by email
- */
-export async function findOrCreateUser(email: string, name?: string) {
-  return await prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: {
-      email,
-      name: name || email.split('@')[0] // Simple default name
-    }
-  });
 }
