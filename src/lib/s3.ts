@@ -49,7 +49,16 @@ const keyPart = (part: string) => part.replace(/[^A-Za-z0-9_-]+/g, '-')
  */
 export function objectKey(prefix: string, parts: string[], extension: string): string {
     const name = parts.length > 0 ? `${parts.map(keyPart).join('_')}_${crypto.randomUUID().slice(0, 8)}` : crypto.randomUUID()
-    return `${prefix}/${name}.${keyPart(extension).toLowerCase() || 'bin'}`
+    return constructS3Key(`${prefix}/${name}.${keyPart(extension).toLowerCase() || 'bin'}`)
+}
+
+/**
+ * The full key of a path in the bucket. With S3_PATH_PREFIX set (for example
+ * "opentranscripts"), every key starts with it: "opentranscripts/uploads/x.pdf".
+ */
+export function constructS3Key(path: string): string {
+    const prefix = env.S3_PATH_PREFIX
+    return prefix ? `${prefix}/${path}` : path
 }
 
 export function constructPublicUrl(bucket: string, key: string, useCdn: boolean = false): string {
