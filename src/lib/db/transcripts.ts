@@ -46,6 +46,19 @@ const transcriptMinimalInclude = {
       name_en: true
     }
   },
+  taskStatuses: {
+    take: 1,
+    orderBy: { createdAt: 'desc' as const },
+    select: {
+      id: true,
+      status: true,
+      type: true,
+      stage: true,
+      percentComplete: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  },
   _count: {
     select: {
       speakerSegments: true,
@@ -62,6 +75,12 @@ export type TranscriptWithRelations = Prisma.TranscriptGetPayload<{
 export type TranscriptMinimal = Prisma.TranscriptGetPayload<{ 
   include: typeof transcriptMinimalInclude 
 }>;
+
+/**
+ * The writes here bypass the meeting lifecycle (release, deletion), so they
+ * never touch the transcript of a council meeting.
+ */
+const notAMeeting = { councilMeeting: { is: null } } satisfies Prisma.TranscriptWhereInput;
 
 /**
  * Get a transcript by ID with all relations
@@ -178,7 +197,7 @@ export async function updateTranscript(
 ): Promise<TranscriptWithRelations> {
   try {
     const transcript = await prisma.transcript.update({
-      where: { workspaceId_id: { workspaceId, id: transcriptId }},
+      where: { workspaceId_id: { workspaceId, id: transcriptId }, ...notAMeeting },
       data,
       include: transcriptWithRelationsInclude
     });
@@ -198,7 +217,7 @@ export async function deleteTranscript(
 ): Promise<void> {
   try {
     await prisma.transcript.delete({
-      where: { workspaceId_id: { workspaceId, id: transcriptId }}
+      where: { workspaceId_id: { workspaceId, id: transcriptId }, ...notAMeeting }
     });
   } catch (error) {
     console.error('Error deleting transcript:', error);
@@ -216,7 +235,7 @@ export async function toggleTranscriptRelease(
 ): Promise<TranscriptWithRelations> {
   try {
     const transcript = await prisma.transcript.update({
-      where: { workspaceId_id: { workspaceId, id: transcriptId }},
+      where: { workspaceId_id: { workspaceId, id: transcriptId }, ...notAMeeting },
       data: { released },
       include: transcriptWithRelationsInclude
     });
