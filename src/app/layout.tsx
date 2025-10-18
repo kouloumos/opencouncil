@@ -14,31 +14,31 @@ const fontSans = FontSans({
 })
 
 export const metadata = {
-    title: 'OpenCouncil',
-    description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+    title: 'OpenTranscripts',
+    description: 'Ανοιχτή απομαγνητοφώνηση',
     icons: {
         icon: '/favicon.ico',
     },
     metadataBase: new URL('https://opencouncil.gr'),
     openGraph: {
-        title: 'OpenCouncil',
-        description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
         type: 'website',
         url: 'https://opencouncil.gr',
         images: [
             {
-                url: '/landing-screenshot.png',
+                url: '/logo.png',
                 width: 500,
                 height: 500,
-                alt: 'OpenCouncil Logo',
+                alt: 'OpenTranscripts Logo',
             },
         ],
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'OpenCouncil',
-        description: 'Ανοιχτή τοπική αυτοδιοίκηση',
-        images: ['/landing-screenshot.png'],
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
+        images: ['/logo.png'],
     },
 }
 
