@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     try {
         // Parse request body
         const body = await request.json()
-        const { key } = body
+        const { key, cityId, workspaceId } = body
 
         // Validate required fields
         if (!key) {
@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Check user authorization
-        const authorizedToEdit = await isUserAuthorizedToEdit({})
+        // If cityId or workspaceId is provided, check specific permissions
+        // Otherwise, check general upload permissions
+        const authorizedToEdit = await isUserAuthorizedToEdit(
+            cityId ? { cityId } : workspaceId ? { workspaceId } : {}
+        )
         if (!authorizedToEdit) {
             return NextResponse.json(
                 { error: 'Unauthorized to modify file permissions' },

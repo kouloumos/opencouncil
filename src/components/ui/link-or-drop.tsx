@@ -114,7 +114,11 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ key }),
+                    body: JSON.stringify({ 
+                        key,
+                        cityId: config?.cityId,
+                        workspaceId: config?.workspaceId
+                    }),
                 })
 
                 if (!aclResponse.ok) {
