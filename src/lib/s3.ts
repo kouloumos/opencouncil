@@ -38,6 +38,16 @@ export function generateRandomFilename(originalFilename: string): string {
     return `${uuidv4()}.${extension}`
 }
 
+/**
+ * Construct the full S3 key with optional path prefix
+ * If S3_PATH_PREFIX is set (e.g., "opentranscripts"), it will be prepended
+ * Example: "opentranscripts/uploads/file.pdf"
+ */
+export function constructS3Key(path: string): string {
+    const prefix = env.S3_PATH_PREFIX
+    return prefix ? `${prefix}/${path}` : path
+}
+
 export function constructPublicUrl(bucket: string, key: string, useCdn: boolean = false): string {
     if (useCdn) {
         return `${env.CDN_URL}/${key}`
@@ -60,7 +70,8 @@ export async function uploadFile(
     } = options
 
     const filename = generateRandomFilename(file.name)
-    const key = `${prefix}/${filename}`
+    const relativePath = `${prefix}/${filename}`
+    const key = constructS3Key(relativePath)
 
     const upload = new Upload({
         client: s3Client,
