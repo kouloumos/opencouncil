@@ -9,7 +9,7 @@ export async function createVoicePrint(
 ): Promise<string | null> {
     try {
         const person = await prisma.person.findUnique({
-            where: { id: voiceprint.personId },
+            where: { id: voiceprint.speakerId },
         });
 
         if (!person) {
@@ -20,7 +20,7 @@ export async function createVoicePrint(
             const voicePrint = await prisma.voicePrint.create({
                 data: {
                     embedding: voiceprint.embedding,
-                    personId: voiceprint.personId,
+                    speakerId: voiceprint.speakerId,
                     sourceSegmentId: voiceprint.sourceSegmentId,
                     sourceAudioUrl: voiceprint.sourceAudioUrl,
                     startTimestamp: voiceprint.startTimestamp,
@@ -48,8 +48,8 @@ export async function deleteVoicePrint(voicePrintId: string): Promise<void> {
         const voicePrint = await prisma.voicePrint.findUnique({
             where: { id: voicePrintId },
             include: {
-                person: {
-                    select: { cityId: true },
+                speaker: {
+                    select: { workspaceId: true },
                 },
             },
         });
@@ -58,7 +58,7 @@ export async function deleteVoicePrint(voicePrintId: string): Promise<void> {
             throw new Error("Voice print not found");
         }
 
-        await withUserAuthorizedToEdit({ cityId: voicePrint.person.cityId });
+        await withUserAuthorizedToEdit({ cityId: voicePrint.speaker.workspaceId });
 
         await prisma.voicePrint.delete({
             where: { id: voicePrintId },

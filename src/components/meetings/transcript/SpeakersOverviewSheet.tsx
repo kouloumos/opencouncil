@@ -41,7 +41,7 @@ function SpeakerStatsContent() {
         transcript.forEach(segment => {
             const tagId = segment.speakerTagId;
             const tag = getSpeakerTag(tagId);
-            const personId = tag?.personId || null;
+            const personId = tag?.speakerId || null;
             
             // Determine grouping key: personId if matched, otherwise speakerTagId
             const key = personId || tagId;

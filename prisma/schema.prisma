@@ -13,6 +13,39 @@ datasource db {
   extensions = [postgis]
 }
 
+// ============================================================================
+// SCHEMA ARCHITECTURE OVERVIEW
+// ============================================================================
+//
+// This schema uses a layered inheritance pattern where specialized models
+// extend generic base models through explicit foreign key relationships:
+//
+// WORKSPACE LAYER:
+//   Workspace (base) ──extends──> City (specialized)
+//   - City.id = Workspace.id (same ID, explicit FK)
+//
+// TRANSCRIPT LAYER:
+//   Transcript (base) ──extends──> CouncilMeeting (specialized)
+//   - CouncilMeeting.cityId = Transcript.workspaceId
+//
+// SPEAKER LAYER:
+//   Speaker (base) ──extends──> Person (specialized)
+//   - Person.cityId = Speaker.workspaceId
+//
+// ============================================================================
+
+model Workspace {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  administrators Administers[]
+  transcripts    Transcript[]
+  speakers       Speaker[]
+  city           City?
+}
+
 model City {
   id        String   @id @default(cuid())
   name      String   // Αθήνα
@@ -32,10 +65,10 @@ model City {
   consultationsEnabled Boolean @default(false)
   peopleOrdering PeopleOrdering @default(default)
 
+  workspace Workspace @relation(fields: [id], references: [id], onDelete: Cascade)
   parties        Party[]
   persons        Person[]
   councilMeetings CouncilMeeting[]
-  administrators Administers[]
   administrativeBodies AdministrativeBody[]
   
   petitions Petition[]
@@ -124,13 +157,28 @@ model Party {
   @@index([cityId])
 }
 
+model Speaker {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  speakerTags SpeakerTag[]
+  voicePrints VoicePrint[]
+  person      Person?
+  
+  @@index([workspaceId])
+}
+
 model Person {
   id        String   @id @default(cuid())
   name  String
   name_en String
   name_short String
   name_short_en String
-  image     String?
   
   roles Role[]
 
@@ -140,11 +188,9 @@ model Person {
   updatedAt DateTime @updatedAt
   profileUrl String?
 
-  speakerTags SpeakerTag[]
-  voicePrints VoicePrint[]
+  speaker Speaker @relation(fields: [id], references: [id], onDelete: Cascade)
   city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   cityId String
-
 
   administrators Administers[]
   subjectsIntroduced Subject[]
@@ -159,21 +205,16 @@ model CouncilMeeting {
   dateTime  DateTime
   youtubeUrl String?
   agendaUrl String?
-  videoUrl String?
-  audioUrl String?
-  muxPlaybackId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  released  Boolean  @default(false)
 
+  transcript Transcript @relation(fields: [cityId, id], references: [workspaceId, id], onDelete: Cascade)
   city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   cityId String
 
   administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: SetNull)
   administrativeBodyId String?
 
-  taskStatuses TaskStatus[]
-  speakerSegments SpeakerSegment[]
   highlights Highlight[]
   subjects Subject[]
   podcastSpecs PodcastSpec[]
@@ -184,8 +225,29 @@ model CouncilMeeting {
   @@unique([cityId, id])
 
   @@index([dateTime])
-  @@index([released])
+  @@index([cityId, dateTime])
   @@index([administrativeBodyId])
+}
+
+model Transcript {
+  id          String         @default(cuid())
+  workspaceId String
+  name        String
+  videoUrl    String?
+  audioUrl    String?
+  muxPlaybackId String?
+  released    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  councilMeeting  CouncilMeeting?
+  taskStatuses    TaskStatus[]
+  speakerSegments SpeakerSegment[]
+  
+  @@id([workspaceId, id])
+  @@unique([workspaceId, id])
+  @@index([released])
 }
 
 model TaskStatus {
@@ -201,11 +263,11 @@ model TaskStatus {
 
   version Int?
 
-  councilMeeting   CouncilMeeting @relation(fields: [councilMeetingId, cityId], references: [id, cityId], onDelete: Cascade)
-  councilMeetingId String
-  cityId            String
+  transcript   Transcript @relation(fields: [transcriptId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  transcriptId String
+  workspaceId  String
 
-  @@index([councilMeetingId, cityId])
+  @@index([transcriptId, workspaceId])
 }
 
 model VoicePrint {
@@ -217,14 +279,14 @@ model VoicePrint {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   
-  person              Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
-  personId            String
+  speaker             Speaker   @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  speakerId           String
   
   // Reference to the speaker segment used to generate this voiceprint
   sourceSegment       SpeakerSegment @relation(fields: [sourceSegmentId], references: [id], onDelete: Cascade)
   sourceSegmentId     String
   
-  @@index([personId])
+  @@index([speakerId])
   @@index([sourceSegmentId])
 }
 
@@ -234,12 +296,12 @@ model SpeakerTag {
   updatedAt       DateTime @updatedAt
   label           String?
 
-  person Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
-  personId String?
+  speaker Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speakerId String?
 
   speakerSegments SpeakerSegment[]
 
-  @@index([personId])
+  @@index([speakerId])
 }
 
 model SpeakerSegment {
@@ -249,9 +311,9 @@ model SpeakerSegment {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
-  meetingId String
-  cityId String
+  transcript   Transcript @relation(fields: [transcriptId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  transcriptId String
+  workspaceId  String
 
   speakerTag SpeakerTag @relation(fields: [speakerTagId], references: [id], onDelete: Cascade)
   speakerTagId String
@@ -265,7 +327,7 @@ model SpeakerSegment {
   
   usedForVoiceprints VoicePrint[]
 
-  @@index([meetingId, cityId, startTimestamp])
+  @@index([transcriptId, workspaceId, startTimestamp])
   @@index([speakerTagId])
 }
 
@@ -636,18 +698,19 @@ model Administers {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
+  workspaceId String?
   cityId    String?
   partyId   String?
   personId  String?
   
-  city      City?    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   party     Party?   @relation(fields: [partyId], references: [id], onDelete: Cascade)
   person    Person?  @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, cityId, partyId, personId])
+  @@unique([userId, workspaceId, partyId, personId])
 }
 
 model UtteranceEdit {

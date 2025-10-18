@@ -112,11 +112,11 @@ export function CouncilMeetingDataProvider({ children, data }: {
         }),
         getHighlight,
         updateSpeakerTagPerson: async (tagId: string, personId: string | null) => {
-            console.log(`Updating speaker tag ${tagId} to person ${personId}`);
-            await updateSpeakerTag(tagId, { personId });
+            console.log(`Updating speaker tag ${tagId} to speaker ${personId}`);
+            await updateSpeakerTag(tagId, { speakerId: personId });
             setSpeakerTags(prevTags =>
                 prevTags.map(tag =>
-                    tag.id === tagId ? { ...tag, personId } : tag
+                    tag.id === tagId ? { ...tag, speakerId: personId } : tag
                 )
             );
         },

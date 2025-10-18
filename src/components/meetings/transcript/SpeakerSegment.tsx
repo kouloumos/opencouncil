@@ -200,7 +200,7 @@ const SpeakerSegment = React.memo(({ segment, renderMock, isFirstSegment }: {
 
     const memoizedData = useMemo(() => {
         const speakerTag = getSpeakerTag(segment.speakerTagId);
-        const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+        const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : undefined;
 
         const party = person ? getPartyFromRoles(person.roles) : null;
         const borderColor = party?.colorHex || '#D3D3D3';

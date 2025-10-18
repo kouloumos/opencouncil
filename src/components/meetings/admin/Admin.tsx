@@ -43,7 +43,7 @@ export default function AdminActions({
     const [forceTranscribe, setForceTranscribe] = React.useState(false);
     const [topics, setTopics] = React.useState(['']);
     const [additionalInstructions, setAdditionalInstructions] = React.useState('');
-    const [isReleased, setIsReleased] = React.useState(meeting.released);
+    const [isReleased, setIsReleased] = React.useState(meeting.transcript?.released ?? false);
     const [forceAgenda, setForceAgenda] = React.useState(false);
     const [isNotificationModalOpen, setIsNotificationModalOpen] = React.useState(false);
     const [notificationType, setNotificationType] = React.useState<'beforeMeeting' | 'afterMeeting'>('beforeMeeting');
@@ -183,10 +183,10 @@ export default function AdminActions({
     const handleReleaseToggle = async () => {
         try {
             const updatedMeeting = await toggleMeetingRelease(meeting.cityId, meeting.id, !isReleased);
-            setIsReleased(updatedMeeting.released);
+            setIsReleased(updatedMeeting.transcript?.released ?? false);
             toast({
-                title: updatedMeeting.released ? t('toasts.meetingReleased.title') : t('toasts.meetingUnreleased.title'),
-                description: updatedMeeting.released ? t('toasts.meetingReleased.description') : t('toasts.meetingUnreleased.description'),
+                title: updatedMeeting.transcript?.released ? t('toasts.meetingReleased.title') : t('toasts.meetingUnreleased.title'),
+                description: updatedMeeting.transcript?.released ? t('toasts.meetingReleased.description') : t('toasts.meetingUnreleased.description'),
             });
         } catch (error) {
             console.error('Error toggling meeting release:', error);

@@ -29,7 +29,11 @@ async function fetchSitemapData(): Promise<SitemapCity[]> {
         select: {
             id: true,
             councilMeetings: {
-                where: { released: true },
+                where: {
+                    transcript: {
+                        released: true
+                    }
+                },
                 select: {
                     id: true,
                     subjects: {

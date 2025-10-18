@@ -27,7 +27,7 @@ export async function getRequestOnTranscriptRequestBody(councilMeetingId: string
     return {
         transcript: transcript.map(segment => {
             const speakerTag = segment.speakerTag;
-            const person = people.find(p => p.id === speakerTag.personId);
+            const person = people.find(p => p.id === speakerTag.speakerId);
             const party = person ? getPartyFromRoles(person.roles) : null;
 
             return {
@@ -105,8 +105,8 @@ export async function getAvailableSpeakerSegmentIds(councilMeetingId: string, ci
             id: true
         },
         where: {
-            meetingId: councilMeetingId,
-            cityId
+            transcriptId: councilMeetingId,
+            workspaceId: cityId,
         }
     });
     return speakerSegments.map(s => s.id);

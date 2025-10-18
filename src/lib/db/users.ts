@@ -3,24 +3,7 @@
 import { Prisma, User } from "@prisma/client";
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit } from "../auth";
-
-const userWithAdministersInclude = {
-    administers: {
-        include: {
-            city: true,
-            party: {
-                include: {
-                    city: true
-                }
-            },
-            person: {
-                include: {
-                    city: true
-                }
-            }
-        }
-    }
-} satisfies Prisma.UserInclude;
+import { userWithAdministersInclude } from "./includes";
 
 const userWithRelationsInclude = {
     ...userWithAdministersInclude,

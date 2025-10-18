@@ -14,8 +14,8 @@ export async function getTasksForMeeting(cityId: string, meetingId: string): Pro
     try {
         const tasks = await prisma.taskStatus.findMany({
             where: {
-                cityId: cityId,
-                councilMeetingId: meetingId,
+                workspaceId: cityId,
+                transcriptId: meetingId,
             },
             orderBy: {
                 createdAt: 'desc',
@@ -62,8 +62,8 @@ export async function getGenerateHighlightTasksForHighlight(cityId: string, meet
         const tasks = await prisma.taskStatus.findMany({
             where: {
                 type: 'generateHighlight',
-                cityId,
-                councilMeetingId: meetingId,
+                workspaceId: cityId,
+                transcriptId: meetingId,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -120,8 +120,8 @@ export async function getMeetingTaskStatus(cityId: string, meetingId: string): P
     // Single optimized query to get all succeeded tasks for this meeting
     const succeededTasks = await prisma.taskStatus.findMany({
         where: {
-            cityId,
-            councilMeetingId: meetingId,
+            workspaceId: cityId,
+            transcriptId: meetingId,
             type: { in: CORE_PROCESSING_TASKS },
             status: 'succeeded'
         },

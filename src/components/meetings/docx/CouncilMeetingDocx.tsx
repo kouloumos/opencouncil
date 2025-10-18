@@ -87,7 +87,7 @@ const createTranscriptSection = ({ transcript, people, meeting }: Pick<MeetingDa
     ];
 
     transcript.forEach((speakerSegment) => {
-        const speaker = speakerSegment.speakerTag.personId ? people.find(p => p.id === speakerSegment.speakerTag.personId) : null;
+        const speaker = speakerSegment.speakerTag.speakerId ? people.find(p => p.id === speakerSegment.speakerTag.speakerId) : null;
         const speakerName = speaker ? `${speaker.name_short}` : speakerSegment.speakerTag.label;
         const party = speaker ? getPartyFromRoles(speaker.roles || [], new Date(meeting.dateTime)) : null;
         const role = speaker ? getSingleCityRole(speaker.roles || [], new Date(meeting.dateTime)) : null;

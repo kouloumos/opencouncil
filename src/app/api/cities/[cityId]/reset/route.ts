@@ -37,12 +37,12 @@ export async function POST(
 
             // 2. Delete task statuses and related meeting data
             await tx.taskStatus.deleteMany({
-                where: { cityId: params.cityId },
+                where: { workspaceId: params.cityId },
             });
 
             // 3. Delete speaker segments and related data
             const segments = await tx.speakerSegment.findMany({
-                where: { cityId: params.cityId },
+                where: { workspaceId: params.cityId },
                 select: { id: true },
             });
 
@@ -78,7 +78,7 @@ export async function POST(
 
                 // Delete speaker segments
                 await tx.speakerSegment.deleteMany({
-                    where: { cityId: params.cityId }
+                    where: { workspaceId: params.cityId }
                 });
             }
 
@@ -135,45 +135,55 @@ export async function POST(
                 }
             }
 
-            // 7. Delete council meetings
+            // 7. Delete council meetings (must be before transcripts)
             await tx.councilMeeting.deleteMany({
                 where: { cityId: params.cityId }
             });
 
-            // 8. Delete voice prints
+            // 8. Delete transcripts (after council meetings since they reference them)
+            await tx.transcript.deleteMany({
+                where: { workspaceId: params.cityId }
+            });
+
+            // 9. Delete voice prints (via workspace speakers)
             await tx.voicePrint.deleteMany({
                 where: {
-                    person: {
-                        cityId: params.cityId
+                    speaker: {
+                        workspaceId: params.cityId
                     }
                 }
             });
 
-            // 9. Delete speaker tags
+            // 9. Delete speaker tags (via workspace speakers)
             await tx.speakerTag.deleteMany({
                 where: {
-                    person: {
-                        cityId: params.cityId
+                    speaker: {
+                        workspaceId: params.cityId
                     }
                 }
             });
 
-            // 10. Delete people
+            // 10. Delete speakers (this will also cascade to related data)
+            await tx.speaker.deleteMany({
+                where: { workspaceId: params.cityId }
+            });
+
+            // 11. Delete people
             await tx.person.deleteMany({
                 where: { cityId: params.cityId }
             });
 
-            // 11. Delete parties
+            // 12. Delete parties
             await tx.party.deleteMany({
                 where: { cityId: params.cityId }
             });
 
-            // 12. Delete administrative bodies
+            // 13. Delete administrative bodies
             await tx.administrativeBody.deleteMany({
                 where: { cityId: params.cityId }
             });
 
-            // 13. Delete notifications and related data
+            // 14. Delete notifications and related data
             await tx.notificationPreference.deleteMany({
                 where: { cityId: params.cityId }
             });
@@ -182,7 +192,7 @@ export async function POST(
                 where: { cityId: params.cityId }
             });
 
-            // 14. Delete consultation related data
+            // 15. Delete consultation related data
             await tx.consultationCommentUpvote.deleteMany({
                 where: {
                     comment: {
@@ -199,17 +209,24 @@ export async function POST(
                 where: { cityId: params.cityId }
             });
 
-            // 15. Delete city message
+            // 16. Delete city message
             await tx.cityMessage.deleteMany({
                 where: { cityId: params.cityId }
             });
 
-            // 16. Delete administration relationships
+            // 17. Delete administration relationships
+            // Delete both workspaceId and cityId for backward compatibility
             await tx.administers.deleteMany({
-                where: { cityId: params.cityId }
+                where: { 
+                    OR: [
+                        { workspaceId: params.cityId },
+                        { cityId: params.cityId }
+                    ]
+                }
             });
 
-            // 17. Finally, set the city back to pending
+
+            // 18. Finally, set the city back to pending
             await tx.city.update({
                 where: { id: params.cityId },
                 data: { status: 'pending' },

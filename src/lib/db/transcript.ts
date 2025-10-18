@@ -40,8 +40,8 @@ export async function getTranscript(meetingId: string, cityId: string, {
 
   const speakerSegments = await prisma.speakerSegment.findMany({
     where: {
-      meetingId,
-      cityId
+      transcriptId: meetingId,
+      workspaceId: cityId
     },
     include: {
       speakerTag: true,

@@ -3,8 +3,7 @@ import { useTranslations } from 'next-intl';
 import { useState, useEffect, useMemo } from 'react';
 import FormSheet from '../FormSheet';
 import PartyForm from './PartyForm';
-import { City, Party, Person, Role, AdministrativeBody } from '@prisma/client';
-import Image from 'next/image';
+import { City, Role, AdministrativeBody } from '@prisma/client';
 import { ImageOrInitials } from '../ImageOrInitials';
 import { Button } from '../ui/button';
 import { PartyWithPersons } from '@/lib/db/parties';
@@ -28,7 +27,7 @@ import { PersonWithRelations } from '@/lib/db/people';
 import PartyMemberRankingSheet from './PartyMemberRankingSheet';
 
 type RoleWithPerson = Role & {
-    person: Person;
+    person: PersonWithRelations;
 };
 
 // Party Members Tab Component

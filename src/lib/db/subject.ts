@@ -1,18 +1,12 @@
 import prisma from './prisma';
 import {
-    Subject,
-    SubjectSpeakerSegment,
-    SpeakerSegment,
-    Highlight,
+    Prisma,
     Location,
-    Topic,
     City,
-    CouncilMeeting,
 } from '@prisma/client';
-import { PersonWithRelations } from '@/lib/db/people';
 import { getCity } from './cities';
-import { getCouncilMeeting } from './meetings';
-import { getPeopleForCity } from './people';
+import { CouncilMeetingWithAdminBody, getCouncilMeeting } from './meetings';
+import { getPeopleForCity, PersonWithRelations } from './people';
 import { getStatisticsFor, Statistics } from '@/lib/statistics';
 
 // Type for location with coordinates
@@ -23,50 +17,68 @@ export type LocationWithCoordinates = Location & {
     };
 };
 
-export type SubjectWithRelations = Subject & {
-    speakerSegments: (SubjectSpeakerSegment & {
-        speakerSegment: SpeakerSegment;
-    })[];
-    highlights: Highlight[];
+// Define the standard include for subjects using the satisfies pattern
+const subjectWithRelationsInclude = {
+    speakerSegments: {
+        include: {
+            speakerSegment: true,
+        },
+    },
+    highlights: true,
+    location: true,
+    topic: true,
+    introducedBy: {
+        include: {
+            roles: {
+                include: {
+                    party: true,
+                    city: true,
+                    administrativeBody: true,
+                },
+            },
+            speaker: true
+        },
+    },
+} satisfies Prisma.SubjectInclude;
+
+// Use Prisma's inferred type, but override introducedBy to use PersonWithRelations
+type SubjectWithRelationsBase = Prisma.SubjectGetPayload<{
+    include: typeof subjectWithRelationsInclude;
+}>;
+
+export type SubjectWithRelations = Omit<SubjectWithRelationsBase, 'introducedBy' | 'location'> & {
     location: LocationWithCoordinates | null;
-    topic: Topic | null;
     introducedBy: PersonWithRelations | null;
 };
 
 export type SubjectOgData = {
     subject: SubjectWithRelations;
     city: City;
-    meeting: CouncilMeeting;
+    meeting: CouncilMeetingWithAdminBody;
     statistics?: Statistics;
     people: PersonWithRelations[];
 };
 
+/**
+ * Helper function to flatten the introducedBy person data
+ * Converts the nested speaker.image to top-level property
+ */
+function flattenSubjectPerson(subject: SubjectWithRelationsBase): SubjectWithRelations {
+    return {
+        ...subject,
+        introducedBy: subject.introducedBy ? {
+            ...subject.introducedBy,
+            image: subject.introducedBy.speaker?.image ?? null,
+        } : null,
+    };
+}
+
 export async function getAllSubjects(): Promise<SubjectWithRelations[]> {
     try {
         const subjects = await prisma.subject.findMany({
-            include: {
-                speakerSegments: {
-                    include: {
-                        speakerSegment: true,
-                    },
-                },
-                highlights: true,
-                location: true,
-                topic: true,
-                introducedBy: {
-                    include: {
-                        roles: {
-                            include: {
-                                party: true,
-                                city: true,
-                                administrativeBody: true,
-                            },
-                        },
-                    },
-                },
-            },
+            include: subjectWithRelationsInclude,
         });
-        return subjects;
+        return subjects.map(flattenSubjectPerson);
     } catch (error) {
         console.error('Error fetching all subjects:', error);
         throw new Error('Failed to fetch all subjects');
@@ -82,30 +94,15 @@ export async function getSubjectsForMeeting(cityId: string, councilMeetingId: st
                 councilMeetingId,
             },
             include: {
+                ...subjectWithRelationsInclude,
                 speakerSegments: {
-                    include: {
-                        speakerSegment: true,
-                    },
+                    ...subjectWithRelationsInclude.speakerSegments,
                     orderBy: {
                         speakerSegment: {
                             startTimestamp: 'asc',
                         },
                     },
                 },
-                introducedBy: {
-                    include: {
-                        roles: {
-                            include: {
-                                party: true,
-                                city: true,
-                                administrativeBody: true,
-                            },
-                        },
-                    },
-                },
-                highlights: true,
-                location: true,
-                topic: true,
             },
         });
 
@@ -120,9 +117,9 @@ export async function getSubjectsForMeeting(cityId: string, councilMeetingId: st
                 AND type = 'point'
             `;
 
-            // Merge coordinates into the subjects
+            // Merge coordinates into the subjects and flatten person data
             return subjects.map(subject => ({
-                ...subject,
+                ...flattenSubjectPerson(subject),
                 location: subject.location
                     ? {
                         ...subject.location,
@@ -132,7 +129,7 @@ export async function getSubjectsForMeeting(cityId: string, councilMeetingId: st
             }));
         }
 
-        return subjects;
+        return subjects.map(flattenSubjectPerson);
     } catch (error) {
         console.error('Error fetching subjects for meeting:', error);
         throw new Error('Failed to fetch subjects for meeting');
@@ -149,35 +146,24 @@ export async function getSubject(subjectId: string): Promise<SubjectWithRelation
                 id: subjectId,
             },
             include: {
+                ...subjectWithRelationsInclude,
                 speakerSegments: {
-                    include: {
-                        speakerSegment: true,
-                    },
+                    ...subjectWithRelationsInclude.speakerSegments,
                     orderBy: {
                         speakerSegment: {
                             startTimestamp: 'asc',
                         },
                     },
                 },
-                introducedBy: {
-                    include: {
-                        roles: {
-                            include: {
-                                party: true,
-                                city: true,
-                                administrativeBody: true,
-                            },
-                        },
-                    },
-                },
-                highlights: true,
-                location: true,
-                topic: true,
             },
         });
 
-        if (!subject || !subject.location) {
-            return subject;
+        if (!subject) {
+            return null;
+        }
+
+        if (!subject.location) {
+            return flattenSubjectPerson(subject);
         }
 
         // Get coordinates if the subject has a location
@@ -188,9 +174,9 @@ export async function getSubject(subjectId: string): Promise<SubjectWithRelation
             AND type = 'point'
         `;
 
-        // Return the subject with location coordinates if available
+        // Return the subject with location coordinates and flattened person data
         return {
-            ...subject,
+            ...flattenSubjectPerson(subject),
             location: {
                 ...subject.location,
                 coordinates: locationCoordinates[0],

@@ -1,7 +1,7 @@
 "use server";
 import prisma from './prisma';
 import { withUserAuthorizedToEdit } from '../auth';
-import { CouncilMeeting, City, Prisma } from '@prisma/client';
+import { CouncilMeeting, City, Prisma, Utterance } from '@prisma/client';
 import { PersonWithRelations } from './people';
 import { isRoleActiveAt } from '../utils';
 import { roleWithRelationsInclude } from './types';
@@ -18,13 +18,34 @@ export type SegmentWithRelations = {
     summary: { text: string } | null;
 };
 
+// Define the standard include for speaker segments for transcript (simple speakerTag)
+const speakerSegmentTranscriptInclude = {
+    utterances: {
+        orderBy: { startTimestamp: 'asc' as const }
+    },
+    speakerTag: true,
+    summary: true,
+    topicLabels: {
+        include: {
+            topic: true
+        }
+    }
+} satisfies Prisma.SpeakerSegmentInclude;
+
+// Define the include for speaker segments with full relations (for queries)
 const speakerSegmentWithRelationsInclude = {
-    utterances: true,
+    utterances: {
+        orderBy: { startTimestamp: 'asc' as const }
+    },
     speakerTag: {
         include: {
-            person: {
+            speaker: {
                 include: {
-                    roles: roleWithRelationsInclude
+                    person: {
+                        include: {
+                            roles: roleWithRelationsInclude
+                        }
+                    }
                 }
             }
         }
@@ -36,6 +57,8 @@ const speakerSegmentWithRelationsInclude = {
         }
     }
 } satisfies Prisma.SpeakerSegmentInclude;
+
+export type SpeakerSegmentForTranscript = Prisma.SpeakerSegmentGetPayload<{ include: typeof speakerSegmentTranscriptInclude }>;
 
 export type SpeakerSegmentWithRelations = Prisma.SpeakerSegmentGetPayload<{ include: typeof speakerSegmentWithRelationsInclude }>;
 
@@ -74,7 +97,7 @@ export async function createEmptySpeakerSegmentAfter(
     afterSegmentId: string,
     cityId: string,
     meetingId: string
-): Promise<SpeakerSegmentWithRelations> {
+): Promise<SpeakerSegmentForTranscript> {
     // First get the segment we're inserting after to get its end timestamp and speaker tag info
     const currentSegment = await prisma.speakerSegment.findUnique({
         where: { id: afterSegmentId },
@@ -93,8 +116,8 @@ export async function createEmptySpeakerSegmentAfter(
     // Find the next segment to ensure we place the new segment correctly
     const nextSegment = await prisma.speakerSegment.findFirst({
         where: {
-            meetingId,
-            cityId,
+            transcriptId: meetingId,
+            workspaceId: cityId,
             startTimestamp: { gt: currentSegment.endTimestamp }
         },
         orderBy: { startTimestamp: 'asc' }
@@ -110,7 +133,7 @@ export async function createEmptySpeakerSegmentAfter(
     const newSpeakerTag = await prisma.speakerTag.create({
         data: {
             label: "New speaker segment",
-            personId: null // Reset the person association for the new tag
+            // No speakerId - will be set later if needed
         }
     });
 
@@ -119,11 +142,11 @@ export async function createEmptySpeakerSegmentAfter(
         data: {
             startTimestamp,
             endTimestamp,
-            cityId,
-            meetingId,
+            workspaceId: cityId,
+            transcriptId: meetingId,
             speakerTagId: newSpeakerTag.id
         },
-        include: speakerSegmentWithRelationsInclude
+        include: speakerSegmentTranscriptInclude
     });
 
     console.log(`Created a new speaker segment starting at ${startTimestamp} and ending at ${endTimestamp}. Previous segment ended at ${currentSegment.endTimestamp}, next segment starts at ${nextSegment?.startTimestamp}`);
@@ -135,7 +158,7 @@ export async function createEmptySpeakerSegmentBefore(
     beforeSegmentId: string,
     cityId: string,
     meetingId: string
-): Promise<SpeakerSegmentWithRelations> {
+): Promise<SpeakerSegmentForTranscript> {
     // First get the segment we're inserting before to get its start timestamp
     const firstSegment = await prisma.speakerSegment.findUnique({
         where: { id: beforeSegmentId },
@@ -165,7 +188,7 @@ export async function createEmptySpeakerSegmentBefore(
     const newSpeakerTag = await prisma.speakerTag.create({
         data: {
             label: "New speaker segment",
-            personId: null // Reset the person association for the new tag
+            speakerId: null // Reset the speaker association for the new tag
         }
     });
 
@@ -174,8 +197,8 @@ export async function createEmptySpeakerSegmentBefore(
         data: {
             startTimestamp,
             endTimestamp,
-            cityId,
-            meetingId,
+            workspaceId: cityId,
+            transcriptId: meetingId,
             speakerTagId: newSpeakerTag.id
         },
         include: speakerSegmentWithRelationsInclude
@@ -278,7 +301,7 @@ async function moveUtterancesToSegment(
     utteranceId: string,
     currentSegmentId: string,
     direction: 'previous' | 'next'
-) {
+): Promise<{ previousSegment?: SpeakerSegmentForTranscript | null; currentSegment?: SpeakerSegmentForTranscript | null; nextSegment?: SpeakerSegmentForTranscript | null }> {
     // Get the current segment and its utterances
     const currentSegment = await prisma.speakerSegment.findUnique({
         where: { id: currentSegmentId },
@@ -293,13 +316,13 @@ async function moveUtterancesToSegment(
         throw new Error('Current segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: currentSegment.cityId });
+    await withUserAuthorizedToEdit({ cityId: currentSegment.workspaceId });
 
     // Find the target segment (previous or next)
     const targetSegment = await prisma.speakerSegment.findFirst({
         where: {
-            meetingId: currentSegment.meetingId,
-            cityId: currentSegment.cityId,
+            transcriptId: currentSegment.transcriptId,
+            workspaceId: currentSegment.workspaceId,
             ...(direction === 'previous'
                 ? { endTimestamp: { lt: currentSegment.startTimestamp } }
                 : { startTimestamp: { gt: currentSegment.endTimestamp } }
@@ -393,7 +416,7 @@ export async function updateSegmentTimestamps(segmentId: string) {
         throw new Error('Segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: segment.cityId });
+    await withUserAuthorizedToEdit({ cityId: segment.workspaceId });
 
     const earliestStart = Math.min(...segment.utterances.map(u => u.startTimestamp));
     const latestEnd = Math.max(...segment.utterances.map(u => u.endTimestamp));
@@ -418,10 +441,10 @@ export async function moveUtterancesToNextSegment(
     return moveUtterancesToSegment(utteranceId, currentSegmentId, 'next');
 }
 
-async function getSegmentWithIncludes(segmentId: string) {
+async function getSegmentWithIncludes(segmentId: string): Promise<SpeakerSegmentForTranscript | null> {
     return await prisma.speakerSegment.findUnique({
         where: { id: segmentId },
-        include: speakerSegmentWithRelationsInclude
+        include: speakerSegmentTranscriptInclude
     });
 }
 
@@ -442,7 +465,7 @@ export async function deleteEmptySpeakerSegment(
         throw new Error('Segment not found');
     }
 
-    if (segment.cityId !== cityId) {
+    if (segment.workspaceId !== cityId) {
         throw new Error('City ID mismatch');
     }
 
@@ -475,7 +498,13 @@ export async function getLatestSegmentsForSpeaker(
 
     const whereClause: any = {
         speakerTag: {
-            personId: personId
+            speakerTag: {
+                speaker: {
+                    person: {
+                        id: personId
+                    }
+                }
+            },
         },
         utterances: {
             some: {
@@ -484,9 +513,11 @@ export async function getLatestSegmentsForSpeaker(
                 }
             }
         },
-        meeting: administrativeBodyId ? {
-            administrativeBodyId: administrativeBodyId
-        } : undefined
+        transcript: {
+            councilMeeting: administrativeBodyId ? {
+                administrativeBodyId: administrativeBodyId
+            } : {}
+        }
     };
 
     if (topicId) {
@@ -501,16 +532,24 @@ export async function getLatestSegmentsForSpeaker(
         prisma.speakerSegment.findMany({
             where: whereClause,
             include: {
-                meeting: {
+                transcript: {
                     include: {
-                        city: true
+                        councilMeeting: {
+                            include: {
+                                city: true
+                            }
+                        }
                     }
                 },
                 speakerTag: {
                     include: {
-                        person: {
+                        speaker: {
                             include: {
-                                roles: roleWithRelationsInclude
+                                person: {
+                                    include: {
+                                        roles: roleWithRelationsInclude
+                                    }
+                                }
                             }
                         }
                     }
@@ -520,8 +559,10 @@ export async function getLatestSegmentsForSpeaker(
             },
             orderBy: [
                 {
-                    meeting: {
-                        dateTime: 'desc'
+                    transcript: {
+                        councilMeeting: {
+                            dateTime: 'desc'
+                        }
                     }
                 },
                 {
@@ -537,13 +578,17 @@ export async function getLatestSegmentsForSpeaker(
     ]);
 
     const results = segments
+        .filter(segment => segment.transcript?.councilMeeting) // Only include segments with council meetings
         .map(segment => ({
             id: segment.id,
             startTimestamp: segment.startTimestamp,
             endTimestamp: segment.endTimestamp,
-            meeting: segment.meeting,
-            person: segment.speakerTag?.person || null,
-            text: segment.utterances.map(u => u.text).join(' '),
+            meeting: segment.transcript!.councilMeeting!,
+            person: segment.speakerTag.speaker?.person ? {
+                ...segment.speakerTag.speaker.person,
+                image: segment.speakerTag.speaker.image ?? null
+            } : null,
+            text: segment.utterances.map((u: Utterance) => u.text).join(' '),
             summary: segment.summary ? { text: segment.summary.text } : null
         }))
         // Only include segments with at least 100 characters
@@ -567,10 +612,12 @@ export async function getLatestSegmentsForParty(
         prisma.speakerSegment.findMany({
             where: {
                 speakerTag: {
-                    person: {
-                        roles: {
-                            some: {
-                                partyId: partyId
+                    speaker: {
+                        person: {
+                            roles: {
+                                some: {
+                                    partyId: partyId
+                                }
                             }
                         }
                     }
@@ -582,25 +629,35 @@ export async function getLatestSegmentsForParty(
                         }
                     }
                 },
-                meeting: administrativeBodyId ? {
-                    administrativeBodyId: administrativeBodyId
-                } : undefined
+                transcript: {
+                    councilMeeting: administrativeBodyId ? {
+                        administrativeBodyId: administrativeBodyId
+                    } : {}
+                }
             },
             include: {
-                meeting: {
+                transcript: {
                     include: {
-                        city: true
+                        councilMeeting: {
+                            include: {
+                                city: true
+                            }
+                        }
                     }
                 },
                 speakerTag: {
                     include: {
-                        person: {
+                        speaker: {
                             include: {
-                                roles: {
-                                    where: {
-                                        partyId: partyId
-                                    },
-                                    include: roleWithRelationsInclude.include
+                                person: {
+                                    include: {
+                                        roles: {
+                                            where: {
+                                                partyId: partyId
+                                            },
+                                            include: roleWithRelationsInclude.include
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -611,8 +668,10 @@ export async function getLatestSegmentsForParty(
             },
             orderBy: [
                 {
-                    meeting: {
-                        dateTime: 'desc'
+                    transcript: {
+                        councilMeeting: {
+                            dateTime: 'desc'
+                        }
                     }
                 },
                 {
@@ -625,10 +684,12 @@ export async function getLatestSegmentsForParty(
         prisma.speakerSegment.count({
             where: {
                 speakerTag: {
-                    person: {
-                        roles: {
-                            some: {
-                                partyId: partyId
+                    speaker: {
+                        person: {
+                            roles: {
+                                some: {
+                                    partyId: partyId
+                                }
                             }
                         }
                     }
@@ -640,38 +701,42 @@ export async function getLatestSegmentsForParty(
                         }
                     }
                 },
-                meeting: administrativeBodyId ? {
-                    administrativeBodyId: administrativeBodyId
-                } : undefined
+                transcript: {
+                    councilMeeting: administrativeBodyId ? {
+                        administrativeBodyId: administrativeBodyId
+                    } : {}
+                }
             }
         })
     ]);
 
     const results = segments
         .filter(segment => {
-            // Safely check for minimum text length
-            const text = segment.utterances.map(u => u.text).join(' ');
+            // Only include segments with council meetings
+            if (!segment.transcript?.councilMeeting) return false;
+            
+            // Safe check for minimum text length
+            const text = segment.utterances.map((u: Utterance) => u.text).join(' ');
             // Safe check for person and roles
-            const hasPerson = segment.speakerTag?.person != null;
-            const hasRoles = Array.isArray(segment.speakerTag?.person?.roles);
+            const hasPerson = segment.speakerTag.speaker?.person != null;
+            const hasRoles = Array.isArray(segment.speakerTag.speaker?.person?.roles);
             // Only include segments with at least 100 characters and a person with roles
             return text.length >= 100 && hasPerson && hasRoles;
         })
         .flatMap(segment => {
-            const text = segment.utterances.map(u => u.text).join(' ');
-            const person = segment.speakerTag?.person;
+            const text = segment.utterances.map((u: Utterance) => u.text).join(' ');
+            const person = segment.speakerTag.speaker?.person;
 
             // At this point we know person exists thanks to our filter
             // But TypeScript might not recognize this, so we add a safety check
-            if (!person || !Array.isArray(person.roles)) {
+            if (!person || !Array.isArray(person.roles) || !segment.transcript?.councilMeeting) {
                 return [];
             }
 
-            const meetingDate = new Date(segment.meeting.dateTime);
+            const meetingDate = new Date(segment.transcript.councilMeeting.dateTime);
 
             // Check for active role at meeting time
             const hasActiveRole = person.roles.some(role => isRoleActiveAt(role, meetingDate));
-
 
             // Skip if no active role
             if (!hasActiveRole) {
@@ -682,8 +747,11 @@ export async function getLatestSegmentsForParty(
                 id: segment.id,
                 startTimestamp: segment.startTimestamp,
                 endTimestamp: segment.endTimestamp,
-                meeting: segment.meeting,
-                person: person,
+                meeting: segment.transcript.councilMeeting,
+                person: {
+                    ...person,
+                    image: segment.speakerTag.speaker?.image ?? null
+                },
                 text: text,
                 summary: segment.summary ? { text: segment.summary.text } : null
             }];
@@ -699,7 +767,7 @@ export async function updateSpeakerSegmentData(
     segmentId: string,
     data: EditableSpeakerSegmentData,
     cityId: string
-): Promise<SpeakerSegmentWithRelations> {
+): Promise<SpeakerSegmentForTranscript> {
     // Get the current segment to verify ownership and get current state
     const currentSegment = await prisma.speakerSegment.findUnique({
         where: { id: segmentId },
@@ -713,7 +781,7 @@ export async function updateSpeakerSegmentData(
         throw new Error('Speaker segment not found');
     }
 
-    if (currentSegment.cityId !== cityId) {
+    if (currentSegment.workspaceId !== cityId) {
         throw new Error('City ID mismatch');
     }
 
@@ -831,7 +899,7 @@ export async function extractSpeakerSegment(
     segmentId: string,
     startUtteranceId: string,
     endUtteranceId: string
-): Promise<SpeakerSegmentWithRelations[]> {
+): Promise<SpeakerSegmentForTranscript[]> {
     // 1. Verify segment exists
     const originalSegment = await prisma.speakerSegment.findUnique({
         where: { id: segmentId },
@@ -839,7 +907,7 @@ export async function extractSpeakerSegment(
     });
 
     if (!originalSegment) throw new Error('Segment not found');
-    if (originalSegment.cityId !== cityId) throw new Error('City mismatch');
+    if (originalSegment.workspaceId !== cityId) throw new Error('City mismatch');
 
     await withUserAuthorizedToEdit({ cityId });
 
@@ -857,20 +925,20 @@ export async function extractSpeakerSegment(
     const afterUtterances = utterances.slice(endIndex + 1);
 
     return await prisma.$transaction(async (tx) => {
-        const createdSegments: SpeakerSegmentWithRelations[] = [];
+        const createdSegments: SpeakerSegmentForTranscript[] = [];
 
         // Create the new middle segment with extracted utterances
         const middleStart = middleUtterances[0].startTimestamp;
         const middleEnd = middleUtterances[middleUtterances.length - 1].endTimestamp;
 
         const middleTag = await tx.speakerTag.create({
-            data: { label: 'New speaker segment', personId: null }
+            data: { label: 'New speaker segment', speakerId: null }
         });
 
         const middleSegment = await tx.speakerSegment.create({
             data: {
-                cityId,
-                meetingId,
+                workspaceId: cityId,
+                transcriptId: meetingId,
                 speakerTagId: middleTag.id,
                 startTimestamp: middleStart,
                 endTimestamp: middleEnd,
@@ -904,8 +972,8 @@ export async function extractSpeakerSegment(
 
             const afterSegment = await tx.speakerSegment.create({
                 data: {
-                    cityId,
-                    meetingId,
+                    workspaceId: cityId,
+                    transcriptId: meetingId,
                     speakerTagId: originalSegment.speakerTagId, // Same speaker as original
                     startTimestamp: afterStart,
                     endTimestamp: afterEnd

@@ -1,5 +1,4 @@
 'use client'
-import { CouncilMeeting, Subject, Topic } from '@prisma/client';
 import { useRouter, usePathname } from '../../i18n/routing';
 import { Card, CardContent } from "../ui/card";
 import { useLocale, useTranslations } from 'next-intl';
@@ -10,9 +9,9 @@ import { CalendarIcon, Clock, Loader2, ChevronRight } from 'lucide-react';
 import { sortSubjectsByImportance, formatDateTime, getMeetingMediaType, IS_DEV } from '@/lib/utils';
 import SubjectBadge from '../subject-badge';
 import { cn } from '@/lib/utils';
-import { Link } from '@/i18n/routing';
 import { Badge } from '../ui/badge';
 import { motion } from 'framer-motion';
+import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 
 // Helper function for development-only logs
 const logDev = (message: string, data?: any) => {
@@ -22,12 +21,7 @@ const logDev = (message: string, data?: any) => {
 };
 
 interface MeetingCardProps {
-    item: CouncilMeeting & {
-        subjects: (Subject & {
-            topic?: Topic | null,
-            speakerSegments?: any[] // Using any for flexibility with the structure
-        })[]
-    };
+    item: CouncilMeetingWithAdminBodyAndSubjects;
     editable: boolean;
     mostRecent?: boolean;
     cityTimezone?: string;
@@ -100,7 +94,7 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
     const remainingSubjectsCount = meeting.subjects.length - 3;
     const isUpcoming = isFuture(meeting.dateTime);
     const isToday = format(meeting.dateTime, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-    const isTodayWithoutVideo = isToday && !meeting.videoUrl;
+    const isTodayWithoutVideo = isToday && !meeting.transcript?.videoUrl;
 
     const getMediaStatus = () => {
         const meetingMediaType = getMeetingMediaType(meeting);
@@ -178,7 +172,7 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
                                     </span>
                                 </Badge>
                             )}
-                            {!meeting.released && (
+                            {!meeting.transcript?.released && (
                                 <Badge variant="outline" className="shrink-0 w-fit flex items-center gap-1 bg-destructive/5 text-destructive border-destructive/20">
                                     {t('notPublic')}
                                 </Badge>

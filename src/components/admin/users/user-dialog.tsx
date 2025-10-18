@@ -42,11 +42,13 @@ function mapAdministersToEntities(administers: NonNullable<UserDialogProps['user
     const entities: EntityOption[] = []
 
     for (const a of administers) {
-        if (a.city) {
+        // City admin: workspace.city is the new way, cityId is kept for backward compatibility
+        const city = a.workspace?.city;
+        if (city || a.cityId) {
             entities.push({
-                id: a.city.id,
-                name: a.city.name,
-                displayName: a.city.name,
+                id: city?.id || a.cityId!,
+                name: city?.name || `City (${a.cityId})`,
+                displayName: city?.name || `City (${a.cityId})`,
                 type: 'city'
             })
         } else if (a.party?.city) {
@@ -117,7 +119,8 @@ export function UserDialog({ open, onOpenChange, user, onDelete }: UserDialogPro
             name: formData.get("name") as string,
             isSuperAdmin: formData.get("isSuperAdmin") === "on",
             administers: selectedEntities.map(entity => ({
-                [entity.type]: { connect: { id: entity.id } }
+                // Map 'city' type to 'workspace' for the new schema
+                [entity.type === 'city' ? 'workspace' : entity.type]: { connect: { id: entity.id } }
             }))
         }
 

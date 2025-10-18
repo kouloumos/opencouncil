@@ -162,7 +162,7 @@ export default async function CouncilMeetingPage({
                                             {children}
                                         </Suspense>
                                     </div>
-                                    {data.meeting.muxPlaybackId && <TranscriptControls />}
+                                    {data.meeting.transcript?.muxPlaybackId && <TranscriptControls />}
                                 </div>
                             </div>
                         </div>

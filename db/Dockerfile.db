@@ -3,5 +3,11 @@ ARG POSTGIS_IMAGE=postgis/postgis:16-3.5
 # Use the PostGIS image as the base
 FROM ${POSTGIS_IMAGE}
 
+# Install pgvector (needed for historical migrations)
+RUN apt-get update && \
+    apt-get install -y postgresql-16-pgvector && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy initialization scripts
 COPY ./docker-entrypoint-initdb.d/ /docker-entrypoint-initdb.d/

@@ -67,7 +67,7 @@ export function ExpandableMeetingRow({
                         <strong>Date & Time:</strong> {format(new Date(meeting.dateTime), "PPpp")}
                     </div>
                     <div>
-                        <strong>Status:</strong> {meeting.released ? 'Published' : 'Draft'}
+                        <strong>Status:</strong> {meeting.transcript?.released ? 'Published' : 'Draft'}
                     </div>
                     {meeting.administrativeBody && (
                         <div>
@@ -164,7 +164,7 @@ export function ExpandableMeetingRow({
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="font-medium text-foreground truncate">{meeting.name}</span>
-                        {!meeting.released && (
+                        {!meeting.transcript?.released && (
                             <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 Draft
                             </Badge>

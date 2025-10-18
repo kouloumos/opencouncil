@@ -273,21 +273,21 @@ describe('joinTranscriptSegments', () => {
   it('should join adjacent segments with the same speaker', () => {
     const segments = [
       {
-        speakerTag: { personId: '1' },
+        speakerTag: { speakerId: '1' },
         startTimestamp: 0,
         endTimestamp: 10,
         utterances: [{ id: '1' }],
         topicLabels: [{ id: 'topic1' }]
       },
       {
-        speakerTag: { personId: '1' },
+        speakerTag: { speakerId: '1' },
         startTimestamp: 10,
         endTimestamp: 20,
         utterances: [{ id: '2' }],
         topicLabels: [{ id: 'topic2' }]
       },
       {
-        speakerTag: { personId: '2' },
+        speakerTag: { speakerId: '2' },
         startTimestamp: 20,
         endTimestamp: 30,
         utterances: [{ id: '3' }],
@@ -298,13 +298,13 @@ describe('joinTranscriptSegments', () => {
     const joined = joinTranscriptSegments(segments as any);
 
     expect(joined).toHaveLength(2);
-    expect(joined[0].speakerTag.personId).toBe('1');
+    expect(joined[0].speakerTag.speakerId).toBe('1');
     expect(joined[0].startTimestamp).toBe(0);
     expect(joined[0].endTimestamp).toBe(20);
     expect(joined[0].utterances).toHaveLength(2);
     expect(joined[0].topicLabels).toHaveLength(2);
 
-    expect(joined[1].speakerTag.personId).toBe('2');
+    expect(joined[1].speakerTag.speakerId).toBe('2');
   });
 
   it('should handle empty segments array', () => {
@@ -314,14 +314,14 @@ describe('joinTranscriptSegments', () => {
   it('should not join segments with non-sequential timestamps', () => {
     const segments = [
       {
-        speakerTag: { personId: '1' },
+        speakerTag: { speakerId: '1' },
         startTimestamp: 0,
         endTimestamp: 10,
         utterances: [{ id: '1' }],
         topicLabels: [{ id: 'topic1' }]
       },
       {
-        speakerTag: { personId: '1' },
+        speakerTag: { speakerId: '1' },
         startTimestamp: -1, // Out of order
         endTimestamp: 5,
         utterances: [{ id: '2' }],

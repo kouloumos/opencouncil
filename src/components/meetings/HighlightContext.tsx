@@ -111,8 +111,8 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
         const utterance = utteranceMap.get(hu.utteranceId);
         if (utterance) {
           const segment = transcript.find(s => s.id === utterance.speakerSegmentId);
-          const speakerTag = segment ? getSpeakerTag(segment.speakerTagId) : null;
-          const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+          const speakerTag = segment?.speakerTagId ? getSpeakerTag(segment.speakerTagId) : null;
+          const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : undefined;
           const speakerName = person ? person.name_short : speakerTag?.label || 'Unknown';
           
           utterances.push({

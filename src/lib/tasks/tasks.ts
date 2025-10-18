@@ -11,12 +11,17 @@ import { revalidateTag } from 'next/cache';
 import { taskHandlers } from './registry';
 
 const taskStatusWithMeetingInclude = {
-    councilMeeting: {
+    transcript: {
         select: {
-            name_en: true,
-            city: {
+            name: true,
+            councilMeeting: {
                 select: {
-                    name_en: true
+                    name_en: true,
+                    city: {
+                        select: {
+                            name_en: true
+                        }
+                    }
                 }
             }
         }
@@ -27,15 +32,15 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
     // Check for existing running task
     const existingTask = await prisma.taskStatus.findFirst({
         where: {
-            councilMeetingId,
-            cityId,
+            transcriptId: councilMeetingId,
+            workspaceId: cityId,
             type: taskType,
             status: { notIn: ['failed', 'succeeded'] }
         }
     });
 
     if (existingTask && !options.force) {
-        //throw new Error('A task of this type is already running for this council meeting');
+        throw new Error(`A task of type ${taskType} is already running for this transcript`);
     }
 
     // Create new task in database
@@ -44,7 +49,11 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
             type: taskType,
             status: 'pending',
             requestBody: JSON.stringify(requestBody),
-            councilMeeting: { connect: { cityId_id: { cityId, id: councilMeetingId } } }
+            transcript: { 
+                connect: { 
+                    workspaceId_id: { workspaceId: cityId, id: councilMeetingId } 
+                } 
+            }
         },
         include: taskStatusWithMeetingInclude
     });
@@ -73,7 +82,6 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
         error = err;
         console.error('Error starting task:', error);
     }
-
 
     if (error || !response || !response.ok) {
         // Update task status to failed if API call fails
@@ -105,11 +113,11 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
         data: { requestBody: JSON.stringify(fullRequestBody) }
     });
 
-    // Send Discord admin alert
+    // Council-specific: Send Discord admin alert
     sendTaskStartedAdminAlert({
         taskType: taskType,
-        cityName: newTask.councilMeeting.city.name_en,
-        meetingName: newTask.councilMeeting.name_en,
+        cityName: newTask.transcript.councilMeeting?.city.name_en || 'Unknown',
+        meetingName: newTask.transcript.councilMeeting?.name_en || newTask.transcript.name,
         taskId: newTask.id,
         cityId: cityId,
         meetingId: councilMeetingId,
@@ -143,17 +151,17 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
                 // Send Discord admin alert for successful completion AFTER processing succeeds
                 sendTaskCompletedAdminAlert({
                     taskType: task.type,
-                    cityName: task.councilMeeting.city.name_en,
-                    meetingName: task.councilMeeting.name_en,
+                    cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                    meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
                     taskId: task.id,
-                    cityId: task.cityId,
-                    meetingId: task.councilMeetingId,
+                    cityId: task.workspaceId,
+                    meetingId: task.transcriptId,
                 });
                 
                 // Revalidate cache only for successful tasks that affect meeting data
-                if (updatedTask.cityId && shouldRevalidateForTaskType(updatedTask.type as MeetingTaskType)) {
+                if (updatedTask.workspaceId && shouldRevalidateForTaskType(updatedTask.type as MeetingTaskType)) {
                     try {
-                        revalidateTag(`city:${updatedTask.cityId}:meetings`);
+                        revalidateTag(`city:${updatedTask.workspaceId}:meetings`);
                     } catch (revalidateError) {
                         console.error(`Error revalidating cache for task ${taskId}:`, revalidateError);
                     }
@@ -168,11 +176,11 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
                 // Send Discord admin alert for processing failure
                 sendTaskFailedAdminAlert({
                     taskType: task.type,
-                    cityName: task.councilMeeting.city.name_en,
-                    meetingName: task.councilMeeting.name_en,
+                    cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                    meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
                     taskId: task.id,
-                    cityId: task.cityId,
-                    meetingId: task.councilMeetingId,
+                    cityId: task.workspaceId,
+                    meetingId: task.transcriptId,
                     error: (error as Error).message,
                 });
             }
@@ -182,11 +190,11 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
             // Task succeeded but has no result to process - still send completion admin alert
             sendTaskCompletedAdminAlert({
                 taskType: task.type,
-                cityName: task.councilMeeting.city.name_en,
-                meetingName: task.councilMeeting.name_en,
+                cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
                 taskId: task.id,
-                cityId: task.cityId,
-                meetingId: task.councilMeetingId,
+                cityId: task.workspaceId,
+                meetingId: task.transcriptId,
             });
         }
     } else if (update.status === 'error') {
@@ -198,11 +206,11 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
         // Send Discord admin alert for task failure
         sendTaskFailedAdminAlert({
             taskType: task.type,
-            cityName: task.councilMeeting.city.name_en,
-            meetingName: task.councilMeeting.name_en,
+            cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+            meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
             taskId: task.id,
-            cityId: task.cityId,
-            meetingId: task.councilMeetingId,
+            cityId: task.workspaceId,
+            meetingId: task.transcriptId,
             error: update.error,
         });
     } else if (update.status === 'processing') {
@@ -268,11 +276,21 @@ export const getHighestVersionsForTasks = async (taskTypes: MeetingTaskType[]): 
 
 export const getTaskVersionsForMeetings = async (taskTypes: MeetingTaskType[]): Promise<Record<string, any>[]> => {
     await withUserAuthorizedToEdit({});
-    // Get all meetings
-    const meetings = await prisma.councilMeeting.findMany({
+    // Get all meetings via transcripts
+    const transcripts = await prisma.transcript.findMany({
         select: {
             id: true,
-            cityId: true,
+            workspaceId: true,
+            councilMeeting: {
+                select: {
+                    cityId: true,
+                    city: {
+                        select: {
+                            status: true
+                        }
+                    }
+                }
+            },
             taskStatuses: {
                 where: {
                     type: {
@@ -290,22 +308,24 @@ export const getTaskVersionsForMeetings = async (taskTypes: MeetingTaskType[]): 
             }
         },
         where: {
-            city: {
-                status: { not: 'pending' }
+            councilMeeting: {
+                city: {
+                    status: { not: 'pending' }
+                }
             }
         }
     });
 
     // Transform into desired format
-    return meetings.map(meeting => {
+    return transcripts.map(transcript => {
         const result: Record<string, any> = {
-            cityId: meeting.cityId,
-            meetingId: meeting.id
+            cityId: transcript.councilMeeting?.cityId || transcript.workspaceId,
+            meetingId: transcript.id
         };
 
         // Add version for each task type
         taskTypes.forEach(taskType => {
-            const taskStatus = meeting.taskStatuses.find(t => t.type === taskType);
+            const taskStatus = transcript.taskStatuses.find(t => t.type === taskType);
             result[taskType] = taskStatus?.version ?? null;
         });
 

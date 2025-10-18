@@ -10,7 +10,12 @@ const partyWithRolesInclude = {
         include: {
             person: {
                 include: {
-                    roles: roleWithRelationsInclude
+                    roles: roleWithRelationsInclude,
+                    speaker: {
+                        select: {
+                            image: true
+                        }
+                    }
                 }
             }
         }
@@ -20,6 +25,7 @@ const partyWithRolesInclude = {
 type PartyWithRoles = Prisma.PartyGetPayload<{ include: typeof partyWithRolesInclude }>;
 export type PersonWithRoles = PartyWithRoles['roles'][number]['person'] & {
     roles: RoleWithRelations[];
+    image: string | null;
 };
 
 export async function deleteParty(id: string): Promise<void> {
@@ -76,7 +82,10 @@ function normalizePartyPeople(party: PartyWithRoles): PartyWithPersons {
     const peopleMap = new Map<string, PersonWithRoles>();
     party.roles.forEach(role => {
         if (!peopleMap.has(role.person.id)) {
-            peopleMap.set(role.person.id, role.person);
+            peopleMap.set(role.person.id, {
+                ...role.person,
+                image: role.person.speaker?.image || null
+            });
         }
     });
     

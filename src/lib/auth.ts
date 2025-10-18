@@ -2,22 +2,16 @@
 import { type City, type Party, type Person, type CouncilMeeting, type User } from "@prisma/client";
 import { auth } from "@/auth";
 import prisma from "@/lib/db/prisma";
+import { type UserWithAdministers } from "@/lib/db/users";
+import { userWithAdministersInclude } from "@/lib/db/includes";
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<UserWithAdministers | null> {
     const session = await auth();
     if (!session?.user?.email) return null;
 
     return prisma.user.findUnique({
         where: { email: session.user.email },
-        include: {
-            administers: {
-                include: {
-                    city: true,
-                    party: true,
-                    person: true
-                }
-            }
-        }
+        include: userWithAdministersInclude
     });
 }
 
@@ -25,25 +19,28 @@ async function checkUserAuthorization({
     cityId,
     partyId,
     personId,
-    councilMeetingId
+    councilMeetingId,
+    workspaceId
 }: {
     cityId?: City["id"],
     partyId?: Party["id"],
     personId?: Person["id"],
-    councilMeetingId?: CouncilMeeting["id"]
+    councilMeetingId?: CouncilMeeting["id"],
+    workspaceId?: string
 }) {
     // Count defined parameters, but allow cityId + councilMeetingId combination
     const definedParams = [partyId, personId].filter(Boolean);
     const hasCityId = Boolean(cityId);
     const hasCouncilMeetingId = Boolean(councilMeetingId);
-
+    const hasWorkspaceId = Boolean(workspaceId);
+    
     // Validate parameter combinations
     if (definedParams.length > 1) {
         throw new Error("Only one of partyId or personId should be defined");
     }
-
-    if (definedParams.length > 0 && (hasCityId || hasCouncilMeetingId)) {
-        throw new Error("cityId/councilMeetingId cannot be combined with partyId or personId");
+    
+    if (definedParams.length > 0 && (hasCityId || hasCouncilMeetingId || hasWorkspaceId)) {
+        throw new Error("cityId/councilMeetingId/workspaceId cannot be combined with partyId or personId");
     }
 
     if (hasCouncilMeetingId && !hasCityId) {
@@ -56,7 +53,7 @@ async function checkUserAuthorization({
     // Superadmins can edit everything
     if (user.isSuperAdmin) return true;
 
-    if (!cityId && !partyId && !personId && !councilMeetingId) {
+    if (!cityId && !partyId && !personId && !councilMeetingId && !workspaceId) {
         return false; // Only superadmins can edit anything
     }
 
@@ -80,6 +77,7 @@ async function checkUserAuthorization({
     // Check direct administration rights
     const hasDirectAccess = user.administers.some(a =>
         (cityId && a.cityId === cityId) ||
+        (workspaceId && a.workspaceId === workspaceId) ||
         (partyId && a.partyId === partyId) ||
         (personId && a.personId === personId)
     );
@@ -95,7 +93,8 @@ async function checkUserAuthorization({
 
         if (entity?.cityId) {
             // If user administers the city, they can edit everything in it
-            const hasAccess = user.administers.some(a => a.cityId === entity.cityId);
+            // Check both workspaceId (new) and cityId (old) for backward compatibility
+            const hasAccess = user.administers.some(a => a.workspaceId === entity.cityId || a.cityId === entity.cityId);
             if (hasAccess) return true;
         }
     }
@@ -107,18 +106,21 @@ export async function withUserAuthorizedToEdit({
     cityId,
     partyId,
     personId,
-    councilMeetingId
+    councilMeetingId,
+    workspaceId
 }: {
     cityId?: City["id"],
     partyId?: Party["id"],
     personId?: Person["id"],
-    councilMeetingId?: CouncilMeeting["id"]
+    councilMeetingId?: CouncilMeeting["id"],
+    workspaceId?: string
 }) {
     const isAuthorized = await checkUserAuthorization({
         cityId,
         partyId,
         personId,
-        councilMeetingId
+        councilMeetingId,
+        workspaceId
     });
 
     if (!isAuthorized) {
@@ -132,18 +134,21 @@ export async function isUserAuthorizedToEdit({
     cityId,
     partyId,
     personId,
-    councilMeetingId
+    councilMeetingId,
+    workspaceId
 }: {
     cityId?: City["id"],
     partyId?: Party["id"],
     personId?: Person["id"],
-    councilMeetingId?: CouncilMeeting["id"]
+    councilMeetingId?: CouncilMeeting["id"],
+    workspaceId?: string
 }) {
     return checkUserAuthorization({
         cityId,
         partyId,
         personId,
-        councilMeetingId
+        councilMeetingId,
+        workspaceId
     });
 }
 

@@ -15,7 +15,18 @@ export async function requestGenerateHighlight(
     const highlight = await prisma.highlight.findUnique({
         where: { id: highlightId },
         include: {
-            meeting: true,
+            meeting: {
+                include: {
+                    transcript: {
+                        select: {
+                            videoUrl: true,
+                            audioUrl: true,
+                            muxPlaybackId: true,
+                            released: true
+                        }
+                    }
+                }
+            },
             highlightedUtterances: {
                 orderBy: {
                     utterance: {
@@ -29,13 +40,17 @@ export async function requestGenerateHighlight(
                                 include: {
                                     speakerTag: {
                                         include: {
-                                                                                person: {
-                                        include: {
-                                            roles: {
-                                                include: { party: true },
+                                            speaker: {
+                                                include: {
+                                                    person: {
+                                                        include: {
+                                                            roles: {
+                                                                include: { party: true },
+                                                            },
+                                                        },
+                                                    },
+                                                },
                                             },
-                                        },
-                                    },
                                         },
                                     },
                                 },
@@ -53,14 +68,14 @@ export async function requestGenerateHighlight(
 
     await withUserAuthorizedToEdit({ cityId: highlight.cityId, councilMeetingId: highlight.meetingId });
 
-    if (!highlight.meeting.videoUrl) {
+    if (!highlight.meeting.transcript?.videoUrl) {
         throw new Error('Meeting media not found: videoUrl is required');
     }
 
     const utterances = highlight.highlightedUtterances.map(hu => {
         const u = hu.utterance;
         const speakerTag = u.speakerSegment.speakerTag;
-        const person = speakerTag.person;
+        const person = speakerTag.speaker?.person;
         
         let partyColorHex: string | undefined;
         let partyLabel: string | undefined;
@@ -103,7 +118,7 @@ export async function requestGenerateHighlight(
     const requestBody: Omit<GenerateHighlightRequest, 'callbackUrl'> = {
         media: {
             type: 'video',
-            videoUrl: highlight.meeting.videoUrl,
+            videoUrl: highlight.meeting.transcript.videoUrl,
         },
         parts: [
             {

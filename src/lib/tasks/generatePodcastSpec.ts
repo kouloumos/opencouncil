@@ -18,7 +18,17 @@ export async function requestGeneratePodcastSpec(cityId: string, councilMeetingI
 
     const meeting = await prisma.councilMeeting.findUnique({
         where: { cityId_id: { cityId, id: councilMeetingId } },
-        include: { subjects: true }
+        include: {
+            subjects: true,
+            transcript: {
+                select: {
+                    audioUrl: true,
+                    videoUrl: true,
+                    muxPlaybackId: true,
+                    released: true
+                }
+            }
+        }
     });
 
     if (!meeting) {
@@ -50,7 +60,7 @@ export async function requestGeneratePodcastSpec(cityId: string, councilMeetingI
         };
     }));
 
-    if (!meeting.audioUrl) {
+    if (!meeting.transcript?.audioUrl) {
         throw new Error('Meeting audio URL not found');
     }
 
@@ -63,7 +73,7 @@ export async function requestGeneratePodcastSpec(cityId: string, councilMeetingI
                 : 'full',
             allocatedMinutes: typeof subject.allocatedMinutes === 'number' ? subject.allocatedMinutes : 0
         })),
-        audioUrl: meeting.audioUrl,
+        audioUrl: meeting.transcript.audioUrl,
         additionalInstructions: additionalInstructions
     };
 
@@ -75,14 +85,24 @@ export async function requestGeneratePodcastSpec(cityId: string, councilMeetingI
 export async function handleGeneratePodcastSpecResult(taskId: string, response: any) {
     const task = await prisma.taskStatus.findUnique({
         where: { id: taskId },
-        include: { councilMeeting: true }
+        include: {
+            transcript: {
+                include: {
+                    councilMeeting: true
+                }
+            }
+        }
     });
 
     if (!task) {
         throw new Error('Task not found');
     }
 
-    const { councilMeeting } = task;
+    if (!task.transcript?.councilMeeting) {
+        throw new Error('Task is not associated with a council meeting');
+    }
+
+    const councilMeeting = task.transcript.councilMeeting;
 
     // Validate the response
     if (!Array.isArray(response.parts)) {

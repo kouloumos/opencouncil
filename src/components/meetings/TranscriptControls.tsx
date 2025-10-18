@@ -76,7 +76,7 @@ export default function TranscriptControls({ className }: { className?: string }
         for (const segment of speakerSegments) {
             if (time >= segment.startTimestamp && time <= segment.endTimestamp) {
                 const speakerTag = getSpeakerTag(segment.speakerTagId);
-                const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+                const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : undefined;
                 const party = person?.roles?.find(role => role.party)?.party;
                 let speakerColor = party?.colorHex || '#D3D3D3';
                 let speakerName = person ? person.name_short : speakerTag?.label || 'Unknown';
@@ -141,7 +141,7 @@ export default function TranscriptControls({ className }: { className?: string }
         for (const segment of speakerSegments) {
             if (currentTime >= segment.startTimestamp && currentTime <= segment.endTimestamp) {
                 const speakerTag = getSpeakerTag(segment.speakerTagId);
-                const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+                const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : undefined;
                 const party = person?.roles?.find(role => role.party)?.party;
                 let speakerColor = party?.colorHex || '#D3D3D3';
                 let speakerName = person ? person.name_short : speakerTag?.label || 'Unknown';
@@ -275,7 +275,7 @@ export default function TranscriptControls({ className }: { className?: string }
                     {/* Speaker Segments - Base Layer */}
                     {speakerSegments.map((segment, index) => {
                         const speakerTag = getSpeakerTag(segment.speakerTagId);
-                        const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+                        const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : undefined;
                         const party = person?.roles?.find(role => role.party)?.party;
                         let speakerColor = party?.colorHex || '#D3D3D3';
                         let speakerName = person ? person.name_short : speakerTag?.label;

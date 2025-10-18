@@ -18,8 +18,8 @@ export async function markHumanReviewComplete(cityId: string, meetingId: string,
     // If one already exists, return it
     const existing = await prisma.taskStatus.findFirst({
         where: { 
-            cityId, 
-            councilMeetingId: meetingId, 
+            workspaceId: cityId,
+            transcriptId: meetingId, 
             type: 'humanReview', 
             status: 'succeeded' 
         },
@@ -50,7 +50,7 @@ export async function markHumanReviewComplete(cityId: string, meetingId: string,
                 triggeredBy: 'user',
                 ...(manualReviewTime && { manualReviewTime })
             }),
-            councilMeeting: { connect: { cityId_id: { cityId, id: meetingId } } }
+            transcript: { connect: { workspaceId_id: { workspaceId: cityId, id: meetingId } } }
         }
     });
 

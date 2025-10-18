@@ -125,7 +125,7 @@ export default function Subjects() {
                                         })
                                         .map(segment => {
                                             const speakerTag = getSpeakerTag(segment.speakerSegment.speakerTagId);
-                                            const person = speakerTag?.personId ? getPerson(speakerTag.personId) : null;
+                                            const person = speakerTag?.speakerId ? getPerson(speakerTag.speakerId) : null;
                                             const segmentTimestamp = transcript.find(s => s.id === segment.speakerSegment.id)?.startTimestamp;
                                             return (
                                                 <li key={segment.id} className="text-sm">

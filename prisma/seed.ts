@@ -63,7 +63,7 @@ async function createTestUsers() {
           // Super admin needs no additional permissions
           break
         case 'city':
-          administers = [{ cityId: testCity.id }]
+          administers = [{ workspaceId: testCity.id }] // Use workspaceId instead of cityId
           break
         case 'party':
           if (testParty) {
@@ -166,7 +166,7 @@ async function seedVoicePrints(persons: any[]) {
         createdAt: voicePrint.createdAt,
         updatedAt: voicePrint.updatedAt,
         sourceSegmentId: voicePrint.sourceSegmentId,
-        personId: person.id,
+        speakerId: person.id, // Person ID is same as Speaker ID due to explicit FK
       }))
     )
 
@@ -260,6 +260,9 @@ async function main() {
 
     // First, seed core entities that don't depend on others
     await seedTopics(seedData.topics)
+    
+    // IMPORTANT: Seed Workspaces BEFORE Cities (City has FK to Workspace)
+    await seedWorkspaces(seedData.cities)
     await seedCities(seedData.cities)
 
     // Then seed entities with foreign key dependencies
@@ -366,6 +369,23 @@ async function seedCities(cities: any[]) {
 }
 
 /**
+ * Seed workspaces (generic layer for cities)
+ */
+async function seedWorkspaces(cities: any[]) {
+  console.log(`Seeding ${cities.length} workspaces...`)
+
+  const workspaceData = cities.map(city => ({
+    id: city.id, // Workspace ID matches City ID for the explicit FK
+    name: city.name,
+  }))
+
+  await prisma.workspace.createMany({
+    data: workspaceData,
+    skipDuplicates: true,
+  })
+}
+
+/**
  * Seed administrative bodies
  */
 async function seedAdministrativeBodies(bodies: any[]) {
@@ -414,14 +434,26 @@ async function seedParties(parties: any[]) {
 async function seedPersons(persons: any[]) {
   console.log(`Seeding ${persons.length} persons...`)
 
-  // Prepare person data without relations
+  // First create Speakers (generic layer)
+  const speakerData = persons.map(person => ({
+    id: person.id, // Speaker ID matches Person ID for explicit FK
+    workspaceId: person.cityId,
+    name: person.name,
+    image: person.image,
+  }))
+
+  await prisma.speaker.createMany({
+    data: speakerData,
+    skipDuplicates: true,
+  })
+
+  // Then create Persons (council-specific layer)
   const personData = persons.map(person => ({
-    id: person.id,
+    id: person.id, // Person ID matches Speaker ID for explicit FK
     name: person.name,
     name_en: person.name_en,
     name_short: person.name_short,
     name_short_en: person.name_short_en,
-    image: person.image,
     activeFrom: person.activeFrom,
     activeTo: person.activeTo,
     profileUrl: person.profileUrl,
@@ -460,7 +492,7 @@ async function seedPersons(persons: any[]) {
       person.speakerTags.map((tag: any) => ({
         id: tag.id,
         label: tag.label,
-        personId: person.id,
+        speakerId: person.id, // Speaker ID is same as Person ID
       }))
     )
 
@@ -489,18 +521,35 @@ async function seedPersons(persons: any[]) {
 async function seedMeetings(meetings: any[]) {
   console.log(`Seeding ${meetings.length} meetings...`)
 
-  // Prepare meeting data for batch creation
+  // First create Transcripts (generic layer)
+  const transcriptData = meetings.map(meeting => ({
+    id: meeting.id, // Transcript ID matches CouncilMeeting ID for explicit FK
+    workspaceId: meeting.cityId,
+    name: meeting.name,
+    videoUrl: meeting.videoUrl,
+    audioUrl: meeting.audioUrl,
+    muxPlaybackId: meeting.muxPlaybackId,
+    released: meeting.released || false,
+  }))
+
+  try {
+    await prisma.transcript.createMany({
+      data: transcriptData,
+      skipDuplicates: true,
+    })
+  } catch (error) {
+    console.error('Error creating transcripts:', error)
+    return // If we can't create transcripts, no point in continuing
+  }
+
+  // Then create CouncilMeetings (council-specific layer)
   const meetingData = meetings.map(meeting => ({
-    id: meeting.id,
+    id: meeting.id, // CouncilMeeting ID matches Transcript ID for explicit FK
     name: meeting.name,
     name_en: meeting.name_en,
     dateTime: new Date(meeting.dateTime),
     youtubeUrl: meeting.youtubeUrl,
     agendaUrl: meeting.agendaUrl,
-    videoUrl: meeting.videoUrl,
-    audioUrl: meeting.audioUrl,
-    muxPlaybackId: meeting.muxPlaybackId,
-    released: meeting.released || false,
     cityId: meeting.cityId,
     administrativeBodyId: meeting.administrativeBodyId,
   }))
@@ -529,8 +578,8 @@ async function seedMeetings(meetings: any[]) {
         requestBody: status.requestBody,
         responseBody: status.responseBody,
         version: status.version,
-        councilMeetingId: meeting.id,
-        cityId: meeting.cityId,
+        transcriptId: meeting.id, // Reference Transcript instead of CouncilMeeting
+        workspaceId: meeting.cityId, // Use workspaceId instead of cityId
       }))
     )
 
@@ -670,7 +719,7 @@ async function seedSpeakerSegments(segments: any[], meeting: any) {
     .map(segment => ({
       id: segment.speakerTag.id,
       label: segment.speakerTag.label || null,
-      personId: segment.speakerTag.personId || null,
+      speakerId: segment.speakerTag.personId || null, // personId in old data maps to speakerId
     }));
 
   if (speakerTagsToCreate.length > 0) {
@@ -705,8 +754,8 @@ async function seedSpeakerSegments(segments: any[], meeting: any) {
     id: segment.id,
     startTimestamp: segment.startTimestamp,
     endTimestamp: segment.endTimestamp,
-    meetingId: meeting.id,
-    cityId: meeting.cityId,
+    transcriptId: meeting.id, // Reference Transcript instead of meeting
+    workspaceId: meeting.cityId, // Use workspaceId instead of cityId
     speakerTagId: segment.speakerTagId || segment.speakerTag.id,
   }))
 

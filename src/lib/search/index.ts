@@ -106,22 +106,30 @@ export async function search(request: SearchRequest): Promise<SearchResponse> {
                     include: {
                         speakerSegment: {
                             include: {
-                                meeting: {
+                                transcript: {
                                     include: {
-                                        city: true
+                                        councilMeeting: {
+                                            include: {
+                                                city: true
+                                            }
+                                        }
                                     }
                                 },
                                 speakerTag: {
                                     include: {
-                                        person: {
+                                        speaker: {
                                             include: {
-                                                roles: {
+                                                person: {
                                                     include: {
-                                                        party: true,
-                                                        city: true,
-                                                        administrativeBody: true
+                                                        roles: {
+                                                            include: {
+                                                                party: true,
+                                                                city: true,
+                                                                administrativeBody: true
+                                                            }
+                                                        }
                                                     }
-                                                }
+                                                },
                                             }
                                         }
                                     }
@@ -147,7 +155,8 @@ export async function search(request: SearchRequest): Promise<SearchResponse> {
                                 city: true,
                                 administrativeBody: true
                             }
-                        }
+                        },
+                        speaker: true
                     }
                 },
                 highlights: true
@@ -208,9 +217,16 @@ export async function search(request: SearchRequest): Promise<SearchResponse> {
                     .map((innerHit: { _source?: { segment_id?: string } }) => innerHit._source?.segment_id)
                     .filter((id: string | undefined): id is string => id !== undefined);
 
+                // Flatten introducedBy person data
+                const introducedBy = subject.introducedBy ? {
+                    ...subject.introducedBy,
+                    image: subject.introducedBy.speaker?.image ?? null,
+                } : null;
+
                 // Base result with common fields
                 const baseResult: SearchResultLight = {
                     ...subject,
+                    introducedBy,
                     location: locationWithCoordinates,
                     score: hit._score || 0,
                     matchedSpeakerSegmentIds,
@@ -223,16 +239,19 @@ export async function search(request: SearchRequest): Promise<SearchResponse> {
                         .map(ss => ss.speakerSegment)
                         .filter(segment => {
                             const text = segment.utterances.map(u => u.text).join(' ');
-                            const hasPerson = segment.speakerTag?.person != null;
-                            const hasRoles = Array.isArray(segment.speakerTag?.person?.roles);
-                            return text.length >= 100 && hasPerson && hasRoles;
+                            const hasPerson = segment.speakerTag.speaker?.person != null;
+                            const hasRoles = Array.isArray(segment.speakerTag.speaker?.person?.roles);
+                            return text.length >= 100 && hasPerson && hasRoles && segment.transcript?.councilMeeting;
                         })
                         .map(segment => ({
                             id: segment.id,
                             startTimestamp: segment.startTimestamp,
                             endTimestamp: segment.endTimestamp,
-                            meeting: segment.meeting,
-                            person: segment.speakerTag?.person || null,
+                            meeting: segment.transcript!.councilMeeting!,
+                            person: segment.speakerTag.speaker?.person ? {
+                                ...segment.speakerTag.speaker.person,
+                                image: segment.speakerTag.speaker.image ?? null,
+                            } : null,
                             text: segment.utterances.map(u => u.text).join(' '),
                             summary: segment.summary ? { text: segment.summary.text } : null
                         }));

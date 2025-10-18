@@ -37,7 +37,7 @@ export default function Summary() {
     }, [parties]);
 
     const filteredTranscript = transcript.filter(segment => {
-        const person = segment.speakerTag.personId ? getPerson(segment.speakerTag.personId) : null;
+        const person = segment.speakerTag.speakerId ? getPerson(segment.speakerTag.speakerId) : null;
         const party = person ? getPartyFromRoles(person.roles) : null;
         const segmentTopics = segment.topicLabels.map(tl => tl.topic.name);
 
@@ -71,7 +71,7 @@ export default function Summary() {
             <div>
                 {filteredTranscript.map((segment) => {
                     if (!segment.summary) return null;
-                    const person = segment.speakerTag.personId ? getPerson(segment.speakerTag.personId) : null;
+                    const person = segment.speakerTag.speakerId ? getPerson(segment.speakerTag.speakerId) : null;
                     const party = person ? getPartyFromRoles(person.roles) : null;
                     const color = party ? party.colorHex : 'gray';
                     const startTime = segment.startTimestamp;

@@ -7,8 +7,24 @@ export type CityWithGeometry = City & {
     geometry?: GeoJSON.Geometry;
 };
 
+// Include for council meetings with transcript data
+const councilMeetingWithTranscriptInclude = {
+    transcript: {
+        select: {
+            audioUrl: true,
+            videoUrl: true,
+            muxPlaybackId: true,
+            released: true
+        }
+    }
+} satisfies Prisma.CouncilMeetingInclude;
+
+export type CouncilMeetingWithTranscript = Prisma.CouncilMeetingGetPayload<{
+    include: typeof councilMeetingWithTranscriptInclude
+}>;
+
 export type CityWithCouncilMeeting = City & {
-    councilMeetings: CouncilMeeting[];
+    councilMeetings: CouncilMeetingWithTranscript[];
 };
 
 type CityCounts = {
@@ -32,7 +48,9 @@ const CITY_COUNT_SELECT = {
         parties: true,
         councilMeetings: {
             where: {
-                released: true
+                transcript: {
+                    released: true
+                }
             }
         }
     }
@@ -105,7 +123,9 @@ export async function getFullCity(cityId: string) {
         include: {
             councilMeetings: {
                 where: {
-                    released: canEdit ? undefined : true
+                    transcript: {
+                        released: canEdit ? undefined : true
+                    }
                 },
                 include: {
                     subjects: {
@@ -129,13 +149,25 @@ export async function getFullCity(cityId: string) {
                             }
                         }
                     },
-                    administrativeBody: true
+                    administrativeBody: true,
+                    transcript: {
+                        select: {
+                            audioUrl: true,
+                            videoUrl: true,
+                            muxPlaybackId: true,
+                            released: true
+                        }
+                    }
                 }
             },
             parties: true,
             persons: {
                 include: {
-                    speakerTags: true,
+                    speaker: {
+                        include: {
+                            speakerTags: true
+                        }
+                    },
                     roles: {
                         include: {
                             party: true,
@@ -145,9 +177,13 @@ export async function getFullCity(cityId: string) {
                     }
                 }
             },
-            administrators: {
+            workspace: {
                 include: {
-                    user: true
+                    administrators: {
+                        include: {
+                            user: true
+                        }
+                    }
                 }
             }
         }
@@ -208,9 +244,10 @@ export async function getCities({ includeUnlisted = false, includePending = fals
 
     if (includeUnlisted && !currentUser?.isSuperAdmin) {
         // Authenticated user mode: show listed cities + cities they can administer
+        // Check both workspaceId (new) and cityId (old) for backward compatibility
         const administerableCityIds = currentUser?.administers
-            .filter(a => a.cityId)
-            .map(a => a.cityId) || [];
+            .filter(a => a.workspaceId || a.cityId)
+            .map(a => a.workspaceId || a.cityId) || [];
 
         whereClause = {
             ...whereClause,
@@ -259,7 +296,9 @@ export async function getCitiesWithCouncilMeetings({ includeUnlisted = false, in
         const cities = await prisma.city.findMany({
             where: statusFilter ? { status: statusFilter } : {},
             include: {
-                councilMeetings: true
+                councilMeetings: {
+                    include: councilMeetingWithTranscriptInclude
+                }
             },
             orderBy: CITY_ORDER_BY
         });

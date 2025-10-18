@@ -60,7 +60,7 @@ export default function SpeakerSegmentMetadataDialog({
             hasText: totalWordCount > 0,
             hasSummary: Boolean(segment.summary),
             hasTopicLabels: segment.topicLabels.length > 0,
-            speakerAssigned: Boolean(segment.speakerTag.personId)
+            speakerAssigned: Boolean(segment.speakerTag.speakerId)
         };
     }, [segment]);
 
@@ -73,8 +73,8 @@ export default function SpeakerSegmentMetadataDialog({
         endTimestamp_formatted: formatTimestampWithMs(segment.endTimestamp),
         createdAt: segment.createdAt,
         updatedAt: segment.updatedAt,
-        meetingId: segment.meetingId,
-        cityId: segment.cityId,
+        transcriptId: segment.transcriptId,
+        workspaceId: segment.workspaceId,
         speakerTagId: segment.speakerTagId,
         speakerTag: segment.speakerTag,
         utterances: segment.utterances.map(utterance => ({
@@ -100,7 +100,7 @@ export default function SpeakerSegmentMetadataDialog({
         },
         {
             label: 'Speaker',
-            value: segment.speakerTag.personId ? 'Assigned Speaker' : 'Unassigned',
+            value: segment.speakerTag.speakerId ? 'Assigned Speaker' : 'Unassigned',
             icon: <User className="h-3 w-3" />
         }
     ]), [segment]);
@@ -181,7 +181,7 @@ export default function SpeakerSegmentMetadataDialog({
                         </span>
                         <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {segment.speakerTag.personId ? 'Assigned Speaker' : 'Unassigned'}
+                            {segment.speakerTag.speakerId ? 'Assigned Speaker' : 'Unassigned'}
                         </span>
                         <Badge variant="secondary" className="flex items-center gap-1">
                             <Edit className="h-3 w-3" />

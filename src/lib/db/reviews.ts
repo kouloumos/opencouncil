@@ -21,14 +21,14 @@ type MeetingId = {
 const whereClause = {
   /** Match utterances by meeting */
   utterancesByMeeting: ({ cityId, meetingId }: MeetingId): Prisma.UtteranceWhereInput => ({
-    speakerSegment: { meetingId, cityId },
+    speakerSegment: { transcriptId: meetingId, workspaceId: cityId },
   }),
   
   /** Match user edits by meeting */
   userEditsByMeeting: ({ cityId, meetingId }: MeetingId): Prisma.UtteranceEditWhereInput => ({
     editedBy: 'user',
     utterance: {
-      speakerSegment: { meetingId, cityId },
+      speakerSegment: { transcriptId: meetingId, workspaceId: cityId },
     },
   }),
   
@@ -57,9 +57,13 @@ const includePattern = {
   /** Basic meeting info with city and relevant task statuses */
   meetingWithReviewInfo: () => ({
     city: { select: selectPattern.cityName },
-    taskStatuses: {
-      where: whereClause.reviewTaskStatuses(),
-      orderBy: { createdAt: 'desc' as const }
+    transcript: {
+      include: {
+        taskStatuses: {
+          where: whereClause.reviewTaskStatuses(),
+          orderBy: { createdAt: 'desc' as const }
+        }
+      }
     }
   }),
   
@@ -585,19 +589,23 @@ export interface ReviewFilterOptions {
  */
 function buildStatusWhereConditions(show: ReviewFilterOptions['show']): Prisma.CouncilMeetingWhereInput {
   const hasFixTranscript = {
-    taskStatuses: {
-      some: {
-        type: 'fixTranscript' as const,
-        status: 'succeeded' as const
+    transcript: {
+      taskStatuses: {
+        some: {
+          type: 'fixTranscript' as const,
+          status: 'succeeded' as const
+        }
       }
     }
   };
 
   const hasHumanReview = {
-    taskStatuses: {
-      some: {
-        type: 'humanReview' as const,
-        status: 'succeeded' as const
+    transcript: {
+      taskStatuses: {
+        some: {
+          type: 'humanReview' as const,
+          status: 'succeeded' as const
+        }
       }
     }
   };
@@ -633,14 +641,16 @@ function buildStatusWhereConditions(show: ReviewFilterOptions['show']): Prisma.C
  */
 function buildReviewerWhereConditions(reviewerId: string): Prisma.CouncilMeetingWhereInput {
   return {
-    speakerSegments: {
-      some: {
-        utterances: {
-          some: {
-            utteranceEdits: {
-              some: {
-                editedBy: 'user',
-                userId: reviewerId
+    transcript: {
+      speakerSegments: {
+        some: {
+          utterances: {
+            some: {
+              utteranceEdits: {
+                some: {
+                  editedBy: 'user',
+                  userId: reviewerId
+                }
               }
             }
           }
@@ -936,7 +946,7 @@ export async function getMeetingsNeedingReview(filters: ReviewFilterOptions = {}
       continue;
     }
 
-    const hasHumanReview = m.taskStatuses.some(t => t.type === 'humanReview' && t.status === 'succeeded');
+    const hasHumanReview = m.transcript.taskStatuses.some(t => t.type === 'humanReview' && t.status === 'succeeded');
     const status = determineReviewStatus(true, hasHumanReview, stats.reviewedUtterances);
 
     const reviewDurationMs = stats.lastEditAt && m.dateTime
@@ -973,12 +983,14 @@ export async function getReviewStats(): Promise<ReviewStats> {
           baseNeedsAttentionWhere,
           {
             NOT: {
-              speakerSegments: {
-                some: {
-                  utterances: {
-                    some: {
-                      utteranceEdits: {
-                        some: { editedBy: 'user' },
+              transcript: {
+                speakerSegments: {
+                  some: {
+                    utterances: {
+                      some: {
+                        utteranceEdits: {
+                          some: { editedBy: 'user' },
+                        },
                       },
                     },
                   },
@@ -995,12 +1007,14 @@ export async function getReviewStats(): Promise<ReviewStats> {
         AND: [
           baseNeedsAttentionWhere,
           {
-            speakerSegments: {
-              some: {
-                utterances: {
-                  some: {
-                    utteranceEdits: {
-                      some: { editedBy: 'user' },
+            transcript: {
+              speakerSegments: {
+                some: {
+                  utterances: {
+                    some: {
+                      utteranceEdits: {
+                        some: { editedBy: 'user' },
+                      },
                     },
                   },
                 },
@@ -1064,10 +1078,10 @@ export async function getReviewProgressForMeeting(
   const stats = await getAggregatedMeetingStats(meetingId);
 
   // Check task statuses
-  const hasFixTranscript = meetingRecord.taskStatuses.some(
+  const hasFixTranscript = meetingRecord.transcript.taskStatuses.some(
     t => t.type === 'fixTranscript' && t.status === 'succeeded'
   );
-  const hasHumanReview = meetingRecord.taskStatuses.some(
+  const hasHumanReview = meetingRecord.transcript.taskStatuses.some(
     t => t.type === 'humanReview' && t.status === 'succeeded'
   );
 
