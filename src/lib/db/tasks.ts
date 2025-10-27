@@ -29,6 +29,25 @@ export async function getTasksForMeeting(cityId: string, meetingId: string): Pro
     }
 }
 
+export async function getTasksForWorkspace(workspaceId: string): Promise<TaskStatus[]> {
+    await withUserAuthorizedToEdit({})
+    try {
+        const tasks = await prisma.taskStatus.findMany({
+            where: {
+                workspaceId,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        return tasks;
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        throw new Error('Failed to fetch tasks');
+    }
+}
+
 export async function getTaskStatus(taskStatusId: string): Promise<TaskStatus | null> {
     try {
         const taskStatus = await prisma.taskStatus.findUnique({

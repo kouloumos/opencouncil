@@ -98,6 +98,11 @@
       "removed": "Member removed successfully"
     }
   },
+  "tasks": {
+    "title": "Task Management",
+    "noTasks": "No tasks running",
+    "taskStatuses": "Task Statuses"
+  },
   "admin": {
     "title": "Workspace Management",
     "createWorkspace": "Create Workspace",
