@@ -1,6 +1,7 @@
 "use server";
 
 import { processTaskResponse as processResponse } from "@/lib/tasks/tasks";
+import { getTasksForWorkspace as tasksForWorkspace } from "@/lib/db/tasks";
 import { requestTranscribe as transcribe } from "@/lib/tasks/transcribe";
 import { requestSummarize as summarize } from "@/lib/tasks/summarize";
 import { requestProcessAgenda as processAgenda } from "@/lib/tasks/processAgenda";
@@ -76,4 +77,9 @@ export async function requestGenerateVoiceprintsForCity(cityId: string, personId
 
 export async function findEligiblePeopleForVoiceprintGeneration(cityId: string, personIds?: string[]) {
     return findEligiblePeople(cityId, personIds);
+}
+
+/** The tasks of a workspace, for its task admin page. getTasksForWorkspace is superadmin only. */
+export async function getTasksForWorkspace(workspaceId: string) {
+    return tasksForWorkspace(workspaceId);
 }
