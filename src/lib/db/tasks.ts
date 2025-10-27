@@ -56,6 +56,15 @@ export async function getTasksForMeeting(cityId: string, meetingId: string): Pro
     }
 }
 
+export async function getTasksForWorkspace(workspaceId: string): Promise<TaskStatus[]> {
+    await withUserAuthorizedToEdit({});
+    // TaskStatus keeps the column name cityId; it holds the workspace id.
+    return prisma.taskStatus.findMany({
+        where: { cityId: workspaceId },
+        orderBy: { createdAt: 'desc' },
+    });
+}
+
 // The taskStatuses route reads and deletes a single task through
 // tasksInternal.ts (server-only), because it settles access itself and those
 // functions must stay off the Server Action surface.

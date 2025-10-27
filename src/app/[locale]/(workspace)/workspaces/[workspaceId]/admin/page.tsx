@@ -1,32 +1,27 @@
 import { redirect, notFound } from 'next/navigation';
-import { getCurrentUser, isUserAuthorizedToEdit } from '@/lib/auth';
-import { getWorkspace } from '@/lib/db/workspaces';
+import { getCurrentUser } from '@/lib/auth';
+import { getGenericWorkspace } from '@/lib/db/workspaces';
 import { WorkspaceAdminPanel } from '@/components/workspaces/WorkspaceAdminPanel';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-export default async function WorkspaceAdminPage({
-  params
-}: {
-  params: { workspaceId: string; locale: string }
+export default async function WorkspaceAdminPage(props: {
+  params: Promise<{ workspaceId: string; locale: string }>
 }) {
+  const params = await props.params;
   setRequestLocale(params.locale);
-  
+
   const user = await getCurrentUser();
-  
   if (!user) {
-    redirect('/api/auth/signin');
+    redirect('/sign-in');
   }
 
-  const workspace = await getWorkspace(params.workspaceId);
-  
+  if (!user.isSuperAdmin) {
+    redirect(`/workspaces/${params.workspaceId}`);
+  }
+
+  const workspace = await getGenericWorkspace(params.workspaceId);
   if (!workspace) {
     notFound();
-  }
-
-  const canEdit = await isUserAuthorizedToEdit({ workspaceId: params.workspaceId });
-  
-  if (!canEdit) {
-    redirect(`/workspaces/${params.workspaceId}`);
   }
 
   const t = await getTranslations('workspaces.members');

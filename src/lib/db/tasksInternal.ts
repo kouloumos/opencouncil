@@ -28,6 +28,17 @@ export async function getTaskStatusDirect(taskStatusId: string, scope: TaskStatu
 }
 
 /**
+ * The scope of a workspace task, found by its id. The workspace taskStatuses
+ * route checks access itself. TaskStatus.cityId holds the workspace id.
+ */
+export async function getWorkspaceTaskScope(taskStatusId: string, workspaceId: string): Promise<TaskStatusScope | null> {
+    return prisma.taskStatus.findFirst({
+        where: { id: taskStatusId, cityId: workspaceId },
+        select: { cityId: true, councilMeetingId: true },
+    });
+}
+
+/**
  * Delete a task inside its tenant, unless it was updated after `notUpdatedAfter`.
  * Returns the number of rows removed: 0 means a concurrent delete removed the task,
  * or a callback updated it after the caller's own check.
