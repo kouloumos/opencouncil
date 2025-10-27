@@ -1,10 +1,10 @@
 import { redirect, notFound } from 'next/navigation';
 import { getCurrentUser, isUserAuthorizedToEdit } from '@/lib/auth';
 import { getWorkspace } from '@/lib/db/workspaces';
-import { WorkspaceAdminPanel } from '@/components/workspaces/WorkspaceAdminPanel';
+import WorkspaceTasksAdmin from '@/components/workspaces/WorkspaceTasksAdmin';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-export default async function WorkspaceAdminPage({
+export default async function WorkspaceTasksAdminPage({
   params
 }: {
   params: { workspaceId: string; locale: string }
@@ -27,7 +27,7 @@ export default async function WorkspaceAdminPage({
     notFound();
   }
 
-  const t = await getTranslations('workspaces.members');
+  const t = await getTranslations('workspaces.tasks');
 
   return (
     <div className="container mx-auto py-8">
@@ -36,7 +36,7 @@ export default async function WorkspaceAdminPage({
         <p className="text-muted-foreground">{workspace.name}</p>
       </div>
 
-      <WorkspaceAdminPanel workspaceId={params.workspaceId} />
+      <WorkspaceTasksAdmin workspaceId={params.workspaceId} />
     </div>
   );
 }
