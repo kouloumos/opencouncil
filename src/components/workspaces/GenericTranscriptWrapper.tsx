@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Transcript from '../meetings/transcript/Transcript';
 import TranscriptControls from '../meetings/TranscriptControls';
-import EditSwitch from '../meetings/edit-switch';
 import { Transcript as TranscriptType } from '@/lib/db/transcript';
 import { SpeakerTag, Transcript as PrismaTranscript } from '@prisma/client';
 import { useMemo, useState, useEffect } from 'react';
@@ -19,6 +18,7 @@ import { ArrowLeft, Download, Loader2, CheckCircle2, XCircle } from 'lucide-reac
 import { useRouter } from '@/i18n/routing';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
+import EditButton from '../meetings/EditButton';
 
 interface GenericTranscriptData {
   transcript: TranscriptType;
@@ -280,7 +280,7 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
                             </>
                           )}
                         </Button>
-                        {data.editable && <EditSwitch />}
+                        {data.editable && <EditButton />}
                       </div>
                     </div>
                     <div className="flex-1 flex min-h-0">
