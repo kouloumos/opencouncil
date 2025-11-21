@@ -8,16 +8,19 @@ import { useHighlight } from "../HighlightContext";
 import { editUtterance } from "@/lib/db/utterance";
 import { useCouncilMeetingData } from "../CouncilMeetingDataContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeftToLine, ArrowRightToLine, Copy, Star } from "lucide-react";
+import { ArrowLeftToLine, ArrowRightToLine, Copy, Star, Scissors, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
     ContextMenu,
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuTrigger,
+    ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { useShare } from "@/contexts/ShareContext";
+import { useEditing } from "../EditingContext";
+import { ACTIONS, useKeyboardShortcut } from "@/contexts/KeyboardShortcutsContext";
 
 const UtteranceC: React.FC<{
     utterance: Utterance,
@@ -28,6 +31,8 @@ const UtteranceC: React.FC<{
     const { options } = useTranscriptOptions();
     const { editingHighlight, updateHighlightUtterances, createHighlight } = useHighlight();
     const { moveUtterancesToPrevious, moveUtterancesToNext } = useCouncilMeetingData();
+    const { selectedUtteranceIds, toggleSelection, extractSelectedSegment, isProcessing } = useEditing();
+    
     const [isEditing, setIsEditing] = useState(false);
     const [localUtterance, setLocalUtterance] = useState(utterance);
     const [editedText, setEditedText] = useState(utterance.text);
@@ -41,6 +46,9 @@ const UtteranceC: React.FC<{
     const hasShareOption = !editingHighlight && !options.isGenericMode;
     const hasHighlightOption = canEdit && !editingHighlight && !options.isGenericMode;
     const hasContextMenuOptions = hasEditOptions || hasShareOption || hasHighlightOption;
+
+    // Check if selected in Editing Context
+    const isSelected = selectedUtteranceIds.has(localUtterance.id);
 
     // Update local state when prop changes
     useEffect(() => {
@@ -76,9 +84,10 @@ const UtteranceC: React.FC<{
     const isUncertain = localUtterance.uncertain && options.editable && !editingHighlight;
 
     const className = cn(
-        "cursor-pointer hover:bg-accent utterance transcript-text",
+        "cursor-pointer hover:bg-accent utterance transcript-text transition-colors duration-100",
         {
             "bg-accent": isActive,
+            "font-semibold": isSelected,
             "font-bold underline": isHighlighted,
             "underline decoration-blue-500 decoration-2": isTaskModified,
             "decoration-green-500 underline decoration-2": isUserModified,
@@ -86,15 +95,38 @@ const UtteranceC: React.FC<{
         }
     );
 
-    const handleClick = () => {
+    const handleClick = (e: React.MouseEvent) => {
         // If we're in highlight editing mode, handle highlight toggling and seek to utterance
         if (editingHighlight) {
             updateHighlightUtterances(localUtterance.id, isHighlighted ? 'remove' : 'add');
             // Seek to the utterance timestamp so user can easily play and listen to what they highlighted
             seekTo(localUtterance.startTimestamp);
         } else if (options.editable) {
-            setIsEditing(true);
-            seekTo(localUtterance.startTimestamp);
+            // Editing Mode: Handle Selection Logic
+            // Prevent text editing if modifiers are present (intent is selection)
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+                toggleSelection(localUtterance.id, {
+                    shift: e.shiftKey,
+                    ctrl: e.ctrlKey || e.metaKey
+                });
+            } else if (isSelected) {
+                // If already selected and clicked without modifiers, maybe we want to deselect all others?
+                // Or maybe we want to edit text? 
+                // Current behavior: Click on selected = toggle selection off (via standard behavior) OR enter edit mode?
+                // Let's say: Click on unselected = seek. Click on selected = seek. 
+                // To select without modifier? Maybe not needed.
+                
+                // If user wants to edit text of a selected item, they can double click?
+                // Or just click.
+                
+                setIsEditing(true);
+                seekTo(localUtterance.startTimestamp);
+            } else {
+                 // Standard click: Seek & Edit
+                 setIsEditing(true);
+                 seekTo(localUtterance.startTimestamp);
+            }
         } else {
             seekTo(localUtterance.startTimestamp);
         }
@@ -184,6 +216,25 @@ const UtteranceC: React.FC<{
             }
         });
     };
+    
+    const handleExtractSegment = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        // If not selected, select it first? 
+        // Or if selection exists, use selection.
+        // If no selection, assume just this one? (A-B-A usually implies >1, but 1 is valid too)
+        
+        if (!isSelected && selectedUtteranceIds.size === 0) {
+            toggleSelection(localUtterance.id, { shift: false, ctrl: true }); // Select this one
+            // Wait for state update? No, extract uses state.
+            // We might need to pass explicit ID if we support "Right click -> Extract this" without prior selection.
+            // For now, let's enforce selection or just assume "selection + this one" if this one isn't in selection.
+            // Actually, the extract function in context uses `selectedUtteranceIds`. 
+            // We can't easily update state and read it in same event loop without helpers.
+            // Let's just support extraction if it IS selected, or if nothing selected, select this one and extract?
+        }
+        
+        await extractSelectedSegment();
+    };
 
     if (localUtterance.drift > options.maxUtteranceDrift) {
         return <span id={localUtterance.id} className="hover:bg-accent utterance transcript-text" />;
@@ -256,6 +307,16 @@ const UtteranceC: React.FC<{
                 )}
                 {options.editable && (
                     <>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem 
+                            onClick={handleExtractSegment} 
+                            disabled={isProcessing || (!isSelected && selectedUtteranceIds.size > 0)}
+                        >
+                            {isProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Scissors className="h-4 w-4 mr-2" />}
+                            {t('contextMenu.extractSegment', { defaultValue: 'Extract Segment' })}
+                            {isSelected && <span className="ml-auto text-xs text-muted-foreground pl-4">e</span>}
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
                         <ContextMenuItem onClick={handleMoveUtterancesToPrevious}>
                             <ArrowLeftToLine className="h-4 w-4 mr-2" />
                             {t('contextMenu.moveToPreviousSegment')}

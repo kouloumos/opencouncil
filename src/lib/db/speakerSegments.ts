@@ -838,3 +838,155 @@ export async function updateSpeakerSegmentData(
         return updatedSegment;
     });
 }
+
+export async function extractSpeakerSegment(
+    cityId: string,
+    meetingId: string,
+    segmentId: string,
+    startUtteranceId: string,
+    endUtteranceId: string
+): Promise<SpeakerSegmentForTranscript[]> {
+    // 1. Verify segment exists
+    const originalSegment = await prisma.speakerSegment.findUnique({
+        where: { id: segmentId },
+        include: { utterances: { orderBy: { startTimestamp: 'asc' } } }
+    });
+
+    if (!originalSegment) throw new Error('Segment not found');
+    if (originalSegment.workspaceId !== cityId) throw new Error('City mismatch');
+
+    await withUserAuthorizedToEdit({ cityId });
+
+    // 2. Find utterance indices
+    const utterances = originalSegment.utterances;
+    const startIndex = utterances.findIndex(u => u.id === startUtteranceId);
+    const endIndex = utterances.findIndex(u => u.id === endUtteranceId);
+
+    if (startIndex === -1 || endIndex === -1) throw new Error('Utterances not found in segment');
+    if (startIndex > endIndex) throw new Error('Invalid utterance range');
+
+    // 3. Slice utterances
+    const beforeUtterances = utterances.slice(0, startIndex);
+    const middleUtterances = utterances.slice(startIndex, endIndex + 1);
+    const afterUtterances = utterances.slice(endIndex + 1);
+
+    return await prisma.$transaction(async (tx) => {
+        const createdSegments: SpeakerSegmentForTranscript[] = [];
+
+        // A. Create Middle Segment (Always created)
+        const middleStart = middleUtterances[0].startTimestamp;
+        const middleEnd = middleUtterances[middleUtterances.length - 1].endTimestamp;
+
+        const middleTag = await tx.speakerTag.create({
+            data: { label: 'New speaker segment', speakerId: null }
+        });
+
+        const middleSegment = await tx.speakerSegment.create({
+            data: {
+                workspaceId: cityId,
+                transcriptId: meetingId,
+                speakerTagId: middleTag.id,
+                startTimestamp: middleStart,
+                endTimestamp: middleEnd,
+            },
+            include: speakerSegmentTranscriptInclude
+        });
+
+        // Move middle utterances
+        await tx.utterance.updateMany({
+            where: { id: { in: middleUtterances.map(u => u.id) } },
+            data: { speakerSegmentId: middleSegment.id }
+        });
+
+        // B. Handle "Before" Segment (Update original)
+        if (beforeUtterances.length > 0) {
+            const beforeStart = beforeUtterances[0].startTimestamp;
+            const beforeEnd = beforeUtterances[beforeUtterances.length - 1].endTimestamp;
+            
+            await tx.speakerSegment.update({
+                where: { id: segmentId },
+                data: { startTimestamp: beforeStart, endTimestamp: beforeEnd }
+            });
+        } else {
+            // If no utterances before, we might delete the original segment later if it's empty
+            // BUT, wait, if we move ALL utterances to middle/after, original becomes empty.
+            // Let's handle the original segment carefully.
+            // Strategy: Keep original as "Before" if it has content. 
+            // If "Before" is empty, we could potentially repurpose original as Middle, but that's complex.
+            // Cleaner:
+            // If before is empty, we delete the original segment (and its tag potentially, though tag might be shared? No, tags are usually 1:1 for segments in this model? Wait, schema says SpeakerTag is one-to-many segments? Need to check schema. 
+            // Looking at createEmptySegment, we create a NEW tag each time.
+            // So safe to delete original segment if empty.
+            
+             await tx.speakerSegment.delete({ where: { id: segmentId } });
+        }
+
+        // C. Handle "After" Segment
+        if (afterUtterances.length > 0) {
+            const afterStart = afterUtterances[0].startTimestamp;
+            const afterEnd = afterUtterances[afterUtterances.length - 1].endTimestamp;
+
+            // We reuse the original tag for the "After" segment to simulate "A - B - A" (Before and After share speaker)
+            // BUT, if "Before" was empty/deleted, we have lost the original tag context unless we grabbed it.
+            // If Before exists, we use its tag ID.
+            // If Before deleted, we need the original tag ID.
+
+            // Note: originalSegment.speakerTagId exists.
+            
+            const afterSegment = await tx.speakerSegment.create({
+                data: {
+                    workspaceId: cityId,
+                    transcriptId: meetingId,
+                    speakerTagId: originalSegment.speakerTagId, // Same speaker as original
+                    startTimestamp: afterStart,
+                    endTimestamp: afterEnd
+                },
+                 include: speakerSegmentTranscriptInclude
+            });
+            
+            await tx.utterance.updateMany({
+                where: { id: { in: afterUtterances.map(u => u.id) } },
+                data: { speakerSegmentId: afterSegment.id }
+            });
+             createdSegments.push(afterSegment);
+        }
+
+        // Reload and return all affected segments in order
+        // We need to return:
+        // 1. The updated/remaining "Before" segment (if exists)
+        // 2. The new "Middle" segment
+        // 3. The new "After" segment (if exists)
+        
+        const finalSegments = [];
+        
+        // Re-fetch original if not deleted
+        if (beforeUtterances.length > 0) {
+             const updatedOriginal = await tx.speakerSegment.findUnique({
+                where: { id: segmentId },
+                include: speakerSegmentTranscriptInclude
+            });
+            if (updatedOriginal) finalSegments.push(updatedOriginal);
+        }
+
+        // Re-fetch middle to ensure relations
+        const finalMiddle = await tx.speakerSegment.findUnique({
+            where: { id: middleSegment.id },
+            include: speakerSegmentTranscriptInclude
+        });
+        if (finalMiddle) finalSegments.push(finalMiddle);
+        
+        // Add After segment
+        if (afterUtterances.length > 0) {
+             // Relations already included on create, but for consistency/safety re-fetch or use push
+             // We pushed to createdSegments earlier, let's just re-fetch to be 100% safe on relations
+              const finalAfter = await tx.speakerSegment.findUnique({
+                // @ts-ignore - we know we created it if length > 0
+                where: { id: createdSegments[0].id }, 
+                include: speakerSegmentTranscriptInclude
+            });
+             if (finalAfter) finalSegments.push(finalAfter);
+        }
+        
+        return finalSegments;
+    });
+}

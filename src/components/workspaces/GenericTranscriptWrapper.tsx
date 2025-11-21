@@ -19,6 +19,10 @@ import { useRouter } from '@/i18n/routing';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
 import EditButton from '../meetings/EditButton';
+import { EditingModeBar } from '../meetings/EditingModeBar';
+import { EditingProvider } from '../meetings/EditingContext';
+import { KeyboardShortcutsProvider } from '@/contexts/KeyboardShortcutsContext';
+import { KeyboardShortcuts } from '../meetings/KeyboardShortcuts';
 
 interface GenericTranscriptData {
   transcript: TranscriptType;
@@ -49,7 +53,10 @@ function ContextBridge({ children, speakerTags }: { children: React.ReactNode, s
   // Adapt generic context to match council context shape
   const councilContextData = useMemo(() => ({
     ...genericContext,
-    meeting: genericContext.transcriptData,
+    meeting: {
+      ...genericContext.transcriptData,
+      cityId: genericContext.workspaceId
+    },
     city: { id: genericContext.workspaceId, name: '' },
     subjects: [],
     highlights: [],
@@ -244,62 +251,68 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
                 utterances={utterances}
               >
                 <HighlightProvider>
-                  <div className="flex flex-col h-screen">
-                    {/* Header with back button, title, and actions */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/workspaces/${data.workspaceId}`)}
-                          className="flex-shrink-0"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          {tCommon('back')}
-                        </Button>
-                        <h1 className="text-lg font-semibold truncate">
-                          {data.transcriptMeta.name}
-                        </h1>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleExport}
-                          disabled={isExporting}
-                        >
-                          {isExporting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              {t('exporting')}
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-2" />
-                              {t('export')}
-                            </>
-                          )}
-                        </Button>
-                        {data.editable && <EditButton />}
-                      </div>
-                    </div>
-                    <div className="flex-1 flex min-h-0">
-                      <div className="flex-1 overflow-auto">
-                        {isTranscriptEmpty ? (
-                          <div className="container max-w-2xl mx-auto py-12">
-                            {renderTaskStatus()}
+                  <KeyboardShortcutsProvider>
+                    <EditingProvider>
+                      <KeyboardShortcuts />
+                      <div className="flex flex-col h-screen">
+                        {/* Header with back button, title, and actions */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => router.push(`/workspaces/${data.workspaceId}`)}
+                              className="flex-shrink-0"
+                            >
+                              <ArrowLeft className="w-4 h-4 mr-2" />
+                              {tCommon('back')}
+                            </Button>
+                            <h1 className="text-lg font-semibold truncate">
+                              {data.transcriptMeta.name}
+                            </h1>
                           </div>
-                        ) : (
-                          <>
-                            <div className="pb-20">
-                              <Transcript />
-                            </div>
-                            {data.transcriptMeta.muxPlaybackId && <TranscriptControls />}
-                          </>
-                        )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleExport}
+                              disabled={isExporting}
+                            >
+                              {isExporting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  {t('exporting')}
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  {t('export')}
+                                </>
+                              )}
+                            </Button>
+                            {data.editable && <EditButton />}
+                          </div>
+                        </div>
+                        <EditingModeBar />
+                        <div className="flex-1 flex min-h-0">
+                          <div className="flex-1 overflow-auto">
+                            {isTranscriptEmpty ? (
+                              <div className="container max-w-2xl mx-auto py-12">
+                                {renderTaskStatus()}
+                              </div>
+                            ) : (
+                              <>
+                                <div className="pb-20">
+                                  <Transcript />
+                                </div>
+                                {data.transcriptMeta.muxPlaybackId && <TranscriptControls />}
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </EditingProvider>
+                  </KeyboardShortcutsProvider>
                 </HighlightProvider>
               </VideoProvider>
             </TranscriptOptionsProvider>

@@ -36,6 +36,13 @@ async function loadTranslations(locale: string) {
         } catch (e) {
             // Module doesn't exist for this locale
         }
+
+        try {
+            // Load editing module
+            modularMessages.editing = (await import(`../../messages/${locale}/editing.json`)).default;
+        } catch (e) {
+            // Module doesn't exist for this locale
+        }
         
         // Merge modular messages into the main messages
         // This allows components to use both old and new translation patterns

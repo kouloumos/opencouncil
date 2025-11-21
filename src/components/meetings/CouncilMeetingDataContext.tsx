@@ -2,7 +2,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useCallback } from 'react';
 import { Person, Party, SpeakerTag } from '@prisma/client';
 import { updateSpeakerTag } from '@/lib/db/speakerTags';
-import { createEmptySpeakerSegmentAfter, createEmptySpeakerSegmentBefore, moveUtterancesToPreviousSegment, moveUtterancesToNextSegment, deleteEmptySpeakerSegment, updateSpeakerSegmentData, EditableSpeakerSegmentData } from '@/lib/db/speakerSegments';
+import { createEmptySpeakerSegmentAfter, createEmptySpeakerSegmentBefore, moveUtterancesToPreviousSegment, moveUtterancesToNextSegment, deleteEmptySpeakerSegment, updateSpeakerSegmentData, EditableSpeakerSegmentData, extractSpeakerSegment } from '@/lib/db/speakerSegments';
 import { getTranscript, LightTranscript, Transcript } from '@/lib/db/transcript';
 import { MeetingData } from '@/lib/getMeetingData';
 import { PersonWithRelations } from '@/lib/db/people';
@@ -28,6 +28,7 @@ export interface CouncilMeetingDataContext extends MeetingData {
     addHighlight: (highlight: HighlightWithUtterances) => void;
     updateHighlight: (highlightId: string, updates: Partial<HighlightWithUtterances>) => void;
     removeHighlight: (highlightId: string) => void;
+    extractSpeakerSegment: (segmentId: string, startUtteranceId: string, endUtteranceId: string) => Promise<void>;
 }
 
 const CouncilMeetingDataContext = createContext<CouncilMeetingDataContext | undefined>(undefined);
@@ -233,6 +234,58 @@ export function CouncilMeetingDataProvider({ children, data }: {
             setTranscript(prev => prev.map(segment =>
                 segment.id === segmentId ? updatedSegment : segment
             ));
+        },
+        extractSpeakerSegment: async (segmentId: string, startUtteranceId: string, endUtteranceId: string) => {
+            const newSegments = await extractSpeakerSegment(data.meeting.cityId, data.meeting.id, segmentId, startUtteranceId, endUtteranceId);
+            
+            // Update the transcript with the new/updated segments
+            setTranscript(prev => {
+                // 1. Find where the original segment was
+                const originalIndex = prev.findIndex(s => s.id === segmentId);
+                
+                if (originalIndex === -1) {
+                     // Fallback if original ID not found (e.g. maybe it was already deleted? Unlikely in this flow)
+                     // If original deleted, we can't splice.
+                     // But wait, if Before segment was preserved, it has the same ID as original.
+                     // If Before segment was deleted, then newSegments[0] is the Middle segment (new ID).
+                     // We need to find the index to insert at.
+                     
+                     // Let's assume for safety we filter out the old segment ID if it exists, 
+                     // and find the insertion point based on timestamps?
+                     // Simpler: Use the originalIndex. If it was deleted, use the index where it WAS.
+                     
+                     // But we need to know if the original segment is still in `prev`.
+                     return prev; 
+                }
+
+                // 2. Replace original (and potentially insert new ones)
+                // The `newSegments` array contains [Before?, Middle, After?] in chronological order.
+                // If Before exists, it replaces the original at `originalIndex`.
+                // If Before was deleted, we remove the original at `originalIndex` and insert Middle there.
+                
+                // We can simply splice: remove 1 element at `originalIndex`, insert `...newSegments`.
+                // Wait: `newSegments` might NOT contain the original segment ID if it was deleted.
+                // If it was deleted, we remove it from `prev`.
+                // If it was updated, we replace it.
+                
+                const updatedTranscript = [...prev];
+                
+                // Check if the original segment ID is present in the new segments
+                // Actually, `newSegments` are fully formed segment objects.
+                // We can just replace the old one with the new list.
+                
+                updatedTranscript.splice(originalIndex, 1, ...newSegments);
+                
+                return updatedTranscript;
+            });
+            
+            // Update speaker tags if needed (new middle segment has new tag)
+            const newTags = newSegments.map(s => s.speakerTag);
+            setSpeakerTags(prev => {
+                 const prevIds = new Set(prev.map(t => t.id));
+                 const tagsToAdd = newTags.filter(t => !prevIds.has(t.id));
+                 return [...prev, ...tagsToAdd];
+            });
         }
     }), [data, peopleMap, partiesMap, speakerTags, speakerTagsMap, speakerSegmentsMap, transcript, speakerTagSegmentCounts, highlights, addHighlight, updateHighlight, removeHighlight, getHighlight]);
 
