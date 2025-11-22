@@ -13,8 +13,8 @@ type AdminSectionProps = {
 };
 
 export function AdminSection({ user, t }: AdminSectionProps) {
-    // Check if user has any workspace administrations
-    const hasWorkspaceAccess = user.administers.some(admin => admin.workspace && !admin.workspace.city);
+    // Calculate workspace count
+    const workspaceCount = user.administers.filter(admin => admin.workspace && !admin.workspace.city).length;
     
     return (
         <Card>
@@ -32,7 +32,7 @@ export function AdminSection({ user, t }: AdminSectionProps) {
                                 <Link href="/admin">{t("goToAdmin")}</Link>
                             </Button>
                             <Button asChild variant="outline">
-                                <Link href="/workspaces">{t("goToWorkspaces")}</Link>
+                                <Link href="/workspaces">{t("goToWorkspaces")} ({workspaceCount})</Link>
                             </Button>
                         </div>
                     </div>
@@ -43,17 +43,20 @@ export function AdminSection({ user, t }: AdminSectionProps) {
                                 <AdminCard key={admin.id} admin={admin} t={t} />
                             ))}
                         </div>
-                        {hasWorkspaceAccess && (
-                            <div className="pt-2">
-                                <Button asChild variant="outline" className="w-full">
-                                    <Link href="/workspaces">{t("goToWorkspaces")}</Link>
-                                </Button>
-                            </div>
-                        )}
+                        <div className="pt-2">
+                            <Button asChild variant="outline" className="w-full">
+                                <Link href="/workspaces">{t("goToWorkspaces")} ({workspaceCount})</Link>
+                            </Button>
+                        </div>
                     </>
                 ) : (
                     <div className="text-gray-600">
                         <p className="text-md">{t("noAdminAccess")}</p>
+                        <div className="pt-4">
+                            <Button asChild variant="outline" className="w-full">
+                                <Link href="/workspaces">{t("goToWorkspaces")} ({workspaceCount})</Link>
+                            </Button>
+                        </div>
                         <p className="mt-16 text-sm">
                             {t("contactForAccess")}
                         </p>
@@ -67,6 +70,7 @@ export function AdminSection({ user, t }: AdminSectionProps) {
         </Card>
     );
 }
+
 function AdminCard({ admin, t }: { admin: AdminSectionProps['user']['administers'][0], t: AdminSectionProps['t'] }) {
     // Determine admin type based on which relation exists
     // Check for workspace first (generic mode), then city/party/person
