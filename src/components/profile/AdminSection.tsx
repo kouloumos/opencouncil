@@ -35,8 +35,9 @@ export function AdminSection({ user, t }: AdminSectionProps) {
     const entries: AdminEntry[] = [];
     if (user.isSuperAdmin) {
         entries.push({ key: "superadmin", href: "/admin", icon: ShieldCheck, label: t("superAdminAccess"), name: t("goToAdmin") });
-        entries.push({ key: "workspaces", href: "/workspaces", icon: FolderOpen, label: t("superAdminAccess"), name: t("goToWorkspaces") });
     }
+    const workspaceCount = user.administers.filter((admin) => admin.workspace && !admin.workspace.city).length;
+    entries.push({ key: "workspaces", href: "/workspaces", icon: FolderOpen, label: t("adminWorkspace"), name: `${t("goToWorkspaces")} (${workspaceCount})` });
     for (const admin of user.administers) {
         if (admin.workspace?.city) {
             entries.push({ key: admin.id, href: `/${admin.workspace.city.id}`, icon: Building, label: t("adminCity"), name: admin.workspace.city.name });
@@ -50,7 +51,6 @@ export function AdminSection({ user, t }: AdminSectionProps) {
             entries.push({ key: admin.id, href: `/${admin.administrativeBody.cityId}/meetings`, icon: Landmark, label: t("adminBody"), name: admin.administrativeBody.name });
         }
     }
-    if (entries.length === 0) return null;
 
     return (
         <RailCard title={t("administration")}>
