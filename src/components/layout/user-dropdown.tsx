@@ -58,11 +58,12 @@ export default function UserDropdown({ currentEntity }: { currentEntity?: { city
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative cursor-pointer hover:text-accent">
+                <Button variant="ghost" className="relative h-9 rounded-md px-2 md:h-auto md:w-auto md:px-4 md:py-2 hover:bg-muted">
+                    <span className="md:hidden text-lg">👋</span>
                     <span className="hidden md:inline">
                         {greeting}
                     </span>
-                    {canEdit && <ShieldCheck className="h-4 w-4 ml-4 text-blue-500" />}
+                    {canEdit && <ShieldCheck className="h-4 w-4 ml-2 text-blue-500 hidden md:inline" />}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
