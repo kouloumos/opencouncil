@@ -50,6 +50,7 @@ TABLES=(
     "Person"
     "Role"
     "CouncilMeeting"
+    "TaskStatus"
     "SpeakerTag"
     "SpeakerSegment"
     "Utterance"
