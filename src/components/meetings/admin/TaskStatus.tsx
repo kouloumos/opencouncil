@@ -17,6 +17,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslations } from "next-intl";
 
 const staleTimeMs = 10 * 60 * 1000; // 10 minutes
 interface TaskStatusComponentProps {
@@ -25,9 +26,13 @@ interface TaskStatusComponentProps {
 }
 
 export function TaskStatusComponent({ task, onDelete }: TaskStatusComponentProps) {
+    const t = useTranslations('admin.taskStatus.reprocessDialog');
     const [isStale, setIsStale] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [showForceDialog, setShowForceDialog] = useState(false);
+    const [showReprocessDialog, setShowReprocessDialog] = useState(false);
+    const [isReprocessing, setIsReprocessing] = useState(false);
+    const [reprocessError, setReprocessError] = useState<string | null>(null);
+    const [reprocessSuccess, setReprocessSuccess] = useState(false);
 
     useEffect(() => {
         setIsStale(Date.now() - task.createdAt.getTime() > staleTimeMs);
@@ -38,20 +43,28 @@ export function TaskStatusComponent({ task, onDelete }: TaskStatusComponentProps
     }, [task.createdAt]);
 
     const handleReprocess = async (force: boolean) => {
-        await processTaskResponse(task.type, task.id, { force });
-        setShowForceDialog(false);
+        setIsReprocessing(true);
+        setReprocessError(null);
+        setReprocessSuccess(false);
+        
+        try {
+            await processTaskResponse(task.type, task.id, { force });
+            setReprocessSuccess(true);
+        } catch (error) {
+            setReprocessError(error instanceof Error ? error.message : t('feedback.error'));
+        } finally {
+            setIsReprocessing(false);
+        }
     };
 
     const onReprocessClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        // Only show dialog for transcribe tasks, which support force mode
-        if (task.type === 'transcribe') {
-            setShowForceDialog(true);
-        } else {
-            // For other tasks, just reprocess directly (they use upsert)
-            processTaskResponse(task.type, task.id);
-        }
+        setShowReprocessDialog(true);
+        setReprocessError(null);
+        setReprocessSuccess(false);
     };
+
+    const isTranscribeTask = task.type === 'transcribe';
 
     const getStatusColor = (status: TaskStatus['status']) => {
         switch (status) {
@@ -194,24 +207,108 @@ export function TaskStatusComponent({ task, onDelete }: TaskStatusComponentProps
                     )}
                 </AnimatePresence>
             </CardContent>
-            <Dialog open={showForceDialog} onOpenChange={setShowForceDialog}>
+            <Dialog open={showReprocessDialog} onOpenChange={setShowReprocessDialog}>
                 <DialogContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                     <DialogHeader>
-                        <DialogTitle>Reprocess Task</DialogTitle>
+                        <DialogTitle>{t('title', { taskType: task.type })}</DialogTitle>
                         <DialogDescription>
-                            Do you want to delete existing data before reprocessing? This is recommended for transcribe tasks to avoid duplicates.
+                            <div className="space-y-3">
+                                <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                                    {t('explanation')}
+                                </div>
+                                {isTranscribeTask ? (
+                                    <div>
+                                        <p>{t('transcribe.description')}</p>
+                                        <p className="mt-2 text-orange-600 dark:text-orange-400 font-medium">
+                                            {t('transcribe.warning')}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p>{t('default.description')}</p>
+                                        <p className="mt-2 text-muted-foreground">
+                                            {t('default.info')}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </DialogDescription>
                     </DialogHeader>
+
+                    {reprocessSuccess && (
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>{t('feedback.success')}</span>
+                        </div>
+                    )}
+
+                    {reprocessError && (
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <XCircle className="h-4 w-4" />
+                            <span className="text-sm">{reprocessError}</span>
+                        </div>
+                    )}
+
                     <DialogFooter className="flex gap-2">
-                        <Button variant="outline" onClick={() => setShowForceDialog(false)}>
-                            Cancel
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowReprocessDialog(false)}
+                            disabled={isReprocessing}
+                        >
+                            {t('buttons.cancel')}
                         </Button>
-                        <Button variant="secondary" onClick={() => handleReprocess(false)}>
-                            Reprocess Only
-                        </Button>
-                        <Button variant="destructive" onClick={() => handleReprocess(true)}>
-                            Delete & Reprocess
-                        </Button>
+                        
+                        {isTranscribeTask ? (
+                            <>
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={() => handleReprocess(false)}
+                                    disabled={isReprocessing || reprocessSuccess}
+                                >
+                                    {isReprocessing ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            {t('buttons.reprocessing')}
+                                        </>
+                                    ) : (
+                                        t('buttons.reprocessOnly')
+                                    )}
+                                </Button>
+                                <Button 
+                                    variant="destructive" 
+                                    onClick={() => handleReprocess(true)}
+                                    disabled={isReprocessing || reprocessSuccess}
+                                >
+                                    {isReprocessing ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            {t('buttons.processing')}
+                                        </>
+                                    ) : (
+                                        t('buttons.deleteAndReprocess')
+                                    )}
+                                </Button>
+                            </>
+                        ) : (
+                            <Button 
+                                onClick={() => handleReprocess(false)}
+                                disabled={isReprocessing || reprocessSuccess}
+                            >
+                                {isReprocessing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        {t('buttons.reprocessing')}
+                                    </>
+                                ) : reprocessSuccess ? (
+                                    <>
+                                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                                        {t('buttons.done')}
+                                    </>
+                                ) : (
+                                    t('buttons.reprocess')
+                                )}
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
