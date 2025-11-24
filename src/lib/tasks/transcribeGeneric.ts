@@ -4,6 +4,33 @@ import { TranscribeRequest, TranscribeResult, Voiceprint } from "../apiTypes";
 import { startTask } from "./tasks";
 import prisma from "../db/prisma";
 
+async function deleteExistingSpeakerData(transcriptId: string, workspaceId: string) {
+    console.log(`Deleting existing speaker data for transcript ${transcriptId}`);
+    
+    // Get all unique speakerTagIds used by this transcript's segments
+    const speakerSegments = await prisma.speakerSegment.findMany({
+        where: {
+            transcriptId,
+            workspaceId
+        },
+        select: {
+            speakerTagId: true
+        }
+    });
+    
+    const speakerTagIds = [...new Set(speakerSegments.map(s => s.speakerTagId))];
+    
+    // Delete the SpeakerTags, which will cascade delete the SpeakerSegments
+    if (speakerTagIds.length > 0) {
+        await prisma.speakerTag.deleteMany({
+            where: {
+                id: { in: speakerTagIds }
+            }
+        });
+        console.log(`Deleted ${speakerTagIds.length} speaker tags and their associated segments`);
+    }
+}
+
 /**
  * Request transcription for any transcript (generic)
  */
@@ -44,13 +71,7 @@ export async function requestTranscribeTranscript(
 
   if (transcript.speakerSegments.length > 0) {
     if (options.force) {
-      console.log(`Deleting speaker segments for transcript ${transcriptId}`);
-      await prisma.speakerSegment.deleteMany({
-        where: {
-          transcriptId,
-          workspaceId
-        }
-      });
+      await deleteExistingSpeakerData(transcriptId, workspaceId);
     } else {
       console.log(`Transcript already has speaker segments`);
       throw new Error('Transcript already has speaker segments');
@@ -85,9 +106,10 @@ export async function requestTranscribeTranscript(
 /**
  * Handle transcription result for any transcript (generic)
  */
-export async function handleTranscribeResultGeneric(
+export async function   handleTranscribeResultGeneric(
   taskId: string,
-  response: TranscribeResult
+  response: TranscribeResult,
+  options?: { force?: boolean }
 ) {
   const videoUrl = response.videoUrl;
   const audioUrl = response.audioUrl;
@@ -113,6 +135,14 @@ export async function handleTranscribeResultGeneric(
 
   if (!task || !task.transcript) {
     throw new Error('Task or transcript not found');
+  }
+
+  // If force mode or if speaker segments already exist, delete them first
+  // Note: We delete SpeakerTags (not SpeakerSegments) because the cascade relationship
+  // goes from SpeakerTag -> SpeakerSegment, so deleting SpeakerTags will automatically
+  // delete their associated SpeakerSegments via onDelete: Cascade
+  if (options?.force || task.transcript.speakerSegments.length > 0) {
+    await deleteExistingSpeakerData(task.transcriptId, task.workspaceId);
   }
 
   // Update transcript with video/audio URLs

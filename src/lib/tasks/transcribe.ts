@@ -36,7 +36,7 @@ export async function requestTranscribe(youtubeUrl: string, councilMeetingId: st
     }
 
     // Council-specific vocabulary and prompt
-    const vocabulary = [city.name, ...city.persons.map((p: { name: string }) => p.name), ...city.parties.map((p: { name: string }) => p.name)].flatMap(s => s.split(' '));
+    const vocabulary = [city.name, ...city.persons.map(p => p.name), ...city.parties.map(p => p.name)].flatMap(s => s.split(' '));
     const prompt = `Αυτή είναι η απομαγνητοφώνηση της συνεδρίας του δήμου της ${city.name} που έγινε στις ${councilMeeting.dateTime}.`;
 
     // Council-specific voiceprints (from Person -> Speaker)
@@ -60,8 +60,8 @@ export async function requestTranscribe(youtubeUrl: string, councilMeetingId: st
     });
 }
 
-export async function handleTranscribeResult(taskId: string, response: TranscribeResult) {
+export async function handleTranscribeResult(taskId: string, response: TranscribeResult, options?: { force?: boolean }) {
     // ADAPTER: Council-specific wrapper that calls generic handler
     // The generic handler already handles all the transcript/speaker logic
-    return handleTranscribeResultGeneric(taskId, response);
+    return handleTranscribeResultGeneric(taskId, response, options);
 }
