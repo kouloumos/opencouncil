@@ -32,7 +32,7 @@ export async function updateSpeakerTag(id: string, data: Partial<Omit<SpeakerTag
         throw new Error('Speaker tag not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: speakerTag.speakerSegments[0].workspaceId });
+    await withUserAuthorizedToEdit({ workspaceId: speakerTag.speakerSegments[0].workspaceId });
     const updatedSpeakerTag = await prisma.speakerTag.update({
         where: { id },
         data,
@@ -68,7 +68,7 @@ export async function assignSpeakerSegmentToNewSpeakerTag(speakerSegmentId: stri
         throw new Error('Speaker segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: speakerSegment.workspaceId });
+    await withUserAuthorizedToEdit({ workspaceId: speakerSegment.workspaceId });
 
     const newSpeakerTag = await prisma.speakerTag.create({
         data: {

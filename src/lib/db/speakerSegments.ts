@@ -237,7 +237,7 @@ export async function addUtteranceToSegment(
         throw new Error('Speaker segment not found');
     }
 
-    if (segment.cityId !== cityId) {
+    if (segment.workspaceId !== cityId) {
         throw new Error('City ID mismatch');
     }
 
@@ -316,7 +316,7 @@ async function moveUtterancesToSegment(
         throw new Error('Current segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: currentSegment.workspaceId });
+    await withUserAuthorizedToEdit({ workspaceId: currentSegment.workspaceId });
 
     // Find the target segment (previous or next)
     const targetSegment = await prisma.speakerSegment.findFirst({
@@ -416,7 +416,7 @@ export async function updateSegmentTimestamps(segmentId: string) {
         throw new Error('Segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: segment.workspaceId });
+    await withUserAuthorizedToEdit({ workspaceId: segment.workspaceId });
 
     const earliestStart = Math.min(...segment.utterances.map(u => u.startTimestamp));
     const latestEnd = Math.max(...segment.utterances.map(u => u.endTimestamp));
