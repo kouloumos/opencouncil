@@ -138,6 +138,32 @@ export async function createWorkspace(data: {
 }
 
 /**
+ * Create a new workspace and assign a user as administrator
+ */
+export async function createWorkspaceWithAdmin(data: {
+  name: string;
+  userId: string;
+}): Promise<WorkspaceWithRelations> {
+  try {
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: data.name,
+        administrators: {
+          create: {
+            userId: data.userId
+          }
+        }
+      },
+      include: workspaceWithRelationsInclude
+    });
+    return workspace;
+  } catch (error) {
+    console.error('Error creating workspace with admin:', error);
+    throw new Error('Failed to create workspace');
+  }
+}
+
+/**
  * Update a workspace
  */
 export async function updateWorkspace(

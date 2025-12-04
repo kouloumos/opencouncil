@@ -380,3 +380,42 @@ export async function sendNotificationSignupAdminAlert(data: {
     });
 }
 
+/**
+ * Send admin alert when a new workspace is created
+ */
+export async function sendWorkspaceCreatedAdminAlert(data: {
+    workspaceName: string;
+    workspaceId: string;
+}): Promise<void> {
+    const workspaceUrl = `${env.NEXT_PUBLIC_BASE_URL}/workspaces/${data.workspaceId}`;
+
+    await sendDiscordMessage({
+        embeds: [{
+            title: '🚀 New Workspace Created',
+            description: `A user has created a personal workspace.`,
+            color: 0x2ecc71, // Bright green
+            fields: [
+                {
+                    name: 'Workspace Name',
+                    value: data.workspaceName,
+                    inline: true,
+                },
+                {
+                    name: 'Workspace ID',
+                    value: `\`${data.workspaceId}\``,
+                    inline: true,
+                },
+                {
+                    name: 'View Workspace',
+                    value: `[Open in OpenTranscripts](${workspaceUrl})`,
+                    inline: false,
+                },
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+                text: 'PII not transmitted for privacy',
+            },
+        }],
+    });
+}
+

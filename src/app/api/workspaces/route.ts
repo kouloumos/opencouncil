@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { listWorkspacesForUser, createWorkspace } from '@/lib/db/workspaces';
+import { listWorkspacesForUser, createWorkspaceWithAdmin } from '@/lib/db/workspaces';
 import { getCurrentUser } from '@/lib/auth';
 import { z } from 'zod';
+import { sendWorkspaceCreatedAdminAlert } from '@/lib/discord';
 
 const createWorkspaceSchema = z.object({
   name: z.string().min(1, "Workspace name is required")
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/workspaces
- * Create a new workspace (admin only for now)
+ * Create a new workspace - authenticated users can create personal workspaces
  */
 export async function POST(request: NextRequest) {
   try {
@@ -43,18 +44,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // For now, only superadmins can create workspaces
-    if (!user.isSuperAdmin) {
-      return NextResponse.json(
-        { error: 'Only administrators can create workspaces' },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
     const { name } = createWorkspaceSchema.parse(body);
 
-    const workspace = await createWorkspace({ name });
+    // Create workspace and assign creator as admin
+    const workspace = await createWorkspaceWithAdmin({
+      name,
+      userId: user.id
+    });
+
+    // Send admin notification (non-blocking)
+    sendWorkspaceCreatedAdminAlert({
+      workspaceName: workspace.name,
+      workspaceId: workspace.id
+    }).catch(error => {
+      console.error('Failed to send workspace created admin alert:', error);
+    });
 
     return NextResponse.json(workspace, { status: 201 });
   } catch (error) {
