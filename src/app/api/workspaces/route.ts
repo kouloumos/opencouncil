@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { listWorkspacesForUser, createWorkspace } from '@/lib/db/workspaces';
+import { listWorkspacesForUser, createWorkspaceWithAdmin } from '@/lib/db/workspaces';
 import { getCurrentUser } from '@/lib/auth';
-import { z } from 'zod';
+import * as z from 'zod';
+import { sendWorkspaceCreatedAdminAlert } from '@/lib/discord';
+import { handleApiError, notAuthorizedErrorResponse } from '@/lib/api/errors';
 
 const createWorkspaceSchema = z.object({
   name: z.string().min(1, "Workspace name is required")
@@ -12,60 +13,49 @@ const createWorkspaceSchema = z.object({
  * GET /api/workspaces
  * List all workspaces the current user has access to
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await getCurrentUser();
-    
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return notAuthorizedErrorResponse(false);
     }
 
     const workspaces = await listWorkspacesForUser(user.id);
     return NextResponse.json(workspaces);
   } catch (error) {
-    console.error('Failed to fetch workspaces:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch workspaces' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to fetch workspaces');
   }
 }
 
 /**
  * POST /api/workspaces
- * Create a new workspace (admin only for now)
+ * Create a new workspace - authenticated users can create personal workspaces
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return notAuthorizedErrorResponse(false);
     }
 
-    // For now, only superadmins can create workspaces
-    if (!user.isSuperAdmin) {
-      return NextResponse.json(
-        { error: 'Only administrators can create workspaces' },
-        { status: 403 }
-      );
-    }
+    const { name } = createWorkspaceSchema.parse(await request.json());
 
-    const body = await request.json();
-    const { name } = createWorkspaceSchema.parse(body);
+    // Create workspace and assign creator as admin
+    const workspace = await createWorkspaceWithAdmin({
+      name,
+      userId: user.id
+    });
 
-    const workspace = await createWorkspace({ name });
+    // Send admin notification (non-blocking)
+    sendWorkspaceCreatedAdminAlert({
+      workspaceName: workspace.name,
+      workspaceId: workspace.id
+    }).catch(error => {
+      console.error('Failed to send workspace created admin alert:', error);
+    });
 
     return NextResponse.json(workspace, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error('Failed to create workspace:', error);
-    return NextResponse.json(
-      { error: 'Failed to create workspace' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Failed to create workspace');
   }
 }
-

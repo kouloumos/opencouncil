@@ -1055,3 +1055,26 @@ export async function sendAgendaReadingAlert(data: {
         ],
     });
 }
+
+/**
+ * Send admin alert when a user creates a personal workspace.
+ */
+export async function sendWorkspaceCreatedAdminAlert(data: {
+    workspaceName: string;
+    workspaceId: string;
+}): Promise<void> {
+    // /workspaces is not tenant-isolated, so the deployment URL serves it.
+    const workspaceUrl = `${env.NEXTAUTH_URL}/workspaces/${data.workspaceId}`;
+
+    await sendAdminAlert({
+        title: '🚀 New Workspace Created',
+        description: 'A user has created a personal workspace.',
+        color: 0x2ecc71, // Green
+        fields: [
+            { name: 'Workspace Name', value: truncateField(data.workspaceName, 256), inline: true },
+            { name: 'Workspace ID', value: `\`${data.workspaceId}\``, inline: true },
+            { name: 'View Workspace', value: `[Open in OpenTranscripts](${workspaceUrl})`, inline: true },
+        ],
+        footer: { text: 'PII not transmitted for privacy' },
+    });
+}
