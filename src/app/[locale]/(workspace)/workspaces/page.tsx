@@ -6,6 +6,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 import { env } from '@/env.mjs';
+import { CreateWorkspaceCard } from '@/components/workspaces/CreateWorkspaceCard';
 
 export default async function WorkspacesPage({
   params: { locale }
@@ -29,11 +30,18 @@ export default async function WorkspacesPage({
         <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
         <p className="text-muted-foreground">
           {workspaces.length > 0 
-            ? t('noWorkspacesDescription')
+            ? t('workspacesDescription')
             : t('noWorkspaces')
           }
         </p>
       </div>
+      
+      {/* Show create workspace card if user has no workspaces */}
+      {workspaces.length === 0 && (
+        <div className="mb-6">
+          <CreateWorkspaceCard />
+        </div>
+      )}
       
       {workspaces.length === 0 && env.NEXT_PUBLIC_APP_MODE === 'generic' ? (
         <Card>
@@ -45,7 +53,7 @@ export default async function WorkspacesPage({
                   {t('noWorkspaces')}
                 </h3>
                 <p className="text-muted-foreground max-w-md">
-                  {t('noWorkspacesDescription')}
+                  {t('createYourFirstWorkspace')}
                 </p>
               </div>
             </div>
