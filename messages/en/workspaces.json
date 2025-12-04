@@ -3,9 +3,25 @@
     "title": "My Workspaces",
     "noWorkspaces": "You don't have any workspaces yet",
     "noWorkspacesDescription": "Contact your administrator for workspace access",
-    "createWorkspace": "Create Workspace",
+    "createWorkspace": "Create Your Personal Workspace",
+    "createWorkspaceDescription": "Create a workspace to start uploading and transcribing your content",
+    "workspaceName": "Workspace Name",
+    "workspaceNamePlaceholder": "My Personal Workspace",
+    "create": "Create Workspace",
+    "creating": "Creating...",
+    "redirecting": "Opening your workspace...",
+    "createYourFirstWorkspace": "Create your first workspace to get started with transcriptions",
+    "workspacesDescription": "Select a workspace to view and manage transcripts",
     "transcriptsCount": "{count, plural, =0 {No transcripts} one {# transcript} other {# transcripts}}",
-    "membersCount": "{count, plural, =0 {No members} one {# member} other {# members}}"
+    "membersCount": "{count, plural, =0 {No members} one {# member} other {# members}}",
+    "errors": {
+      "nameRequired": "Workspace name is required",
+      "createFailed": "Failed to create workspace"
+    },
+    "success": {
+      "created": "Workspace created successfully!",
+      "createdDescription": "You can now start uploading transcripts"
+    }
   },
   "dashboard": {
     "title": "Transcripts",
