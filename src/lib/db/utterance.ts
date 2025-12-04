@@ -16,7 +16,7 @@ export async function editUtterance(utteranceId: string, newText: string): Promi
             throw new Error('Utterance not found');
         }
 
-        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.workspaceId });
+        await withUserAuthorizedToEdit({ workspaceId: utterance.speakerSegment.workspaceId });
         const user = await getCurrentUser();
         if (!user) {
             throw new Error('User not found');
@@ -64,7 +64,7 @@ export async function deleteUtterance(utteranceId: string): Promise<{ segmentId:
             throw new Error('Utterance not found');
         }
 
-        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.cityId });
+        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.workspaceId });
 
         const segmentId = utterance.speakerSegmentId;
         const remainingUtterances = utterance.speakerSegment.utterances.filter(u => u.id !== utteranceId);
@@ -119,7 +119,7 @@ export async function updateUtteranceTimestamps(
             throw new Error('Utterance not found');
         }
 
-        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.cityId });
+        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.workspaceId });
 
         // Validate timestamps
         if (startTimestamp >= endTimestamp) {

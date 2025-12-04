@@ -58,7 +58,7 @@ export async function deleteVoicePrint(voicePrintId: string): Promise<void> {
             throw new Error("Voice print not found");
         }
 
-        await withUserAuthorizedToEdit({ cityId: voicePrint.speaker.workspaceId });
+        await withUserAuthorizedToEdit({ workspaceId: voicePrint.speaker.workspaceId });
 
         await prisma.voicePrint.delete({
             where: { id: voicePrintId },

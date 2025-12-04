@@ -135,7 +135,7 @@ export async function requestGenerateVoiceprint(personId: string) {
         throw new Error("Meeting not found");
     }
 
-    await withUserAuthorizedToEdit({ cityId: segment.workspaceId });
+    await withUserAuthorizedToEdit({ workspaceId: segment.workspaceId });
 
     const mediaUrl = meeting.transcript?.audioUrl || meeting.transcript?.videoUrl;
     if (!mediaUrl) {
