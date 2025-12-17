@@ -24,6 +24,7 @@ import { filterActiveRoles, filterInactiveRoles, formatDateRange, isRoleActive }
 import { AdministrativeBodyFilter } from '../AdministrativeBodyFilter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonWithRelations } from '@/lib/db/people';
+import PartyMemberRankingSheet from './PartyMemberRankingSheet';
 
 type RoleWithPerson = Role & {
     person: Person;
@@ -42,6 +43,7 @@ function PartyMembersTab({
     canEdit: boolean
 }) {
     const t = useTranslations('Party');
+    const [isRankingSheetOpen, setIsRankingSheetOpen] = useState(false);
 
     // Filter people to only include those with active party roles
     const activePeople = useMemo(() =>
@@ -71,10 +73,30 @@ function PartyMembersTab({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
             >
-                <div className="flex items-center gap-2 mb-4">
-                    <Users className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg sm:text-xl font-semibold">{t('currentMembers')}</h2>
-                    <span className="text-sm text-muted-foreground">({activePeople.length})</span>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg sm:text-xl font-semibold">{t('currentMembers')}</h2>
+                        <span className="text-sm text-muted-foreground">({activePeople.length})</span>
+                    </div>
+                    {canEdit && city.peopleOrdering === 'partyRank' && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsRankingSheetOpen(true)}
+                            >
+                                Change Member Ordering
+                            </Button>
+                            <PartyMemberRankingSheet
+                                open={isRankingSheetOpen}
+                                onOpenChange={setIsRankingSheetOpen}
+                                party={party}
+                                people={people}
+                                cityId={city.id}
+                            />
+                        </>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {activePeople
@@ -84,7 +106,20 @@ function PartyMembersTab({
                             const bIsHead = b.roles.some((role: Role) => role.partyId === party.id && role.isHead);
                             if (aIsHead && !bIsHead) return -1;
                             if (!aIsHead && bIsHead) return 1;
-                            // Then sort by name
+
+                            // Then sort by rank if available
+                            const aRole = a.roles.find((role: Role) => role.partyId === party.id);
+                            const bRole = b.roles.find((role: Role) => role.partyId === party.id);
+                            const aRank = aRole?.rank;
+                            const bRank = bRole?.rank;
+
+                            if (aRank !== null && bRank !== null) {
+                                return aRank - bRank;
+                            }
+                            if (aRank !== null) return -1;
+                            if (bRank !== null) return 1;
+
+                            // Finally sort by name
                             return a.name.localeCompare(b.name);
                         })
                         .map(person => (

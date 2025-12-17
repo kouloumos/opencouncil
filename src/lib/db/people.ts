@@ -111,7 +111,8 @@ export async function editPerson(id: string, data: {
                             name_en: role.name_en,
                             isHead: role.isHead,
                             startDate: role.startDate,
-                            endDate: role.endDate
+                            endDate: role.endDate,
+                            rank: role.rank ?? null
                         }))
                     }
                 },
