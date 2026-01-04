@@ -30,6 +30,11 @@ interface ListProps<T, P = {}, F = string | undefined> extends BaseListProps {
     filter?: (selectedValues: F[], item: T) => boolean;
     allText?: string;
     showSearch?: boolean;
+    pagination?: {
+        currentPage: number;
+        totalPages: number;
+        pageSize: number;
+    };
 }
 
 export default function List<T extends { id: string }, P = {}, F = string | undefined>({
@@ -49,7 +54,8 @@ export default function List<T extends { id: string }, P = {}, F = string | unde
     showSearch = true,
     layout = 'grid',
     carouselItemWidth = 300,
-    carouselGap = 16
+    carouselGap = 16,
+    pagination
 }: ListProps<T, P, F>) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -160,6 +166,16 @@ export default function List<T extends { id: string }, P = {}, F = string | unde
         router.replace(`?${params.toString()}`);
     };
 
+    const handlePageChange = (newPage: number) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (newPage > 1) {
+            params.set('page', newPage.toString());
+        } else {
+            params.delete('page');
+        }
+        router.push(`?${params.toString()}`);
+    };
+
     return (
         <div className="space-y-6">
             {(showSearch || editable) && (
@@ -239,6 +255,45 @@ export default function List<T extends { id: string }, P = {}, F = string | unde
                 </div>
             ) : (
                 <p className="text-gray-600">{t('noItems', { title: t('item') })}</p>
+            )}
+
+            {/* Pagination Controls */}
+            {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(pagination.currentPage - 1)}
+                        disabled={pagination.currentPage === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                    </Button>
+
+                    <div className="flex gap-1">
+                        {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
+                            <Button
+                                key={page}
+                                variant={page === pagination.currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handlePageChange(page)}
+                                className="min-w-[40px]"
+                            >
+                                {page}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(pagination.currentPage + 1)}
+                        disabled={pagination.currentPage === pagination.totalPages}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                </div>
             )}
         </div>
     );
