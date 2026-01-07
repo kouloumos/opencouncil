@@ -135,6 +135,7 @@ export default function List<T extends { id: string }, P = {}, F = string | unde
             } else {
                 params.delete('search');
             }
+            params.delete('page'); // Reset to page 1 on search
             router.replace(`?${params.toString()}`);
         }, 300); // 300ms debounce delay
 
@@ -161,6 +162,7 @@ export default function List<T extends { id: string }, P = {}, F = string | unde
             params.set('filters', selectedLabels.join(','));
         }
 
+        params.delete('page'); // Reset to page 1 on filter change
         router.replace(`?${params.toString()}`);
     };
 
