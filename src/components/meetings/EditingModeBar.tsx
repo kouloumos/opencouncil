@@ -27,9 +27,12 @@ export function EditingModeBar() {
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
     const [isReviewCompleted, setIsReviewCompleted] = useState(false);
     const router = useRouter();
+    // A transcript that is not a council meeting has no human review task.
+    const hasHumanReview = !options.isGenericMode;
 
     // Check if humanReview is already completed
     useEffect(() => {
+        if (!hasHumanReview) return;
         const checkReviewStatus = async () => {
             try {
                 const response = await fetch(`/api/cities/${meeting.cityId}/meetings/${meeting.id}/status`);
@@ -43,7 +46,7 @@ export function EditingModeBar() {
         };
 
         checkReviewStatus();
-    }, [meeting.cityId, meeting.id]);
+    }, [hasHumanReview, meeting.cityId, meeting.id]);
 
     // If not editable OR if we are currently editing a highlight, do not show this bar
     if (!options.editable || editingHighlight) {
@@ -171,7 +174,7 @@ export function EditingModeBar() {
                         <SpeakersOverviewSheet />
 
                         {/* Complete Review - only show if not already completed */}
-                        {!isReviewCompleted && (
+                        {hasHumanReview && !isReviewCompleted && (
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -215,13 +218,15 @@ export function EditingModeBar() {
         </AnimatePresence>
         
         {/* Complete Review Dialog */}
-        <CompleteReviewDialog
-            cityId={meeting.cityId}
-            meetingId={meeting.id}
-            open={showCompleteDialog}
-            onOpenChange={setShowCompleteDialog}
-            onSuccess={handleCompleteSuccess}
-        />
+        {hasHumanReview && (
+            <CompleteReviewDialog
+                cityId={meeting.cityId}
+                meetingId={meeting.id}
+                open={showCompleteDialog}
+                onOpenChange={setShowCompleteDialog}
+                onSuccess={handleCompleteSuccess}
+            />
+        )}
         </>
     );
 }
