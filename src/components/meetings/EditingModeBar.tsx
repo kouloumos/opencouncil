@@ -7,7 +7,7 @@ import { useCouncilMeetingData } from './CouncilMeetingDataContext';
 import { useHighlight } from './HighlightContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Edit, Gauge, UserRoundSearch, X, BookOpen, CheckCircle, SkipForward } from 'lucide-react';
+import { Edit, Gauge, UserRoundSearch, X, BookOpen, SkipForward } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -15,8 +15,6 @@ import { EditingGuideDialog } from './EditingGuideDialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { UNKNOWN_SPEAKER_LABEL } from '@/lib/utils';
 import { SpeakersOverviewSheet } from './transcript/SpeakersOverviewSheet';
-import { CompleteReviewDialog } from '@/components/reviews/CompleteReviewDialog';
-import { useRouter } from 'next/navigation';
 
 export function EditingModeBar() {
     const { options, updateOptions } = useTranscriptOptions();
@@ -25,9 +23,6 @@ export function EditingModeBar() {
     const { editingHighlight } = useHighlight(); // To check for exclusivity
     const t = useTranslations('editing');
     const [showGuideHint, setShowGuideHint] = useState(false);
-    const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-    const [isReviewCompleted, setIsReviewCompleted] = useState(false);
-    const router = useRouter();
 
     // Check localStorage on mount to see if user has seen the guide
     useEffect(() => {
@@ -40,23 +35,6 @@ export function EditingModeBar() {
             return () => clearTimeout(timer);
         }
     }, []);
-
-    // Check if humanReview is already completed
-    useEffect(() => {
-        const checkReviewStatus = async () => {
-            try {
-                const response = await fetch(`/api/cities/${meeting.cityId}/meetings/${meeting.id}/status`);
-                if (response.ok) {
-                    const status = await response.json();
-                    setIsReviewCompleted(status.tasks?.humanReview === true);
-                }
-            } catch (error) {
-                console.error('Failed to fetch meeting status:', error);
-            }
-        };
-
-        checkReviewStatus();
-    }, [meeting.cityId, meeting.id]);
 
     // If not editable OR if we are currently editing a highlight, do not show this bar
     if (!options.editable || editingHighlight) {
@@ -100,25 +78,6 @@ export function EditingModeBar() {
         }
 
         toast({ description: t('toasts.noMoreUnknown') });
-    };
-
-    const handleCompleteReview = () => {
-        setShowCompleteDialog(true);
-    };
-
-    const handleCompleteSuccess = () => {
-        // Exit editing mode
-        updateOptions({ editable: false });
-        
-        // Mark review as completed to hide the button
-        setIsReviewCompleted(true);
-        
-        toast({
-            title: t('toasts.reviewCompleted'),
-            description: t('toasts.reviewCompletedDescription')
-        });
-        // Refresh the page to update task statuses
-        router.refresh();
     };
 
     return (
@@ -219,20 +178,6 @@ export function EditingModeBar() {
                         {/* Speakers Overview */}
                         <SpeakersOverviewSheet />
 
-                        {/* Complete Review - only show if not already completed */}
-                        {!isReviewCompleted && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleCompleteReview}
-                                className="flex items-center space-x-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                                title={t('actions.completeReview')}
-                            >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">{t('actions.completeReview')}</span>
-                            </Button>
-                        )}
-
                                         {/* Editing Guide */}
                                         <Tooltip open={showGuideHint}>
                                             <EditingGuideDialog onOpenChange={(open) => open && handleGuideOpen()}>
@@ -275,15 +220,6 @@ export function EditingModeBar() {
                 </Card>
             </motion.div>
         </AnimatePresence>
-        
-        {/* Complete Review Dialog */}
-        <CompleteReviewDialog
-            cityId={meeting.cityId}
-            meetingId={meeting.id}
-            open={showCompleteDialog}
-            onOpenChange={setShowCompleteDialog}
-            onSuccess={handleCompleteSuccess}
-        />
         </>
     );
 }
