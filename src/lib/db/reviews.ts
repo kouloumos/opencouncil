@@ -1,7 +1,6 @@
 'use server'
 import { Prisma } from '@prisma/client';
 import prisma from './prisma';
-import { calculateMeetingDurationMs } from './utils/meetingDuration';
 import { buildDateFilter } from './reviews/dateFilters';
 
 // ============================================================================
@@ -1052,100 +1051,6 @@ export async function getReviewStats(): Promise<ReviewStats> {
   };
 }
 
-export interface ReviewMetrics {
-  needsCorrections: number; // Duration in milliseconds
-  needsUpload: number; // Count of meetings
-  oldestNeedsCorrections: Date | null;
-  oldestNeedsUpload: Date | null;
-}
-
-/**
- * Get review metrics: meetings needing corrections and meetings needing upload
- * Returns duration in milliseconds instead of count
- */
-export async function getReviewMetrics(last30Days: boolean = false): Promise<ReviewMetrics> {
-  const dateFilter = buildDateFilter(last30Days);
-
-  // Needs corrections: meetings with fixTranscript succeeded but no humanReview succeeded
-  const needsCorrectionsMeetings = await prisma.councilMeeting.findMany({
-    where: {
-      AND: [
-        {
-          taskStatuses: {
-            some: {
-              type: 'fixTranscript',
-              status: 'succeeded'
-            }
-          }
-        },
-        {
-          NOT: {
-            taskStatuses: {
-              some: {
-                type: 'humanReview',
-                status: 'succeeded'
-              }
-            }
-          }
-        },
-        dateFilter
-      ]
-    },
-    include: {
-      speakerSegments: {
-        include: {
-          utterances: {
-            select: {
-              startTimestamp: true,
-              endTimestamp: true
-            }
-          }
-        }
-      }
-    },
-    orderBy: {
-      dateTime: 'asc'
-    }
-  });
-
-  // Needs upload: past meetings without transcribe succeeded
-  const needsUploadMeetings = await prisma.councilMeeting.findMany({
-    where: {
-      AND: [
-        {
-          NOT: {
-            taskStatuses: {
-              some: {
-                type: 'transcribe',
-                status: 'succeeded'
-              }
-            }
-          }
-        },
-        dateFilter
-      ]
-    },
-    select: {
-      dateTime: true
-    },
-    orderBy: {
-      dateTime: 'asc'
-    }
-  });
-
-  // Calculate total duration for needs corrections
-  const needsCorrectionsDuration = needsCorrectionsMeetings.reduce(
-    (sum, meeting) => sum + calculateMeetingDurationMs(meeting),
-    0
-  );
-
-  return {
-    needsCorrections: needsCorrectionsDuration,
-    needsUpload: needsUploadMeetings.length,
-    oldestNeedsCorrections: needsCorrectionsMeetings.length > 0 ? needsCorrectionsMeetings[0].dateTime : null,
-    oldestNeedsUpload: needsUploadMeetings.length > 0 ? needsUploadMeetings[0].dateTime : null,
-  };
-}
 
 /**
  * Get detailed review progress for a specific meeting with session calculations

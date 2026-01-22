@@ -1,4 +1,4 @@
-import { getMeetingsNeedingReview, getReviewers, getReviewMetrics } from '@/lib/db/reviews';
+import { getMeetingsNeedingReview, getReviewers } from '@/lib/db/reviews';
 import { ReviewsTable } from '@/components/admin/reviews/ReviewsTable';
 import { ReviewFilters } from '@/components/admin/reviews/ReviewFilters';
 import { ReviewVolumeChart } from '@/components/admin/reviews/ReviewVolumeChart';
@@ -19,11 +19,19 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
   const { show = 'needsAttention', reviewerId, last30Days } = searchParams;
   const last30DaysBool = last30Days !== 'false';
   
-  const [reviews, reviewers, metrics] = await Promise.all([
+  const [reviews, reviewers] = await Promise.all([
     getMeetingsNeedingReview({ show, reviewerId, last30Days: last30DaysBool }),
     getReviewers(),
-    getReviewMetrics(last30DaysBool)
   ]);
+
+  // Calculate metrics from reviews data
+  const needsReview = reviews
+    .filter(r => r.status !== 'completed')
+    .reduce((sum, r) => sum + r.meetingDurationMs, 0);
+  
+  const oldestNeedsReview = reviews
+    .filter(r => r.status !== 'completed')
+    .sort((a, b) => a.meetingDate.getTime() - b.meetingDate.getTime())[0]?.meetingDate ?? null;
   
   return (
     <div className="container mx-auto py-8 px-4">
@@ -48,29 +56,16 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
       <Last30DaysFilter last30Days={last30DaysBool} />
 
       {/* Metrics Display */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{formatDurationMs(metrics.needsCorrections)}</div>
+            <div className="text-2xl font-bold">{formatDurationMs(needsReview)}</div>
             <div className="text-sm text-muted-foreground mt-1">
-              Meeting time needs corrections
+              Meeting time needs review
             </div>
-            {metrics.oldestNeedsCorrections && (
+            {oldestNeedsReview && (
               <div className="text-xs text-muted-foreground mt-2">
-                Oldest: {formatDistanceToNow(metrics.oldestNeedsCorrections, { addSuffix: true })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{metrics.needsUpload}</div>
-            <div className="text-sm text-muted-foreground mt-1">
-              Meetings need upload
-            </div>
-            {metrics.oldestNeedsUpload && (
-              <div className="text-xs text-muted-foreground mt-2">
-                Oldest: {formatDistanceToNow(metrics.oldestNeedsUpload, { addSuffix: true })}
+                Oldest: {formatDistanceToNow(oldestNeedsReview, { addSuffix: true })}
               </div>
             )}
           </CardContent>
