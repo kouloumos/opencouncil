@@ -26,6 +26,15 @@ export interface Statistics {
     parties?: Stat<Party>[]
     people?: Stat<PersonWithRelations>[]
 }
+
+// Empty statistics constant to avoid duplication
+const EMPTY_STATISTICS: Statistics = {
+    speakingSeconds: 0,
+    people: [],
+    parties: [],
+    topics: []
+};
+
 type SpeakerSegmentInfo = SpeakerSegment & {
     speakerTag: {
         person: PersonWithRelations | null;
@@ -80,12 +89,7 @@ export async function getStatisticsFor(
 
         // If no utterances found, return empty statistics
         if (utterances.length === 0) {
-            return {
-                speakingSeconds: 0,
-                people: [],
-                parties: [],
-                topics: []
-            };
+            return EMPTY_STATISTICS;
         }
 
         // Calculate total duration per speaker segment from utterances
