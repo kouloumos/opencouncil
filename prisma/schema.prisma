@@ -2,14 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [postgis]
 }
 
@@ -35,11 +35,11 @@ datasource db {
 // ============================================================================
 
 model Workspace {
-  id        String        @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   administrators Administers[]
   transcripts    Transcript[]
   speakers       Speaker[]
@@ -47,33 +47,33 @@ model Workspace {
 }
 
 model City {
-  id        String   @id @default(cuid())
-  name      String   // Αθήνα
-  name_en   String   // Athens
-  name_municipality String // Δήμος Αθηναίων
-  name_municipality_en String // Municipality of Athens
-  logoImage String?
-  timezone  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  officialSupport Boolean @default(false)
-  status CityStatus @default(pending)
-  authorityType AuthorityType @default(municipality)
-  wikipediaId String?
-  geometry Unsupported("geometry")?
-  supportsNotifications Boolean @default(false)
-  consultationsEnabled Boolean @default(false)
-  peopleOrdering PeopleOrdering @default(default)
+  id                    String                   @id @default(cuid())
+  name                  String // Αθήνα
+  name_en               String // Athens
+  name_municipality     String // Δήμος Αθηναίων
+  name_municipality_en  String // Municipality of Athens
+  logoImage             String?
+  timezone              String
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  officialSupport       Boolean                  @default(false)
+  status                CityStatus               @default(pending)
+  authorityType         AuthorityType            @default(municipality)
+  wikipediaId           String?
+  geometry              Unsupported("geometry")?
+  supportsNotifications Boolean                  @default(false)
+  consultationsEnabled  Boolean                  @default(false)
+  peopleOrdering        PeopleOrdering           @default(default)
 
-  workspace Workspace @relation(fields: [id], references: [id], onDelete: Cascade)
-  parties        Party[]
-  persons        Person[]
-  councilMeetings CouncilMeeting[]
+  workspace            Workspace            @relation(fields: [id], references: [id], onDelete: Cascade)
+  parties              Party[]
+  persons              Person[]
+  councilMeetings      CouncilMeeting[]
   administrativeBodies AdministrativeBody[]
-  
-  petitions Petition[]
+
+  petitions               Petition[]
   notificationPreferences NotificationPreference[]
-  notifications Notification[]
+  notifications           Notification[]
 
   roles Role[]
 
@@ -81,7 +81,7 @@ model City {
   message CityMessage?
 
   // Consultations relation
-  consultations Consultation[]
+  consultations        Consultation[]
   consultationComments ConsultationComment[]
 
   @@index([status])
@@ -93,7 +93,7 @@ enum AuthorityType {
 }
 
 enum CityStatus {
-  pending   
+  pending
   unlisted
   listed
 }
@@ -104,9 +104,9 @@ enum PeopleOrdering {
 }
 
 enum AdministrativeBodyType {
-  council      // Συμβούλιο (π.χ. Δημοτικό Συμβούλιο)
-  committee    // Επιτροπή (π.χ. Δημοτική Επιτροπή)
-  community    // Κοινότητα (π.χ. 5η Δημοτική Κοινότητα)
+  council // Συμβούλιο (π.χ. Δημοτικό Συμβούλιο)
+  committee // Επιτροπή (π.χ. Δημοτική Επιτροπή)
+  community // Κοινότητα (π.χ. 5η Δημοτική Κοινότητα)
 }
 
 enum NotificationBehavior {
@@ -116,18 +116,18 @@ enum NotificationBehavior {
 }
 
 model AdministrativeBody {
-  id        String   @id @default(cuid())
-  name      String   // e.g. "5η Δημοτική Κοινότητα"
-  name_en   String   // e.g. "5th Municipal Community"
-  type      AdministrativeBodyType
-  notificationBehavior NotificationBehavior @default(NOTIFICATIONS_APPROVAL)
-  youtubeChannelUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String                 @id @default(cuid())
+  name                 String // e.g. "5η Δημοτική Κοινότητα"
+  name_en              String // e.g. "5th Municipal Community"
+  type                 AdministrativeBodyType
+  notificationBehavior NotificationBehavior   @default(NOTIFICATIONS_APPROVAL)
+  youtubeChannelUrl    String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId    String
-  meetings  CouncilMeeting[]
+  city     City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId   String
+  meetings CouncilMeeting[]
 
   roles Role[]
 
@@ -135,19 +135,17 @@ model AdministrativeBody {
 }
 
 model Party {
-  id        String   @id @default(cuid())
-  name      String
-  name_en   String
-  name_short String
+  id            String   @id @default(cuid())
+  name          String
+  name_en       String
+  name_short    String
   name_short_en String
-  colorHex  String
-  logo      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  colorHex      String
+  logo          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-
-
-  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   cityId String
 
   roles Role[]
@@ -164,102 +162,101 @@ model Speaker {
   image       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   speakerTags SpeakerTag[]
   voicePrints VoicePrint[]
   person      Person?
-  
+
   @@index([workspaceId])
 }
 
 model Person {
-  id        String   @id @default(cuid())
-  name  String
-  name_en String
-  name_short String
+  id            String @id @default(cuid())
+  name          String
+  name_en       String
+  name_short    String
   name_short_en String
-  
+
   roles Role[]
 
   activeFrom DateTime?
-  activeTo DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  activeTo   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   profileUrl String?
 
   speaker Speaker @relation(fields: [id], references: [id], onDelete: Cascade)
-  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId String
+  city    City    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId  String
 
-  administrators Administers[]
+  administrators     Administers[]
   subjectsIntroduced Subject[]
 
   @@index([cityId])
 }
 
 model CouncilMeeting {
-  id        String   @default(cuid())
-  name      String
-  name_en   String
-  dateTime  DateTime
+  id         String   @default(cuid())
+  name       String
+  name_en    String
+  dateTime   DateTime
   youtubeUrl String?
-  agendaUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  agendaUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   transcript Transcript @relation(fields: [cityId, id], references: [workspaceId, id], onDelete: Cascade)
-  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId String
+  city       City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId     String
 
-  administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: SetNull)
+  administrativeBody   AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: SetNull)
   administrativeBodyId String?
 
-  highlights Highlight[]
-  subjects Subject[]
+  highlights   Highlight[]
+  subjects     Subject[]
   podcastSpecs PodcastSpec[]
 
   notifications Notification[]
 
   @@id([cityId, id])
   @@unique([cityId, id])
-
   @@index([dateTime])
   @@index([cityId, dateTime])
   @@index([administrativeBodyId])
 }
 
 model Transcript {
-  id          String         @default(cuid())
-  workspaceId String
-  name        String
-  videoUrl    String?
-  audioUrl    String?
+  id            String   @default(cuid())
+  workspaceId   String
+  name          String
+  videoUrl      String?
+  audioUrl      String?
   muxPlaybackId String?
-  released    Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  released      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   councilMeeting  CouncilMeeting?
   taskStatuses    TaskStatus[]
   speakerSegments SpeakerSegment[]
-  
+
   @@id([workspaceId, id])
   @@unique([workspaceId, id])
   @@index([released])
 }
 
 model TaskStatus {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  status    String   @default("pending")
-  stage     String?
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  status          String   @default("pending")
+  stage           String?
   percentComplete Float?
-  type      String
-  requestBody String
-  responseBody String?
+  type            String
+  requestBody     String
+  responseBody    String?
 
   version Int?
 
@@ -271,32 +268,32 @@ model TaskStatus {
 }
 
 model VoicePrint {
-  id                  String    @id @default(cuid())
-  embedding           String    @db.Text
-  sourceAudioUrl      String    // URL to the audio source used for the voiceprint
-  startTimestamp      Float     // Start time of the extracted audio in the original media
-  endTimestamp        Float     // End time of the extracted audio in the original media
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  
-  speaker             Speaker   @relation(fields: [speakerId], references: [id], onDelete: Cascade)
-  speakerId           String
-  
+  id             String   @id @default(cuid())
+  embedding      String   @db.Text
+  sourceAudioUrl String // URL to the audio source used for the voiceprint
+  startTimestamp Float // Start time of the extracted audio in the original media
+  endTimestamp   Float // End time of the extracted audio in the original media
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  speaker   Speaker @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  speakerId String
+
   // Reference to the speaker segment used to generate this voiceprint
-  sourceSegment       SpeakerSegment @relation(fields: [sourceSegmentId], references: [id], onDelete: Cascade)
-  sourceSegmentId     String
-  
+  sourceSegment   SpeakerSegment @relation(fields: [sourceSegmentId], references: [id], onDelete: Cascade)
+  sourceSegmentId String
+
   @@index([speakerId])
   @@index([sourceSegmentId])
 }
 
 model SpeakerTag {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  label           String?
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  label     String?
 
-  speaker Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speaker   Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
   speakerId String?
 
   speakerSegments SpeakerSegment[]
@@ -305,26 +302,26 @@ model SpeakerTag {
 }
 
 model SpeakerSegment {
-  id              String   @id @default(cuid())
-  startTimestamp  Float
-  endTimestamp    Float
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  startTimestamp Float
+  endTimestamp   Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   transcript   Transcript @relation(fields: [transcriptId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
   transcriptId String
   workspaceId  String
 
-  speakerTag SpeakerTag @relation(fields: [speakerTagId], references: [id], onDelete: Cascade)
+  speakerTag   SpeakerTag @relation(fields: [speakerTagId], references: [id], onDelete: Cascade)
   speakerTagId String
 
   utterances Utterance[]
 
   topicLabels TopicLabel[]
-  summary Summary?
+  summary     Summary?
 
   subjects SubjectSpeakerSegment[]
-  
+
   usedForVoiceprints VoicePrint[]
 
   @@index([transcriptId, workspaceId, startTimestamp])
@@ -337,24 +334,25 @@ enum SpeakerSegmentType {
 }
 
 model Utterance {
-  id              String   @id @default(cuid())
-  startTimestamp  Float
-  endTimestamp    Float
-  text            String
-  drift           Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  startTimestamp Float
+  endTimestamp   Float
+  text           String
+  drift          Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegment   SpeakerSegment  @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
   speakerSegmentId String
-  uncertain Boolean @default(false)
-  lastModifiedBy LastModifiedBy?
+  uncertain        Boolean         @default(false)
+  lastModifiedBy   LastModifiedBy?
 
-  words Word[]
-  highlightedUtterances HighlightedUtterance[]
+  words                      Word[]
+  highlightedUtterances      HighlightedUtterance[]
   podcastPartAudioUtterances PodcastPartAudioUtterance[]
+  utteranceEdits             UtteranceEdit[]
+
   @@index([speakerSegmentId, startTimestamp])
-  utteranceEdits UtteranceEdit[]
 }
 
 enum LastModifiedBy {
@@ -363,27 +361,27 @@ enum LastModifiedBy {
 }
 
 model Word {
-  id              String   @id @default(cuid())
-  text            String
-  startTimestamp  Float
-  endTimestamp    Float
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  confidence      Float    @default(1)
+  id             String   @id @default(cuid())
+  text           String
+  startTimestamp Float
+  endTimestamp   Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  confidence     Float    @default(1)
 
-  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  utterance   Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
   utteranceId String
 
   @@index([utteranceId, startTimestamp])
 }
 
 model TopicLabel {
-  id        String   @id  @default(cuid())
+  id String @id @default(cuid())
 
-  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegment   SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
   speakerSegmentId String
 
-  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
   topicId String
 
   createdAt DateTime @default(now())
@@ -393,65 +391,65 @@ model TopicLabel {
 }
 
 model Topic {
-  id        String   @id  @default(cuid())
-  name      String
-  name_en   String
-  colorHex  String
-  icon      String?
+  id       String  @id @default(cuid())
+  name     String
+  name_en  String
+  colorHex String
+  icon     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   topicLabels TopicLabel[]
-  subjects Subject[]
-  
+  subjects    Subject[]
+
   // Add relation to notification preferences
   notificationPreferences NotificationPreference[] @relation("NotificationTopic")
 }
 
 model Summary {
-  id        String   @id  @default(cuid())
-  text      String
+  id   String @id @default(cuid())
+  text String
 
-  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
-  speakerSegmentId String @unique
+  speakerSegment   SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegmentId String         @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   type SpeakerSegmentType?
 
   @@index([speakerSegmentId])
 }
 
 model Subject {
-  id        String   @id  @default(cuid())
-  name      String
+  id          String @id @default(cuid())
+  name        String
   description String
 
-  cityId String
+  cityId           String
   councilMeetingId String
 
-  hot Boolean @default(false)
+  hot             Boolean          @default(false)
   agendaItemIndex Int?
   nonAgendaReason NonAgendaReason?
-  topicId String?
-  locationId String?
+  topicId         String?
+  locationId      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  personId String?
+  personId     String?
   introducedBy Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   councilMeeting CouncilMeeting @relation(fields: [cityId, councilMeetingId], references: [cityId, id], onDelete: Cascade)
-  topic Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  topic          Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
 
-  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  highlights Highlight[]
+  location        Location?               @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  highlights      Highlight[]
   speakerSegments SubjectSpeakerSegment[]
 
-  context String?
+  context             String?
   contextCitationUrls String[]
 
   notifications NotificationSubject[]
@@ -471,25 +469,25 @@ enum LocationType {
 }
 
 model Location {
-  id        String   @id  @default(cuid())
-  type LocationType
-  text String
+  id          String                  @id @default(cuid())
+  type        LocationType
+  text        String
   coordinates Unsupported("geometry")
 
   subjects Subject[]
-  
+
   // Relation to notification preferences
   notificationPreferences NotificationPreference[] @relation("NotificationLocation")
 }
 
 model SubjectSpeakerSegment {
-  id        String   @id  @default(cuid())
+  id String @id @default(cuid())
 
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   subjectId String
-  summary String?
+  summary   String?
 
-  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegment   SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
   speakerSegmentId String
 
   createdAt DateTime @default(now())
@@ -497,22 +495,22 @@ model SubjectSpeakerSegment {
 }
 
 model Highlight {
-  id        String   @id  @default(cuid())
-  name      String
+  id   String @id @default(cuid())
+  name String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
   meetingId String
-  cityId String
+  cityId    String
 
   highlightedUtterances HighlightedUtterance[]
-  
-  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   subjectId String?
 
-  videoUrl String?
+  videoUrl      String?
   muxPlaybackId String?
 
   isShowcased Boolean @default(false)
@@ -521,27 +519,27 @@ model Highlight {
 }
 
 model HighlightedUtterance {
-  id        String   @id  @default(cuid())
-  
-  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  utterance   Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
   utteranceId String
 
-  highlight Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  highlight   Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
   highlightId String
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PodcastSpec {
-  id        String   @id  @default(cuid())
+  id               String   @id @default(cuid())
   councilMeetingId String
-  cityId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  cityId           String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  meeting   CouncilMeeting @relation(fields: [councilMeetingId, cityId], references: [id, cityId], onDelete: Cascade)
-  parts PodcastPart[]
+  meeting CouncilMeeting @relation(fields: [councilMeetingId, cityId], references: [id, cityId], onDelete: Cascade)
+  parts   PodcastPart[]
 }
 
 enum PodcastPartType {
@@ -550,63 +548,51 @@ enum PodcastPartType {
 }
 
 model PodcastPart {
-  id        String   @id  @default(cuid())
-  type PodcastPartType
-  text String?
+  id              String          @id @default(cuid())
+  type            PodcastPartType
+  text            String?
   audioSegmentUrl String?
-  duration Float?
-  startTimestamp Float?
-  endTimestamp Float?
-  index Int
+  duration        Float?
+  startTimestamp  Float?
+  endTimestamp    Float?
+  index           Int
 
-  podcastSpec PodcastSpec @relation(fields: [podcastSpecId], references: [id], onDelete: Cascade)
+  podcastSpec   PodcastSpec @relation(fields: [podcastSpecId], references: [id], onDelete: Cascade)
   podcastSpecId String
 
   podcastPartAudioUtterances PodcastPartAudioUtterance[]
 }
 
 model PodcastPartAudioUtterance {
-  id        String   @id  @default(cuid())
+  id String @id @default(cuid())
 
-  podcastPart PodcastPart @relation(fields: [podcastPartId], references: [id], onDelete: Cascade)
+  podcastPart   PodcastPart @relation(fields: [podcastPartId], references: [id], onDelete: Cascade)
   podcastPartId String
 
-  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  utterance   Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
   utteranceId String
 }
 
 model Offer {
-  id        String   @id  @default(cuid())
+  id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   type      String   @default("pilot")
   version   Int?     @default(1)
 
-  startDate DateTime
-  endDate DateTime
+  startDate DateTime?
+  endDate   DateTime?
 
-  recipientName String
-  platformPrice Float
+  recipientName         String
   ingestionPerHourPrice Float
-  hoursToIngest Int
-  discountPercentage Float
-  meetingsToIngest Int?  // Keep for backward compatibility
-  hoursToGuarantee Int?  // New field for version 2
-  cityId String?
+  hoursToIngest         Int
+  discountPercentage    Float
 
-  correctnessGuarantee Boolean @default(false)
-  
-  // Equipment rental fields
-  equipmentRentalPrice Float?  // Monthly price for equipment rental
-  equipmentRentalName String?  // Name/description of equipment
-  equipmentRentalDescription String? // Detailed description
-  
-  // Physical presence fields
-  physicalPresenceHours Int?  // Number of hours for physical presence
-  
+  workspaceId String?
+
   respondToEmail String
   respondToPhone String
-  respondToName String
+  respondToName  String
 }
 
 // Users and authentication
@@ -624,20 +610,20 @@ model User {
   sessions      Session[]
   Authenticator Authenticator[]
   administers   Administers[]
-  
-  petitions Petition[]
+
+  petitions               Petition[]
   notificationPreferences NotificationPreference[]
-  notifications Notification[]
-  
+  notifications           Notification[]
+
   // Add these relations for consultation comments
-  consultationComments ConsultationComment[]
+  consultationComments       ConsultationComment[]
   consultationCommentUpvotes ConsultationCommentUpvote[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   utteranceEdits UtteranceEdit[]
 }
- 
+
 model Account {
   userId            String
   type              String
@@ -650,33 +636,33 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
- 
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
- 
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   @@id([provider, providerAccountId])
 }
- 
+
 model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
- 
+
 model VerificationToken {
   identifier String
   token      String
   expires    DateTime
- 
+
   @@id([identifier, token])
 }
- 
+
 // Optional for WebAuthn support
 model Authenticator {
   credentialID         String  @unique
@@ -687,25 +673,24 @@ model Authenticator {
   credentialDeviceType String
   credentialBackedUp   Boolean
   transports           String?
- 
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   @@id([userId, credentialID])
 }
 
 model Administers {
-  
-  id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  id          String  @id @default(cuid())
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
   workspaceId String?
-  cityId    String?
-  partyId   String?
-  personId  String?
-  
+  cityId      String?
+  partyId     String?
+  personId    String?
+
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  party     Party?   @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  person    Person?  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  party     Party?     @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person    Person?    @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -714,15 +699,15 @@ model Administers {
 }
 
 model UtteranceEdit {
-  id        String   @id @default(cuid())
-  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  utterance   Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
   utteranceId String
 
   beforeText String
-  afterText String
+  afterText  String
 
   editedBy LastModifiedBy
-  userId String?
+  userId   String?
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -731,38 +716,37 @@ model UtteranceEdit {
 }
 
 model Role {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
   personId String
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   cityId String?
-  city City? @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  city   City?   @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   partyId String?
-  party Party? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  party   Party?  @relation(fields: [partyId], references: [id], onDelete: Cascade)
 
   administrativeBodyId String?
-  administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: Cascade)
+  administrativeBody   AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: Cascade)
 
-  isHead Boolean @default(false)
-  name String?
+  isHead  Boolean @default(false)
+  name    String?
   name_en String?
-  rank Int?
+  rank    Int?
 
   startDate DateTime?
-  endDate DateTime?
+  endDate   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Only one role per person and {city, party, administrativeBody}
+  @@unique([personId, cityId, partyId, administrativeBodyId])
   @@index([personId])
   @@index([cityId])
   @@index([partyId])
   @@index([administrativeBodyId])
-
-  // Only one role per person and {city, party, administrativeBody}
-  @@unique([personId, cityId, partyId, administrativeBodyId])
 }
 
 // New models for the notification signup system
@@ -770,18 +754,18 @@ model Petition {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId    String
-  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
+
   // Fields from PRD
   is_resident Boolean @default(false)
-  is_citizen Boolean @default(false)
-  
+  is_citizen  Boolean @default(false)
+
   @@unique([userId, cityId])
   @@index([userId])
   @@index([cityId])
@@ -791,35 +775,35 @@ model NotificationPreference {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId    String
-  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
+
   // Many-to-many relations with locations and topics/interests
   locations Location[] @relation("NotificationLocation")
   interests Topic[]    @relation("NotificationTopic")
-  
+
   @@unique([userId, cityId])
   @@index([userId])
   @@index([cityId])
 }
 
 model CityMessage {
-  id          String   @id @default(cuid())
-  cityId      String   @unique  // One message per city
-  emoji       String   // lucide-react icon name
-  title       String
-  description String
-  callToActionText String?
-  callToActionUrl  String?
-  callToActionExternal Boolean @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  cityId               String   @unique // One message per city
+  emoji                String // lucide-react icon name
+  title                String
+  description          String
+  callToActionText     String?
+  callToActionUrl      String?
+  callToActionExternal Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
@@ -829,16 +813,16 @@ model CityMessage {
 model Consultation {
   id        String   @id @default(cuid())
   name      String
-  jsonUrl   String   // URL to the regulation JSON file
+  jsonUrl   String // URL to the regulation JSON file
   endDate   DateTime
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId    String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
 
-  comments  ConsultationComment[]
+  comments ConsultationComment[]
 
   @@index([cityId, isActive])
   @@index([isActive, endDate])
@@ -852,23 +836,23 @@ enum ConsultationCommentEntityType {
 }
 
 model ConsultationComment {
-  id            String   @id @default(cuid())
-  body          String   @db.Text
-  entityType    ConsultationCommentEntityType
-  entityId      String   // ID of the chapter/article/geoset/geometry being commented on
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id         String                        @id @default(cuid())
+  body       String                        @db.Text
+  entityType ConsultationCommentEntityType
+  entityId   String // ID of the chapter/article/geoset/geometry being commented on
+  createdAt  DateTime                      @default(now())
+  updatedAt  DateTime                      @updatedAt
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
-  consultation  Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
   consultationId String
 
-  city          City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId        String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
 
-  upvotes       ConsultationCommentUpvote[]
+  upvotes ConsultationCommentUpvote[]
 
   @@index([consultationId, entityType, entityId])
   @@index([cityId])
@@ -879,8 +863,8 @@ model ConsultationCommentUpvote {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
   comment   ConsultationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   commentId String
@@ -898,11 +882,11 @@ model Notification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
-  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  cityId    String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
 
   meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
   meetingId String
@@ -910,7 +894,7 @@ model Notification {
   type NotificationType
 
   deliveries NotificationDelivery[]
-  subjects NotificationSubject[]
+  subjects   NotificationSubject[]
 
   @@unique([userId, cityId, meetingId, type])
   @@index([userId])
@@ -924,15 +908,15 @@ enum NotificationType {
 }
 
 model NotificationSubject {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  reason NotificationSubjectReason
-  
-  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  id        String                    @id @default(cuid())
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+  reason    NotificationSubjectReason
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   notificationId String
 
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   subjectId String
 
   @@unique([notificationId, subjectId])
@@ -949,24 +933,24 @@ model NotificationDelivery {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   notificationId String
 
   // Set at creation time:
   medium NotificationMedium
-  email String?
-  phone String?
+  email  String?
+  phone  String?
   status NotificationDeliveryStatus
-  title String?
-  body String?
-  
+  title  String?
+  body   String?
+
   // Set at sending time:
   messageSentVia NotificationMessageType? // only filled in if status is sent
-  sentAt DateTime?
+  sentAt         DateTime?
 
+  @@unique([notificationId, medium])
   @@index([status])
   @@index([createdAt])
-  @@unique([notificationId, medium])
 }
 
 enum NotificationMedium {

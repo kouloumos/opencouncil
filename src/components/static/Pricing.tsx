@@ -15,11 +15,7 @@ import React from 'react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import { formatCurrency } from '@/lib/utils'
 import {
-    estimateYearlyPricing,
-    PLATFORM_PRICING_TIERS,
     SESSION_PROCESSING,
-    getCurrentCorrectnessGuaranteePrice,
-    getCombinedProcessingPrice
 } from '@/lib/pricing'
 
 const inter = Inter({ subsets: ['greek', 'latin'] })
@@ -33,7 +29,6 @@ export default function Pricing() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [councilCount, setCouncilCount] = useState(20)
     const [averageDuration, setAverageDuration] = useState(3)
-    const [population, setPopulation] = useState(50000)
     const [isContactFormOpen, setIsContactFormOpen] = useState(false)
     const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
 
@@ -45,14 +40,10 @@ export default function Pricing() {
     }, [isDialogOpen])
 
     const calculatePrice = () => {
-        const estimate = estimateYearlyPricing(
-            population,
-            councilCount,
-            averageDuration,
-            true // Always include correctness guarantee now
-        )
+        const totalYearlyHours = councilCount * averageDuration;
+        const totalYearlyCost = totalYearlyHours * SESSION_PROCESSING.pricePerHour;
 
-        setCalculatedPrice(estimate.totalYearlyCost)
+        setCalculatedPrice(totalYearlyCost)
         setIsContactFormOpen(true)
     }
 
@@ -183,22 +174,6 @@ export default function Pricing() {
                                             {averageDuration}
                                         </div>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="population">
-                                            Πληθυσμός
-                                        </Label>
-                                        <Slider
-                                            id="population"
-                                            min={2000}
-                                            max={200000}
-                                            step={1000}
-                                            value={[population]}
-                                            onValueChange={(value) => setPopulation(value[0])}
-                                        />
-                                        <div className="text-right text-sm text-muted-foreground">
-                                            {population <= 2000 ? 'μέχρι 2.000' : population >= 200000 ? '200.000 και πάνω' : population}
-                                        </div>
-                                    </div>
                                 </div>
                                 <DialogFooter className="sm:justify-center">
                                     <Button onClick={calculatePrice}>Υπολογισμός</Button>
@@ -234,62 +209,19 @@ export function PricingCards({ setIsDialogOpen }: { setIsDialogOpen: (open: bool
                 <div className="flex-1">
                     <PricingCard
                         icon={<FileInput className="h-10 w-10 text-primary stroke-[1.5]" />}
-                        title={getCombinedProcessingPrice().label}
-                        description={getCombinedProcessingPrice().description}
-                        price={`${formatCurrency(getCombinedProcessingPrice().pricePerHour)} / ώρα`}
+                        title={SESSION_PROCESSING.label}
+                        description={SESSION_PROCESSING.description}
+                        price={`${formatCurrency(SESSION_PROCESSING.pricePerHour)} / ώρα`}
                         subtext="Χρέωση ανά ώρα συνεδρίασης"
                         includedItems={[
                             "Αυτόματη απομαγνητοφώνηση και αναγνώριση ομιλιτή.",
-                            "Διόρθωση απομαγνητοφώνησης από άνθρωπο.",
                             "Δημιουργία embeddings για κάθε τοποθέτηση ομιλητή",
                             "Αυτόματες συνόψεις ανά τοποθέτηση.",
                             "Εξαγωγή στατιστικών"
                         ]}
                         isOpen={isOpen}
                         toggleOpen={toggleOpen}
-                        content={
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                                <p className="text-sm text-muted-foreground">
-                                    Η προσθήκη παλαιότερων συνεδριάσεων, χωρίς διόρθωση της απομαγνητοφώνησης από άνθρωπο, χρεώνεται στα {formatCurrency(SESSION_PROCESSING.pricePerHour)} την ώρα.
-                                </p>
-                            </div>
-                        }
-                    />
-                </div>
-
-                <div className="flex-shrink-0 self-center">
-                    <div className="bg-primary text-primary-foreground rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold">
-                        και
-                    </div>
-                </div>
-
-                <div className="flex-1">
-                    <PricingCard
-                        icon={<LayoutTemplateIcon className="h-10 w-10 text-primary stroke-[1.5]" />}
-                        title="Χρήση Πλατφόρμας"
-                        description="Τιμολόγηση βάσει μεγέθους δήμου"
-                        price=""
-                        subtext=""
-                        content={
-                            <ul className="space-y-2">
-                                {PLATFORM_PRICING_TIERS.map((tier, index) => (
-                                    <PricingTier
-                                        key={index}
-                                        icon={<UsersIcon />}
-                                        population={tier.label}
-                                        price={tier.monthlyPrice === 0 ? "Δωρεάν" : `${formatCurrency(tier.monthlyPrice)} / μήνα`}
-                                    />
-                                ))}
-                            </ul>
-                        }
-                        includedItems={[
-                            "Ελεύθερη χρήση για όλους τους δημότες.",
-                            "Όλες τις λειτουργίες της πλατφόρμας",
-                            "1000 μηνύματα με το AI Chat ανά ημέρα.",
-                            "Τεχνική υποστήριξη"
-                        ]}
-                        isOpen={isOpen}
-                        toggleOpen={toggleOpen}
+                        content={null}
                     />
                 </div>
             </motion.div>
@@ -348,11 +280,3 @@ function PricingCard(
     )
 }
 
-function PricingTier({ icon, population, price }: { icon: React.ReactElement, population: string, price: string }) {
-    return (
-        <li className="flex items-center">
-            {React.cloneElement(icon, { className: "mr-2 h-4 w-4 text-primary flex-shrink-0" })}
-            <span>{population}: <strong>{price}</strong></span>
-        </li>
-    )
-}

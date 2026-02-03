@@ -56,11 +56,11 @@ export async function getOffer(id: string): Promise<Offer | OfferSupersededBy | 
             return null;
         }
 
-        // If this offer has a cityId, check for more recent offers for the same city
-        if (offer.cityId) {
+        // If this offer has a workspaceId, check for more recent offers for the same workspace
+        if (offer.workspaceId) {
             const newerOffer = await prisma.offer.findFirst({
                 where: {
-                    cityId: offer.cityId,
+                    workspaceId: offer.workspaceId,
                     createdAt: {
                         gt: offer.createdAt
                     }
