@@ -72,7 +72,8 @@
       "addTopic": "Add Topic",
       "starting": "Starting...",
       "syncing": "Syncing...",
-      "process": "Process"
+      "process": "Process",
+      "manageDecisions": "Manage Decisions"
     },
     "forms": {
       "enterMediaUrl": "Enter Media URL",
@@ -157,7 +158,41 @@
         "title": "Error",
         "failedToInvalidateMeetingCache": "Failed to invalidate meeting cache",
         "failedToInvalidateCityCache": "Failed to invalidate city cache"
+      },
+      "pollDecisionsRequested": {
+        "title": "Poll decisions requested",
+        "description": "Diavgeia decision polling has been started."
+      },
+      "errorPollingDecisions": {
+        "title": "Error polling decisions"
+      },
+      "decisionLinked": {
+        "title": "Decision linked"
+      },
+      "decisionUnlinked": {
+        "title": "Decision unlinked"
+      },
+      "errorSavingDecision": {
+        "title": "Error saving decision"
+      },
+      "errorRemovingDecision": {
+        "title": "Error removing decision"
       }
+    },
+    "decisions": {
+      "title": "Manage Decisions (Diavgeia)",
+      "description": "Link Diavgeia decisions to meeting subjects. You can paste PDF URLs manually or use automatic polling.",
+      "noSubjects": "No subjects found for this meeting.",
+      "noDecision": "No decision linked",
+      "pdfUrlPlaceholder": "Diavgeia PDF URL",
+      "adaPlaceholder": "ADA (e.g. 91ΥΔΩΡΦ-ΓΥ6)",
+      "protocolNumberPlaceholder": "# (e.g. 261/2024)",
+      "viewPdf": "View PDF",
+      "linked": "linked",
+      "pollUnlinked": "Poll unlinked ({count})",
+      "pollAll": "Poll all",
+      "exportForMatching": "Export",
+      "save": "Save"
     }
   }
 }

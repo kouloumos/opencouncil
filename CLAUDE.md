@@ -23,6 +23,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run prisma:migrate:reset` - Reset database and re-run migrations
 - `npx prisma db seed` - Seed database with sample data
 
+**IMPORTANT**: When making schema changes, always use `--create-only` to generate the migration file without applying it:
+```
+npx prisma migrate dev --name <migration_name> --create-only
+```
+This allows testing the migration against a local database first before applying to production. Never run `npx prisma migrate dev` directly, as it both creates and applies the migration to whatever database `DATABASE_URL` points to.
+
 ### Utility Scripts
 - `npm run lint` - Run ESLint
 - `npm run email` - Test municipality email sending
@@ -77,6 +83,12 @@ src/
 - Store shared Prisma types in `src/lib/db/types/{entity}.ts`
 - Re-export from `src/lib/db/types/index.ts`
 - Import from `@/lib/db/types` to prevent circular dependencies
+
+**CRITICAL - Before Creating New Types**:
+- **Always check if the type already exists** before defining a new one
+- When a function returns a type you need, follow the import chain to find its definition
+- If the type exists but isn't exported, export it rather than duplicating
+- Example: If `getCouncilMeeting()` returns `CouncilMeetingWithAdminBody`, check `src/lib/db/meetings.ts` for that type definition before creating your own
 
 ### Authentication Patterns
 

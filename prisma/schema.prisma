@@ -32,6 +32,7 @@ model City {
   consultationsEnabled Boolean @default(false)
   peopleOrdering PeopleOrdering @default(default)
   highlightCreationPermission HighlightCreationPermission @default(ADMINS_ONLY)
+  diavgeiaUid String?
 
   parties        Party[]
   persons        Person[]
@@ -95,6 +96,7 @@ model AdministrativeBody {
   type      AdministrativeBodyType
   notificationBehavior NotificationBehavior @default(NOTIFICATIONS_APPROVAL)
   youtubeChannelUrl String?
+  diavgeiaUnitId String? @unique  // Diavgeia unit ID (e.g., "81689")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -428,8 +430,23 @@ model Subject {
   discussedIn Subject? @relation("GroupedSubjects", fields: [discussedInId], references: [id], onDelete: SetNull)
   groupedSubjects Subject[] @relation("GroupedSubjects")
 
+  decision Decision?
+
   @@index([cityId, councilMeetingId])
   @@index([discussedInId])
+}
+
+model Decision {
+  id             String    @id @default(cuid())
+  subjectId      String    @unique
+  ada            String?   @unique  // Diavgeia unique identifier (e.g., "91ΥΔΩΡΦ-ΓΥ6")
+  protocolNumber String?             // Protocol number (e.g., "261/2024")
+  title          String?             // Decision title from Diavgeia
+  pdfUrl         String
+  issueDate      DateTime?           // Date published on Diavgeia
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  subject        Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 }
 
 enum NonAgendaReason {

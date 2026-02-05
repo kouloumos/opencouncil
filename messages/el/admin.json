@@ -72,7 +72,8 @@
       "addTopic": "Προσθήκη Θέματος",
       "starting": "Ξεκινάει...",
       "syncing": "Συγχρονισμός...",
-      "process": "Επεξεργασία"
+      "process": "Επεξεργασία",
+      "manageDecisions": "Διαχείριση Αποφάσεων"
     },
     "forms": {
       "enterMediaUrl": "Εισάγετε URL Μέσου",
@@ -157,7 +158,41 @@
         "title": "Σφάλμα",
         "failedToInvalidateMeetingCache": "Αποτυχία ακύρωσης cache συνεδρίασης",
         "failedToInvalidateCityCache": "Αποτυχία ακύρωσης cache πόλης"
+      },
+      "pollDecisionsRequested": {
+        "title": "Αίτημα ανάκτησης αποφάσεων",
+        "description": "Η ανάκτηση αποφάσεων από τη Διαύγεια ξεκίνησε."
+      },
+      "errorPollingDecisions": {
+        "title": "Σφάλμα ανάκτησης αποφάσεων"
+      },
+      "decisionLinked": {
+        "title": "Η απόφαση συνδέθηκε"
+      },
+      "decisionUnlinked": {
+        "title": "Η απόφαση αποσυνδέθηκε"
+      },
+      "errorSavingDecision": {
+        "title": "Σφάλμα αποθήκευσης απόφασης"
+      },
+      "errorRemovingDecision": {
+        "title": "Σφάλμα αφαίρεσης απόφασης"
       }
+    },
+    "decisions": {
+      "title": "Διαχείριση Αποφάσεων (Διαύγεια)",
+      "description": "Σύνδεση αποφάσεων Διαύγειας με θέματα συνεδρίασης. Μπορείτε να επικολλήσετε URLs PDF χειροκίνητα ή να χρησιμοποιήσετε αυτόματη ανάκτηση.",
+      "noSubjects": "Δεν βρέθηκαν θέματα για αυτή τη συνεδρίαση.",
+      "noDecision": "Καμία απόφαση",
+      "pdfUrlPlaceholder": "URL PDF Διαύγειας",
+      "adaPlaceholder": "ΑΔΑ (π.χ. 91ΥΔΩΡΦ-ΓΥ6)",
+      "protocolNumberPlaceholder": "# (π.χ. 261/2024)",
+      "viewPdf": "Προβολή PDF",
+      "linked": "συνδεδεμένα",
+      "pollUnlinked": "Ανάκτηση μη συνδεδεμένων ({count})",
+      "pollAll": "Ανάκτηση όλων",
+      "exportForMatching": "Εξαγωγή",
+      "save": "Αποθήκευση"
     }
   }
 }
