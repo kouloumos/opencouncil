@@ -1,6 +1,7 @@
 import {
   getStatisticsFor,
   getStatisticsForTranscript,
+  getBatchStatisticsForSubjects,
   Statistics,
   Stat
 } from '../statistics';
@@ -441,6 +442,164 @@ describe('Statistics', () => {
       expect(stats.people!.length).toBe(1);
       expect(stats.parties!.length).toBe(0);
       expect(stats.topics!.length).toBe(0);
+    });
+  });
+
+  describe('getBatchStatisticsForSubjects', () => {
+    it('should return empty map for empty subject IDs', async () => {
+      const result = await getBatchStatisticsForSubjects([]);
+      expect(result.size).toBe(0);
+    });
+
+    it('should batch fetch utterances for multiple subjects (new system)', async () => {
+      const mockUtterances = [
+        { discussionSubjectId: 'subject-1', speakerSegmentId: 'segment-1', startTimestamp: 0, endTimestamp: 30 },
+        { discussionSubjectId: 'subject-1', speakerSegmentId: 'segment-1', startTimestamp: 30, endTimestamp: 60 },
+        { discussionSubjectId: 'subject-2', speakerSegmentId: 'segment-2', startTimestamp: 0, endTimestamp: 45 }
+      ];
+
+      const mockSegments = [
+        {
+          id: 'segment-1',
+          startTimestamp: 0,
+          endTimestamp: 100,
+          speakerTag: {
+            person: {
+              id: 'person-1',
+              name: 'John Doe',
+              roles: [{
+                id: 'role-1',
+                partyId: 'party-1',
+                party: { id: 'party-1', name: 'Party A' },
+                startDate: new Date('2020-01-01'),
+                endDate: null
+              }]
+            }
+          }
+        },
+        {
+          id: 'segment-2',
+          startTimestamp: 0,
+          endTimestamp: 100,
+          speakerTag: {
+            person: {
+              id: 'person-2',
+              name: 'Jane Smith',
+              roles: [{
+                id: 'role-2',
+                partyId: 'party-2',
+                party: { id: 'party-2', name: 'Party B' },
+                startDate: new Date('2020-01-01'),
+                endDate: null
+              }]
+            }
+          }
+        }
+      ];
+
+      (prisma.utterance.findMany as jest.Mock).mockResolvedValue(mockUtterances);
+      (prisma.speakerSegment.findMany as jest.Mock).mockResolvedValue(mockSegments);
+
+      const result = await getBatchStatisticsForSubjects(['subject-1', 'subject-2']);
+
+      // Verify batch query was made
+      expect(prisma.utterance.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.utterance.findMany).toHaveBeenCalledWith({
+        where: {
+          discussionSubjectId: { in: ['subject-1', 'subject-2'] },
+          discussionStatus: 'SUBJECT_DISCUSSION'
+        },
+        select: {
+          discussionSubjectId: true,
+          speakerSegmentId: true,
+          startTimestamp: true,
+          endTimestamp: true
+        }
+      });
+
+      // Verify results
+      expect(result.size).toBe(2);
+
+      const subject1Stats = result.get('subject-1');
+      expect(subject1Stats).toBeDefined();
+      expect(subject1Stats!.speakingSeconds).toBe(60); // 30 + 30
+      expect(subject1Stats!.people!.length).toBe(1);
+      expect(subject1Stats!.people![0].item.id).toBe('person-1');
+
+      const subject2Stats = result.get('subject-2');
+      expect(subject2Stats).toBeDefined();
+      expect(subject2Stats!.speakingSeconds).toBe(45);
+      expect(subject2Stats!.people!.length).toBe(1);
+      expect(subject2Stats!.people![0].item.id).toBe('person-2');
+    });
+
+    it('should fall back to old system for subjects without utterances', async () => {
+      // subject-1 has utterances (new system), subject-2 does not (old system fallback)
+      const mockUtterances = [
+        { discussionSubjectId: 'subject-1', speakerSegmentId: 'segment-1', startTimestamp: 0, endTimestamp: 30 }
+      ];
+
+      const mockSubjectSpeakerSegments = [
+        { subjectId: 'subject-2', speakerSegmentId: 'segment-2' }
+      ];
+
+      const mockSegments = [
+        {
+          id: 'segment-1',
+          startTimestamp: 0,
+          endTimestamp: 100,
+          speakerTag: { person: { id: 'person-1', name: 'John', roles: [] } }
+        },
+        {
+          id: 'segment-2',
+          startTimestamp: 0,
+          endTimestamp: 50,
+          speakerTag: { person: { id: 'person-2', name: 'Jane', roles: [] } }
+        }
+      ];
+
+      (prisma.utterance.findMany as jest.Mock).mockResolvedValue(mockUtterances);
+      (prisma.subjectSpeakerSegment.findMany as jest.Mock).mockResolvedValue(mockSubjectSpeakerSegments);
+      (prisma.speakerSegment.findMany as jest.Mock).mockResolvedValue(mockSegments);
+
+      const result = await getBatchStatisticsForSubjects(['subject-1', 'subject-2']);
+
+      // Verify fallback query was made for subject-2
+      expect(prisma.subjectSpeakerSegment.findMany).toHaveBeenCalledWith({
+        where: { subjectId: { in: ['subject-2'] } },
+        select: { subjectId: true, speakerSegmentId: true }
+      });
+
+      expect(result.size).toBe(2);
+
+      // subject-1: uses utterance duration (30)
+      const subject1Stats = result.get('subject-1');
+      expect(subject1Stats!.speakingSeconds).toBe(30);
+
+      // subject-2: uses full segment duration (50)
+      const subject2Stats = result.get('subject-2');
+      expect(subject2Stats!.speakingSeconds).toBe(50);
+    });
+
+    it('should return empty statistics for subjects with no data in either system', async () => {
+      (prisma.utterance.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.subjectSpeakerSegment.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await getBatchStatisticsForSubjects(['subject-1', 'subject-2']);
+
+      expect(result.size).toBe(2);
+      expect(result.get('subject-1')).toEqual({
+        speakingSeconds: 0,
+        people: [],
+        parties: [],
+        topics: []
+      });
+      expect(result.get('subject-2')).toEqual({
+        speakingSeconds: 0,
+        people: [],
+        parties: [],
+        topics: []
+      });
     });
   });
 });
