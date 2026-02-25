@@ -314,7 +314,7 @@ const UtteranceC: React.FC<{
         }
     };
 
-    const handleDeleteFromContextMenu = async (e: React.MouseEvent) => {
+    const handleDeleteFromContextMenu = (e: React.MouseEvent) => {
         e.stopPropagation();
         requestDeleteSelected();
     };
