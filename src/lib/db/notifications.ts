@@ -245,7 +245,7 @@ type OnboardingData = {
 export async function saveNotificationPreferences(data: OnboardingData & {
     locationIds: string[];
     topicIds: string[];
-}): Promise<Result<NotificationPreference>> {
+}): Promise<Result<NotificationPreference | null>> {
     const { cityId, locationIds, topicIds, phone, email, name, seedUser } = data;
     // Only call getServerSession if not in seed/CLI mode (avoids Next.js request context requirement)
     const session = seedUser ? null : await getServerSession();
@@ -359,6 +359,21 @@ export async function saveNotificationPreferences(data: OnboardingData & {
                 }
             }
         });
+
+        /**
+         * Unsubscribe-all path: triggered exclusively by `useSubjectSubscribe` when the
+         * user deselects every topic and location in the nudge dialog.
+         *
+         * WARNING: this path bypasses `sendWelcomeMessages` and
+         * `sendNotificationSignupAdminAlert`. Do NOT call `saveNotificationPreferences`
+         * with empty arrays from any flow that should trigger those side-effects.
+         */
+        if (validTopicIds.length === 0 && validLocationIds.length === 0) {
+            if (existingPreference) {
+                await prisma.notificationPreference.delete({ where: { id: existingPreference.id } });
+            }
+            return createSuccess(null);
+        }
 
         if (existingPreference) {
             // For existing preferences, update using Prisma's connect/disconnect
