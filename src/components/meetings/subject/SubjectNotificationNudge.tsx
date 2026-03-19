@@ -51,6 +51,9 @@ export function SubjectNotificationNudge({
             setOpen(false);
             return;
         }
+        // alreadySubscribed is derived synchronously from the same state that drives
+        // isLoading, so there is no render gap where triggered=true, isLoading=false,
+        // and alreadySubscribed is still stale — no modal flicker possible.
         if (!triggered || isLoading || alreadySubscribed || isDismissed) return;
         if (isAuthenticated && hasAnyPreferences) return;
         setOpen(true);
@@ -81,6 +84,8 @@ export function SubjectNotificationNudge({
         }, 25_000);
         return () => clearTimeout(timer);
     }, [topic?.id, isDismissed]);
+
+    if (!topic) return null;
 
     const handleDismiss = () => {
         dismiss();

@@ -321,6 +321,10 @@ export default function Subject({ subjectId }: { subjectId?: string }) {
                 <SubjectNotificationNudge
                     topic={topic ?? null}
                     location={subscribeLocation}
+                    // Greek: strip the nominative "Δήμος" prefix so the message reads naturally
+                    // in the accusative (e.g. "Αθηναίων" instead of "Δήμος Αθηναίων").
+                    // English names (name_municipality_en) do not include "Municipality of …"
+                    // and do not need any transformation.
                     cityName={(locale === 'el' ? city.name_municipality : city.name_municipality_en).replace(/^Δήμος\s+/u, '')}
                 />
 

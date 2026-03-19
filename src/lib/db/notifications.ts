@@ -367,6 +367,9 @@ export async function saveNotificationPreferences(data: OnboardingData & {
          * WARNING: this path bypasses `sendWelcomeMessages` and
          * `sendNotificationSignupAdminAlert`. Do NOT call `saveNotificationPreferences`
          * with empty arrays from any flow that should trigger those side-effects.
+         *
+         * NOTE: The preference row is deleted entirely. If the user later re-subscribes,
+         * a new row is created which will re-trigger welcome messages and admin alerts.
          */
         if (validTopicIds.length === 0 && validLocationIds.length === 0) {
             if (isNewlyCreatedUser) {
