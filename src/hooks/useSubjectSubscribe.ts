@@ -167,7 +167,7 @@ export function useSubjectSubscribe({
                 setIsSaving(false);
             }
         },
-        [isAuthenticated, isLoading, isSaving, prefsLoaded, cityId, existingTopicIds, existingLocationIds, topic?.id, location?.id, hasOtherCityPreferences]
+        [isAuthenticated, isLoading, isSaving, prefsLoaded, cityId, existingTopicIds, existingLocationIds, topic, location, hasOtherCityPreferences]
     );
 
     return {
