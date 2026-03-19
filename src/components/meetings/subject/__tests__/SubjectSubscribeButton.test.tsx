@@ -99,18 +99,18 @@ const mockLocation = { id: 'loc-1', text: 'Central Square', coordinates: { x: 22
 
 describe('SubjectSubscribeButton', () => {
     it('renders nothing when no topic provided', () => {
-        const { container } = render(<SubjectSubscribeButton topic={null} location={null} cityId="city-1" />);
+        const { container } = render(<SubjectSubscribeButton topic={null} location={null} />);
         expect(container.firstChild).toBeNull();
     });
 
     it('shows subscribe button when topic exists', () => {
-        render(<SubjectSubscribeButton topic={mockTopic} location={null} cityId="city-1" />);
+        render(<SubjectSubscribeButton topic={mockTopic} location={null} />);
         expect(screen.getAllByRole('button')[0]).toBeInTheDocument();
     });
 
     it('opens popover when alreadySubscribed (button always clickable)', async () => {
         mockUseSubjectSubscribeContext.mockReturnValue({ ...defaultHookResult, alreadySubscribed: true, isTopicSubscribed: true });
-        render(<SubjectSubscribeButton topic={mockTopic} location={null} cityId="city-1" />);
+        render(<SubjectSubscribeButton topic={mockTopic} location={null} />);
         fireEvent.click(screen.getAllByRole('button')[0]);
         await waitFor(() => {
             expect(screen.getByTestId('popover-content')).toBeInTheDocument();
@@ -119,13 +119,13 @@ describe('SubjectSubscribeButton', () => {
 
     it('renders a link to notifications page for unauthenticated user', () => {
         mockUseSubjectSubscribeContext.mockReturnValue({ ...defaultHookResult, isAuthenticated: false });
-        render(<SubjectSubscribeButton topic={mockTopic} location={null} cityId="city-1" />);
+        render(<SubjectSubscribeButton topic={mockTopic} location={null} />);
         const link = screen.getByRole('link');
         expect(link).toHaveAttribute('href', '/city-1/notifications');
     });
 
     it('shows popover with topic and location checkboxes for authenticated user', async () => {
-        render(<SubjectSubscribeButton topic={mockTopic} location={mockLocation} cityId="city-1" />);
+        render(<SubjectSubscribeButton topic={mockTopic} location={mockLocation} />);
         fireEvent.click(screen.getAllByRole('button')[0]);
         await waitFor(() => {
             expect(screen.getByTestId('popover-content')).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('SubjectSubscribeButton', () => {
 
     it('calls save with boolean flags on confirm after checking the topic box', async () => {
         mockSave.mockResolvedValue(true);
-        render(<SubjectSubscribeButton topic={mockTopic} location={null} cityId="city-1" />);
+        render(<SubjectSubscribeButton topic={mockTopic} location={null} />);
         fireEvent.click(screen.getAllByRole('button')[0]);
         await waitFor(() => screen.getByTestId('popover-content'));
         // topic starts unchecked (not subscribed); check it to enable the confirm button

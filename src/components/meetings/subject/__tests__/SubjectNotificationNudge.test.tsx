@@ -111,40 +111,40 @@ afterEach(() => {
 
 describe('SubjectNotificationNudge', () => {
     it('does not show modal when topic is null', () => {
-        render(<SubjectNotificationNudge topic={null} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={null} location={null} cityName="Athens" />);
         // No observer created when topic is null
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('does not show modal when already subscribed', () => {
         mockUseSubjectSubscribeContext.mockReturnValue({ ...defaultHookResult, alreadySubscribed: true });
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityName="Athens" />);
         triggerTimer();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('does not show modal when dismissed flag is set', () => {
         mockUseSubjectSubscribeContext.mockReturnValue({ ...defaultHookResult, isDismissed: true });
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityName="Athens" />);
         triggerTimer();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('shows modal after 25 seconds when conditions are met', () => {
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityName="Athens" />);
         triggerTimer();
         expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     it('calls dismiss when "Not now" button is clicked', () => {
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityName="Athens" />);
         triggerTimer();
         fireEvent.click(screen.getByRole('button', { name: /not now/i }));
         expect(mockDismiss).toHaveBeenCalledTimes(1);
     });
 
     it('shows topic and location checkboxes for authenticated user reflecting subscription state', () => {
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={mockLocation as any} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={mockLocation as any} cityName="Athens" />);
         triggerTimer();
         const checkboxes = screen.getAllByRole('checkbox');
         expect(checkboxes.length).toBeGreaterThanOrEqual(2);
@@ -154,7 +154,7 @@ describe('SubjectNotificationNudge', () => {
 
     it('shows a link for unauthenticated user instead of checkboxes', () => {
         mockUseSubjectSubscribeContext.mockReturnValue({ ...defaultHookResult, isAuthenticated: false });
-        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityId="city-1" cityName="Athens" />);
+        render(<SubjectNotificationNudge topic={mockTopic as any} location={null} cityName="Athens" />);
         triggerTimer();
         expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
         expect(screen.getByRole('link', { name: /notifications/i })).toBeInTheDocument();

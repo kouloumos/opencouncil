@@ -18,7 +18,6 @@ import { useSubjectSubscribeContext } from "./SubjectSubscribeContext";
 type SubjectSubscribeButtonProps = {
     topic: SubjectTopic;
     location: SubjectLocation;
-    cityId: string;
 };
 
 /**
@@ -31,7 +30,6 @@ type SubjectSubscribeButtonProps = {
 export function SubjectSubscribeButton({
     topic,
     location,
-    cityId: _cityId,
 }: SubjectSubscribeButtonProps) {
     const t = useTranslations("SubjectSubscribe");
     const locale = useLocale();

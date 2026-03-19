@@ -20,14 +20,12 @@ import { useSubjectSubscribeContext } from "./SubjectSubscribeContext";
 type SubjectNotificationNudgeProps = {
     topic: SubjectTopic;
     location: SubjectLocation;
-    cityId: string;
     cityName: string;
 };
 
 export function SubjectNotificationNudge({
     topic,
     location,
-    cityId: _cityId,
     cityName,
 }: SubjectNotificationNudgeProps) {
     const t = useTranslations("SubjectSubscribe");
