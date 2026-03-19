@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { getUserPreferences } from "@/lib/db/notifications";
-import { saveNotificationPreferences } from "@/lib/db/notifications";
+import { getUserPreferences, saveNotificationPreferences } from "@/lib/db/notifications";
 import type { Topic } from "@prisma/client";
 
 export type SubjectLocation = {

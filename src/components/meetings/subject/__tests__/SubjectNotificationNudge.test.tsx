@@ -112,7 +112,7 @@ afterEach(() => {
 describe('SubjectNotificationNudge', () => {
     it('does not show modal when topic is null', () => {
         render(<SubjectNotificationNudge topic={null} location={null} cityName="Athens" />);
-        // No observer created when topic is null
+        triggerTimer();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
