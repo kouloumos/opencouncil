@@ -369,6 +369,9 @@ export async function saveNotificationPreferences(data: OnboardingData & {
          * with empty arrays from any flow that should trigger those side-effects.
          */
         if (validTopicIds.length === 0 && validLocationIds.length === 0) {
+            if (isNewlyCreatedUser) {
+                return createError("No valid topics or locations provided");
+            }
             if (existingPreference) {
                 await prisma.notificationPreference.delete({ where: { id: existingPreference.id } });
             }

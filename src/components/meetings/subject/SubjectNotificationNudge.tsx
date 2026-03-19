@@ -73,19 +73,23 @@ export function SubjectNotificationNudge({
         }
     }, [open, isLoading, isTopicSubscribed, isLocationSubscribed]);
 
-    // Trigger after 25 seconds on the page
+    // Trigger after 25 seconds on the page.
+    // alreadySubscribed is checked inside the callback (not in deps) to avoid
+    // restarting the timer when prefs finish loading.
     useEffect(() => {
-        if (!topic || alreadySubscribed || isDismissed) return;
+        if (!topic || isDismissed) return;
         const timer = setTimeout(() => {
             setTriggered(true);
         }, 25_000);
         return () => clearTimeout(timer);
-    }, [topic?.id, alreadySubscribed, isDismissed]);
+    }, [topic?.id, isDismissed]);
 
     const handleDismiss = () => {
         dismiss();
         setOpen(false);
     };
+
+    const hasChanges = topicChecked !== isTopicSubscribed || locationChecked !== isLocationSubscribed;
 
     const handleConfirm = async () => {
         if (!hasChanges) return;
@@ -117,8 +121,6 @@ export function SubjectNotificationNudge({
             });
         }
     };
-
-    const hasChanges = topicChecked !== isTopicSubscribed || locationChecked !== isLocationSubscribed;
 
     return (
         <>
