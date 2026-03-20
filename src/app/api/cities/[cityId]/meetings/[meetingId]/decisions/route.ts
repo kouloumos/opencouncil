@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { getDecisionsForMeeting, getExtractedDataForMeeting, upsertDecision, deleteDecision } from '@/lib/db/decisions';
+import { getDecisionsForMeeting, getExtractedDataForMeeting, upsertDecision, deleteDecision, clearExtractedDataForMeeting } from '@/lib/db/decisions';
 import prisma from '@/lib/db/prisma';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
@@ -101,4 +101,26 @@ export async function DELETE(
     await deleteDecision(subjectId);
     revalidateTag(`city:${params.cityId}:meetings`);
     return NextResponse.json({ success: true });
+}
+
+const postSchema = z.object({
+    action: z.literal('clearExtractedData'),
+});
+
+export async function POST(
+    request: Request,
+    { params }: { params: { cityId: string; meetingId: string } }
+) {
+    await withUserAuthorizedToEdit({ cityId: params.cityId });
+
+    const body = await request.json();
+    const parsed = postSchema.parse(body);
+
+    if (parsed.action === 'clearExtractedData') {
+        const result = await clearExtractedDataForMeeting(params.cityId, params.meetingId);
+        revalidateTag(`city:${params.cityId}:meetings`);
+        return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
