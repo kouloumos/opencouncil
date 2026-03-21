@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from 'next-intl';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AdministrativeBodyType } from '@prisma/client';
 import List from '@/components/List';
 import MeetingCard from '@/components/meetings/MeetingCard';
@@ -9,6 +10,7 @@ import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 import { getAdministrativeBodyTypesForMeetings, filterMeetingByAdminBodyTypes, getBodiesOfTypeFromMeetings } from '@/lib/utils/administrativeBodies';
 import { PaginationParams } from '@/lib/db/types';
 import { BadgePicker } from '@/components/ui/badge-picker';
+import { updateBodyFilterURL, resolveBodyFromURL } from '@/lib/utils/filterURL';
 
 type CityMeetingsProps = {
     councilMeetings: CouncilMeetingWithAdminBodyAndSubjects[],
@@ -27,7 +29,7 @@ export default function CityMeetings({
 }: CityMeetingsProps) {
     const t = useTranslations('CouncilMeeting');
     const tCommon = useTranslations('Common');
-    const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
+    const searchParams = useSearchParams();
 
     const typeOptions = useMemo(() =>
         getAdministrativeBodyTypesForMeetings(councilMeetings, tCommon),
@@ -51,8 +53,13 @@ export default function CityMeetings({
             filterAvailableValues={typeOptions}
             filter={(selectedValues, meeting) => {
                 if (!filterMeetingByAdminBodyTypes(meeting, selectedValues)) return false;
-                if (selectedBodyId) {
-                    return meeting.administrativeBody?.id === selectedBodyId;
+                const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
+                if (selectedType && selectedType !== 'council') {
+                    const subBodies = getBodiesOfTypeFromMeetings(councilMeetings, selectedType);
+                    const bodyId = resolveBodyFromURL(searchParams, subBodies);
+                    if (bodyId) {
+                        return meeting.administrativeBody?.id === bodyId;
+                    }
                 }
                 return true;
             }}
@@ -63,10 +70,7 @@ export default function CityMeetings({
                     <BadgePicker
                         options={typeOptions}
                         selectedValues={selectedValues}
-                        onSelectionChange={(values) => {
-                            setSelectedBodyId(null);
-                            onChange(values);
-                        }}
+                        onSelectionChange={onChange}
                         allLabel={tCommon('allMeetings')}
                         collapsible={false}
                         inline
@@ -78,11 +82,12 @@ export default function CityMeetings({
                 if (!selectedType || selectedType === 'council') return null;
                 const subBodies = getBodiesOfTypeFromMeetings(councilMeetings, selectedType);
                 if (subBodies.length <= 1) return null;
+                const selectedBodyId = resolveBodyFromURL(searchParams, subBodies);
                 return (
                     <BadgePicker
                         options={subBodies}
                         selectedValues={selectedBodyId ? [selectedBodyId] : []}
-                        onSelectionChange={(values) => setSelectedBodyId(values.length > 0 ? values[0] : null)}
+                        onSelectionChange={(values) => updateBodyFilterURL(values.length > 0 ? values[0] : null, subBodies, searchParams)}
                         allLabel={tCommon('allBodies')}
                     />
                 );

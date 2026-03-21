@@ -1,6 +1,7 @@
 "use client";
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { AdministrativeBody, AdministrativeBodyType } from '@prisma/client'
 import List from '@/components/List';
 import PersonCard from '@/components/persons/PersonCard';
@@ -11,6 +12,7 @@ import { PartyWithPersons } from '@/lib/db/parties';
 import { City } from '@prisma/client';
 import { getAdministrativeBodyTypesForPeople, filterPersonByAdminBodyTypes, getBodiesOfTypeFromPeople } from '@/lib/utils/administrativeBodies';
 import { BadgePicker } from '@/components/ui/badge-picker';
+import { updateBodyFilterURL, resolveBodyFromURL } from '@/lib/utils/filterURL';
 
 type CityPeopleProps = {
     allPeople: PersonWithRelations[],
@@ -31,7 +33,7 @@ export default function CityPeople({
 }: CityPeopleProps) {
     const t = useTranslations('Person');
     const tCommon = useTranslations('Common');
-    const [selectedBodyId, setSelectedBodyId] = useState<string | null>(null);
+    const searchParams = useSearchParams();
 
     const parties = useMemo(() =>
         partiesWithPersons.map(({ people, ...party }) => party),
@@ -63,8 +65,13 @@ export default function CityPeople({
             filterAvailableValues={typeOptions}
             filter={(selectedValues, person) => {
                 if (!filterPersonByAdminBodyTypes(person, selectedValues)) return false;
-                if (selectedBodyId) {
-                    return person.roles.some(r => r.administrativeBodyId === selectedBodyId);
+                const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
+                if (selectedType && selectedType !== 'council') {
+                    const subBodies = getBodiesOfTypeFromPeople(allPeople, selectedType);
+                    const bodyId = resolveBodyFromURL(searchParams, subBodies);
+                    if (bodyId) {
+                        return person.roles.some(r => r.administrativeBodyId === bodyId);
+                    }
                 }
                 return true;
             }}
@@ -75,10 +82,7 @@ export default function CityPeople({
                     <BadgePicker
                         options={typeOptions}
                         selectedValues={selectedValues}
-                        onSelectionChange={(values) => {
-                            setSelectedBodyId(null);
-                            onChange(values);
-                        }}
+                        onSelectionChange={onChange}
                         allLabel={tCommon('allPeople')}
                         collapsible={false}
                         inline
@@ -90,11 +94,12 @@ export default function CityPeople({
                 if (!selectedType || selectedType === 'council') return null;
                 const subBodies = getBodiesOfTypeFromPeople(allPeople, selectedType);
                 if (subBodies.length <= 1) return null;
+                const selectedBodyId = resolveBodyFromURL(searchParams, subBodies);
                 return (
                     <BadgePicker
                         options={subBodies}
                         selectedValues={selectedBodyId ? [selectedBodyId] : []}
-                        onSelectionChange={(values) => setSelectedBodyId(values.length > 0 ? values[0] : null)}
+                        onSelectionChange={(values) => updateBodyFilterURL(values.length > 0 ? values[0] : null, subBodies, searchParams)}
                         allLabel={tCommon('allBodies')}
                     />
                 );
