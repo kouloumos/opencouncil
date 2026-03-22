@@ -5,17 +5,10 @@ import { ContactBadge } from "../layout/contact-badge";
 import { Flag, User } from "lucide-react";
 import { Users } from "lucide-react";
 import { Building } from "lucide-react";
+import { UserWithAdministers } from "@/lib/db/users";
 
 type AdminSectionProps = {
-    user: {
-        isSuperAdmin: boolean;
-        administers: Array<{
-            id: string;
-            city?: { id: string; name: string } | null;
-            party?: { id: string; cityId: string; name: string } | null;
-            person?: { id: string; cityId: string; name: string } | null;
-        }>;
-    };
+    user: Pick<UserWithAdministers, 'isSuperAdmin' | 'administers'>;
     t: (key: string, params?: Record<string, string>) => string;
 };
 
@@ -58,8 +51,16 @@ export function AdminSection({ user, t }: AdminSectionProps) {
     );
 }
 function AdminCard({ admin, t }: { admin: AdminSectionProps['user']['administers'][0], t: AdminSectionProps['t'] }) {
-    const adminType = admin.city ? 'city' : admin.party ? 'party' : 'person';
-    const entity = admin[adminType];
+    // Determine admin type based on which relation exists
+    // workspace.city is the new way, cityId is kept for backward compatibility
+    const city = admin.workspace?.city;
+    const cityId = city?.id || admin.cityId;
+    const adminType = (city || admin.cityId) ? 'city' : admin.party ? 'party' : 'person';
+    
+    // For city admin, create a virtual entity
+    const entity = adminType === 'city' 
+        ? { id: cityId!, name: city?.name || `City (${admin.cityId})` }
+        : (admin as any)[adminType];
 
     if (!entity) return null;
 

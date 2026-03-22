@@ -1,11 +1,21 @@
 import prisma from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 
-export async function createCity(data?: Partial<Prisma.CityCreateInput>) {
+export async function createCity(data?: Partial<Prisma.CityCreateInput> & { id?: string }) {
     const id = data?.id ?? 'testcity'
+    
+    // Create workspace first - City shares the same ID
+    const workspace = await prisma.workspace.create({
+        data: { 
+            id,
+            name: data?.name ?? 'Test City'
+        }
+    })
+    
+    // Now create city with the workspace id
     return prisma.city.create({
         data: {
-            id,
+            id: workspace.id,
             name: data?.name ?? 'Test City',
             name_en: data?.name_en ?? 'Test City',
             name_municipality: data?.name_municipality ?? 'Municipality of Test',
@@ -14,7 +24,6 @@ export async function createCity(data?: Partial<Prisma.CityCreateInput>) {
             officialSupport: false,
             status: 'listed',
             authorityType: 'municipality',
-            ...data,
         },
     })
 }
@@ -57,9 +66,22 @@ export async function createUser(email: string, data?: Partial<Prisma.UserCreate
     })
 }
 
-export async function createMeeting(cityId: string, data?: Partial<Prisma.CouncilMeetingUncheckedCreateInput>) {
+export async function createMeeting(cityId: string, data?: Partial<Prisma.CouncilMeetingUncheckedCreateInput> & { id?: string }) {
+    const meetingId = data?.id ?? `meeting-${Date.now()}`
+    
+    // Create transcript first - CouncilMeeting shares same compound key
+    await prisma.transcript.create({
+        data: {
+            id: meetingId,
+            workspaceId: cityId,
+            name: data?.name ?? 'Test Meeting',
+        },
+    })
+    
+    // Create meeting (will link to transcript via shared compound key)
     return prisma.councilMeeting.create({
         data: {
+            id: meetingId,
             name: data?.name ?? 'Test Meeting',
             name_en: data?.name_en ?? 'Test Meeting',
             dateTime: data?.dateTime ?? new Date(),

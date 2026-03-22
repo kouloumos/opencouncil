@@ -1,18 +1,17 @@
 'use client'
-import { CouncilMeeting, Subject, Topic, AdministrativeBody } from '@prisma/client';
 import { useRouter, usePathname } from '../../i18n/routing';
 import { Card, CardContent } from "../ui/card";
 import { useLocale, useTranslations } from 'next-intl';
 import React, { useEffect, useState, useMemo } from 'react';
 import { format, formatDistanceToNow, isFuture } from 'date-fns';
 import { el, enUS } from 'date-fns/locale';
-import { CalendarIcon, Clock, Loader2, ChevronRight, Building } from 'lucide-react';
-import { sortSubjectsByImportance, formatDateTime, formatDate, IS_DEV } from '@/lib/utils';
+import { CalendarIcon, Clock, Loader2, ChevronRight } from 'lucide-react';
+import { sortSubjectsByImportance, formatDateTime, getMeetingMediaType, IS_DEV } from '@/lib/utils';
 import SubjectBadge from '../subject-badge';
 import { cn } from '@/lib/utils';
-import { Link } from '@/i18n/routing';
 import { Badge } from '../ui/badge';
 import { motion } from 'framer-motion';
+import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 
 // Helper function for development-only logs
 const logDev = (message: string, data?: any) => {
@@ -22,13 +21,7 @@ const logDev = (message: string, data?: any) => {
 };
 
 interface MeetingCardProps {
-    item: CouncilMeeting & {
-        subjects: (Subject & {
-            topic?: Topic | null,
-            speakerSegments?: any[] // Using any for flexibility with the structure
-        })[],
-        administrativeBody?: AdministrativeBody | null
-    };
+    item: CouncilMeetingWithAdminBodyAndSubjects;
     editable: boolean;
     mostRecent?: boolean;
     cityTimezone?: string;
@@ -66,6 +59,8 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
         setIsLoading(false);
     }, [pathname]);
 
+    // Since data comes from the backend as ordered by hot status already (due to db query order),
+    // we maintain that order but use our utility for consistency
     const sortedSubjects = useMemo(() => {
         const result = sortSubjectsByImportance(meeting.subjects, 'importance');
 
@@ -79,6 +74,7 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
                 topSubjects: topThree.map(s => ({
                     id: s.id,
                     name: s.name,
+                    isHot: s.hot,
                     segmentCount: s.speakerSegments?.length || 0,
                     agendaItemIndex: s.agendaItemIndex,
                     hasTopic: !!s.topic
@@ -98,7 +94,19 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
     const remainingSubjectsCount = meeting.subjects.length - 3;
     const isUpcoming = isFuture(meeting.dateTime);
     const isToday = format(meeting.dateTime, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-    const isTodayWithoutVideo = isToday && !meeting.videoUrl;
+    const isTodayWithoutVideo = isToday && !meeting.transcript?.videoUrl;
+
+    const getMediaStatus = () => {
+        const meetingMediaType = getMeetingMediaType(meeting);
+        const Icon = meetingMediaType.icon;
+
+        return (
+            <div className="flex items-center gap-1">
+                <Icon className="w-4 h-4" />
+                <span>{meetingMediaType.label}</span>
+            </div>
+        );
+    };
 
     // Ensure we have subjects to display
     const hasSubjects = meeting.subjects.length > 0;
@@ -164,7 +172,7 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
                                     </span>
                                 </Badge>
                             )}
-                            {!meeting.released && (
+                            {!meeting.transcript?.released && (
                                 <Badge variant="outline" className="shrink-0 w-fit flex items-center gap-1 bg-destructive/5 text-destructive border-destructive/20">
                                     {t('notPublic')}
                                 </Badge>
@@ -173,30 +181,27 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
 
                         {/* Meeting title */}
                         <div className="pb-1">
-                            <h3
-                                className={cn(
-                                    "text-xl sm:text-2xl text-foreground/90 line-clamp-2 tracking-tight transition-colors duration-200",
-                                    isHovered ? "text-primary" : ""
-                                )}
+                            <motion.h3
+                                className="text-xl sm:text-2xl text-foreground/90 line-clamp-2 tracking-tight"
+                                animate={{ color: isHovered ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}
                             >
                                 {meeting.name}
-                            </h3>
+                            </motion.h3>
                         </div>
 
                         {/* Meeting metadata - more compact */}
                         <div className="mt-1 mb-1 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                            {meeting.administrativeBody && (
-                                <div className="flex items-center gap-1">
-                                    <Building className="w-3.5 h-3.5 text-muted-foreground/70" />
-                                    <span>{meeting.administrativeBody.name}</span>
-                                </div>
-                            )}
                             <div className="flex items-center gap-1">
                                 <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground/70" />
                                 <span>{(isUpcoming || isToday)
-                                    ? formatDateTime(meeting.dateTime, cityTimezone)
-                                    : formatDate(meeting.dateTime, cityTimezone)}
+                                    ? (cityTimezone
+                                        ? formatDateTime(meeting.dateTime, cityTimezone)
+                                        : format(meeting.dateTime, 'EEEE, d MMMM yyyy, HH:mm', { locale: locale === 'el' ? el : enUS }))
+                                    : format(meeting.dateTime, 'EEEE, d MMMM yyyy', { locale: locale === 'el' ? el : enUS })}
                                 </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {getMediaStatus()}
                             </div>
                         </div>
 
@@ -209,10 +214,37 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
                                             {sortedSubjects.slice(0, 3).map((subject) => (
                                                 <div
                                                     key={subject.id}
-                                                    className="flex items-center gap-3 py-1.5 rounded-md hover:bg-accent/10 cursor-pointer transition-colors"
+                                                    className="flex items-center gap-3 py-1.5 rounded-md hover:bg-accent/10 cursor-pointer"
+                                                    style={{
+                                                        transform: 'none',
+                                                        transition: 'none',
+                                                        animation: 'none',
+                                                        willChange: 'auto'
+                                                    }}
                                                 >
-                                                    <div className="w-full">
-                                                        <SubjectBadge subject={subject} />
+                                                    {/* Extremely aggressive approach to preventing animations */}
+                                                    <div
+                                                        style={{
+                                                            transform: 'none',
+                                                            transition: 'none',
+                                                            animation: 'none',
+                                                            userSelect: 'none',
+                                                            pointerEvents: 'none',
+                                                            willChange: 'auto'
+                                                        }}
+                                                        className="w-full"
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                transform: 'none',
+                                                                transition: 'none',
+                                                                animation: 'none',
+                                                                pointerEvents: 'auto',
+                                                                willChange: 'auto'
+                                                            }}
+                                                        >
+                                                            <SubjectBadge subject={subject} />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -220,10 +252,16 @@ export default function MeetingCard({ item: meeting, editable, mostRecent, cityT
 
                                         {remainingSubjectsCount > 0 && (
                                             <div
-                                                className="flex items-center justify-between py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-accent/10 cursor-pointer transition-colors"
+                                                className="flex items-center justify-between py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-accent/10 cursor-pointer"
+                                                style={{
+                                                    transform: 'none',
+                                                    transition: 'none',
+                                                    animation: 'none',
+                                                    willChange: 'auto'
+                                                }}
                                             >
                                                 <span>{t('moreSubjects', { count: remainingSubjectsCount })}</span>
-                                                <ChevronRight className="w-3.5 h-3.5" />
+                                                <ChevronRight className="w-3.5 h-3.5" style={{ transform: 'none' }} />
                                             </div>
                                         )}
                                     </>

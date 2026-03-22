@@ -27,6 +27,7 @@ import InputWithDerivatives from "../../components/InputWithDerivatives"
 import { toPhoneticLatin as toGreeklish } from 'greek-utils'
 import { useToast } from "@/hooks/use-toast"
 import RolesList from './RolesList'
+import { PersonWithRelations } from '@/lib/db/people'
 
 const formSchema = z.object({
     name: z.string().min(2, {
@@ -46,7 +47,7 @@ const formSchema = z.object({
 })
 
 interface PersonFormProps {
-    person?: Person & { roles?: RoleWithRelations[] }
+    person?: PersonWithRelations
     onSuccess?: () => void
     cityId: string,
     parties: Party[]

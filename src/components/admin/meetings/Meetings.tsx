@@ -93,9 +93,9 @@ export default function Meetings({ meetings, currentCityName, selectedCityId, de
     const stats = useMemo(
         () => ({
             totalMeetings: filteredMeetings.length,
-            releasedMeetings: filteredMeetings.filter(meeting => meeting.released).length,
+            releasedMeetings: filteredMeetings.filter(meeting => meeting.transcript?.released).length,
             meetingsWithContent: filteredMeetings.filter(meeting => 
-                meeting.audioUrl || meeting.videoUrl || meeting.youtubeUrl
+                meeting.transcript?.audioUrl || meeting.transcript?.videoUrl || meeting.youtubeUrl
             ).length,
         }),
         [filteredMeetings],

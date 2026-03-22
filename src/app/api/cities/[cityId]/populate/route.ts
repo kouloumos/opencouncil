@@ -147,23 +147,33 @@ export async function POST(
                 )
             );
 
-            // Create people
+            // Create people (with Speaker generic layer)
             const people = await Promise.all(
-                validatedData.people.map(person =>
-                    tx.person.create({
+                validatedData.people.map(async (person) => {
+                    // First create Speaker (generic layer)
+                    const speaker = await tx.speaker.create({
                         data: {
+                            workspaceId: params.cityId,
+                            name: person.name,
+                            image: person.image,
+                        }
+                    });
+                    
+                    // Then create Person (council-specific) with same ID as Speaker
+                    return tx.person.create({
+                        data: {
+                            id: speaker.id, // Use the same ID as the Speaker
                             name: person.name,
                             name_en: person.name_en,
                             name_short: person.name_short,
                             name_short_en: person.name_short_en,
-                            image: person.image,
                             activeFrom: person.activeFrom ? new Date(person.activeFrom) : null,
                             activeTo: person.activeTo ? new Date(person.activeTo) : null,
                             profileUrl: person.profileUrl,
                             cityId: params.cityId
                         },
-                    })
-                )
+                    });
+                })
             );
 
             // Create roles from people data

@@ -83,7 +83,7 @@ export const Video: React.FC<{ className?: string, expandable?: boolean, onExpan
     };
 
     const renderVideoElement = () => {
-        return <VideoElement id={meeting.id} title={meeting.name} playbackId={meeting.muxPlaybackId!} isExpanded={isExpanded} />
+        return <VideoElement id={meeting.id} title={meeting.name} playbackId={meeting.transcript?.muxPlaybackId!} isExpanded={isExpanded} />
     };
 
     if (isExpanded) {

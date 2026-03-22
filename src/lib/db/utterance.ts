@@ -16,7 +16,7 @@ export async function editUtterance(utteranceId: string, newText: string): Promi
             throw new Error('Utterance not found');
         }
 
-        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.cityId });
+        await withUserAuthorizedToEdit({ cityId: utterance.speakerSegment.workspaceId });
         const user = await getCurrentUser();
         if (!user) {
             throw new Error('User not found');
