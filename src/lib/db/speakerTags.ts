@@ -3,11 +3,15 @@ import { SpeakerTag, Person } from '@prisma/client';
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit } from '../auth';
 
-export async function getSpeakerTag(id: string): Promise<(SpeakerTag & { person: Person | null }) | null> {
+export async function getSpeakerTag(id: string): Promise<(SpeakerTag & { speaker: { person: Person | null } | null }) | null> {
     const speakerTag = await prisma.speakerTag.findUnique({
         where: { id },
         include: {
-            person: true,
+            speaker: {
+                include: {
+                    person: true
+                }
+            },
             speakerSegments: true,
         }
     });
@@ -28,7 +32,7 @@ export async function updateSpeakerTag(id: string, data: Partial<Omit<SpeakerTag
         throw new Error('Speaker tag not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: speakerTag.speakerSegments[0].cityId });
+    await withUserAuthorizedToEdit({ cityId: speakerTag.speakerSegments[0].workspaceId });
     const updatedSpeakerTag = await prisma.speakerTag.update({
         where: { id },
         data,
@@ -41,7 +45,7 @@ export async function getSpeakerTagsForCityCouncilMeeting(cityCouncilMeetingId: 
         where: {
             speakerSegments: {
                 some: {
-                    meetingId: cityCouncilMeetingId
+                    transcriptId: cityCouncilMeetingId
                 }
             }
         },
@@ -55,18 +59,20 @@ export async function getSpeakerTagsForCityCouncilMeeting(cityCouncilMeetingId: 
 export async function assignSpeakerSegmentToNewSpeakerTag(speakerSegmentId: string) {
     const speakerSegment = await prisma.speakerSegment.findUnique({
         where: { id: speakerSegmentId },
-        include: { speakerTag: true }
+        include: { 
+            speakerTag: true
+        }
     });
 
     if (!speakerSegment) {
         throw new Error('Speaker segment not found');
     }
 
-    await withUserAuthorizedToEdit({ cityId: speakerSegment.cityId });
+    await withUserAuthorizedToEdit({ cityId: speakerSegment.workspaceId });
 
     const newSpeakerTag = await prisma.speakerTag.create({
         data: {
-            label: "New " + speakerSegment.speakerTag.label,
+            label: "New " + (speakerSegment.speakerTag.label || "speaker"),
             speakerSegments: {
                 connect: { id: speakerSegmentId }
             }
@@ -84,8 +90,8 @@ export async function assignSpeakerSegmentToNewSpeakerTag(speakerSegmentId: stri
 export async function createEmptySpeakerSegmentAfter(
     afterSegmentId: string,
     speakerTagId: string,
-    cityId: string,
-    meetingId: string
+    workspaceId: string,
+    transcriptId: string
 ) {
     // First get the segment we're inserting after to get its end timestamp
     const afterSegment = await prisma.speakerSegment.findUnique({
@@ -107,8 +113,8 @@ export async function createEmptySpeakerSegmentAfter(
         data: {
             startTimestamp,
             endTimestamp,
-            cityId,
-            meetingId,
+            transcriptId,
+            workspaceId,
             speakerTagId,
             // Create an initial empty utterance
             utterances: {
@@ -124,11 +130,15 @@ export async function createEmptySpeakerSegmentAfter(
             utterances: true,
             speakerTag: {
                 include: {
-                    person: {
+                    speaker: {
                         include: {
-                            roles: {
+                            person: {
                                 include: {
-                                    party: true
+                                    roles: {
+                                        include: {
+                                            party: true
+                                        }
+                                    }
                                 }
                             }
                         }
