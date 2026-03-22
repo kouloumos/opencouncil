@@ -6,9 +6,6 @@ export interface SubjectHeaderInfo {
     name: string;
     topicIcon?: string;
     topicColor?: string;
-    topicName?: string;
-    agendaItemIndex?: number | null;
-    nonAgendaReason?: string | null;
 }
 
 interface SubjectHeaderContextValue {

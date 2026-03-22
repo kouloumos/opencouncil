@@ -72,6 +72,8 @@ export function updateBodyFilterURL(
         const label = bodyOptions.find(o => o.value === bodyId)?.label;
         if (label) {
             params.set('body', label);
+        } else {
+            params.delete('body');
         }
     } else {
         params.delete('body');

@@ -54,6 +54,19 @@ export default function CityPeople({
         return hasCouncil ? ['council' as AdministrativeBodyType] : undefined;
     }, [typeOptions]);
 
+    // Pre-resolve body ID from URL once, instead of per-item in the filter callback
+    const resolvedBodyId = useMemo(() => {
+        const bodyLabel = searchParams.get('body');
+        if (!bodyLabel) return null;
+        for (const option of typeOptions) {
+            if (option.value === 'council') continue;
+            const subBodies = getBodiesOfTypeFromPeople(allPeople, option.value);
+            const match = subBodies.find(o => o.label === bodyLabel);
+            if (match) return match.value;
+        }
+        return null;
+    }, [searchParams, allPeople, typeOptions]);
+
     return (
         <List<PersonWithRelations, Record<string, never>, AdministrativeBodyType>
             items={orderedPersons}
@@ -65,12 +78,10 @@ export default function CityPeople({
             filterAvailableValues={typeOptions}
             filter={(selectedValues, person) => {
                 if (!filterPersonByAdminBodyTypes(person, selectedValues)) return false;
-                const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
-                if (selectedType && selectedType !== 'council') {
-                    const subBodies = getBodiesOfTypeFromPeople(allPeople, selectedType);
-                    const bodyId = resolveBodyFromURL(searchParams, subBodies);
-                    if (bodyId) {
-                        return person.roles.some(r => r.administrativeBodyId === bodyId);
+                if (resolvedBodyId) {
+                    const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
+                    if (selectedType && selectedType !== 'council') {
+                        return person.roles.some(r => r.administrativeBodyId === resolvedBodyId);
                     }
                 }
                 return true;

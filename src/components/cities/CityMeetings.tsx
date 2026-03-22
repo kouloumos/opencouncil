@@ -41,6 +41,19 @@ export default function CityMeetings({
         return hasCouncil ? ['council' as AdministrativeBodyType] : undefined;
     }, [typeOptions]);
 
+    // Pre-resolve body ID from URL once, instead of per-item in the filter callback
+    const resolvedBodyId = useMemo(() => {
+        const bodyLabel = searchParams.get('body');
+        if (!bodyLabel) return null;
+        for (const option of typeOptions) {
+            if (option.value === 'council') continue;
+            const subBodies = getBodiesOfTypeFromMeetings(councilMeetings, option.value);
+            const match = subBodies.find(o => o.label === bodyLabel);
+            if (match) return match.value;
+        }
+        return null;
+    }, [searchParams, councilMeetings, typeOptions]);
+
     return (
         <List<CouncilMeetingWithAdminBodyAndSubjects, { cityTimezone: string }, AdministrativeBodyType>
             items={councilMeetings}
@@ -53,12 +66,10 @@ export default function CityMeetings({
             filterAvailableValues={typeOptions}
             filter={(selectedValues, meeting) => {
                 if (!filterMeetingByAdminBodyTypes(meeting, selectedValues)) return false;
-                const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
-                if (selectedType && selectedType !== 'council') {
-                    const subBodies = getBodiesOfTypeFromMeetings(councilMeetings, selectedType);
-                    const bodyId = resolveBodyFromURL(searchParams, subBodies);
-                    if (bodyId) {
-                        return meeting.administrativeBody?.id === bodyId;
+                if (resolvedBodyId) {
+                    const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
+                    if (selectedType && selectedType !== 'council') {
+                        return meeting.administrativeBody?.id === resolvedBodyId;
                     }
                 }
                 return true;

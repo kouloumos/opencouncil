@@ -93,12 +93,9 @@ export default function Subject({ subjectId }: { subjectId?: string }) {
             name,
             topicIcon: topic?.icon ?? undefined,
             topicColor: topic?.colorHex ?? undefined,
-            topicName: topic?.name ?? undefined,
-            agendaItemIndex,
-            nonAgendaReason: subject.nonAgendaReason,
         });
         return () => setSubjectHeader(null);
-    }, [name, topic?.icon, topic?.colorHex, topic?.name, agendaItemIndex, subject.nonAgendaReason, setSubjectHeader]);
+    }, [name, topic?.icon, topic?.colorHex, setSubjectHeader]);
 
     // Fetch last poll time on mount when there's no decision
     useEffect(() => {
