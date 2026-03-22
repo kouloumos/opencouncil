@@ -1,67 +1,9 @@
 import { getCurrentUser } from "@/lib/auth"
-import prisma from "@/lib/db/prisma"
-import { sendEmail } from "@/lib/email/resend"
-import { render } from "@react-email/render"
-import { UserInviteEmail } from "@/lib/email/templates/user-invite"
 import { NextResponse } from "next/server"
-import { createHash } from "crypto"
-import { env } from "@/env.mjs"
 import { createUser, getUsers, updateUser } from "@/lib/db/users"
 import { sendUserOnboardedAdminAlert } from "@/lib/discord"
 import { handleApiError } from "@/lib/api/errors"
-
-async function generateSignInLink(email: string): Promise<{ signInUrl: string, verificationTokenKey: { identifier: string, token: string } }> {
-    // Create a token that expires in 24 hours
-    const token = createHash('sha256')
-        .update(email + Date.now().toString())
-        .digest('hex')
-
-    // Save the token in the database
-    await prisma.verificationToken.create({
-        data: {
-            identifier: email,
-            token,
-            expires: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-        }
-    })
-
-    // Generate the sign-in URL
-    const signInUrl = `${env.NEXTAUTH_URL}/sign-in?token=${token}&email=${encodeURIComponent(email)}`
-    return {
-        signInUrl,
-        verificationTokenKey: {
-            identifier: email,
-            token,
-        }
-    }
-}
-
-async function sendInviteEmail(email: string, name: string) {
-    let verificationTokenKey: { identifier: string, token: string } | undefined
-    try {
-        const signInLink = await generateSignInLink(email)
-        verificationTokenKey = signInLink.verificationTokenKey
-        const emailHtml = await render(UserInviteEmail({ name: name || email, inviteUrl: signInLink.signInUrl }))
-        const sendResult = await sendEmail({
-            from: "OpenCouncil <auth@opencouncil.gr>",
-            to: email,
-            subject: "You've been invited to OpenCouncil",
-            html: emailHtml,
-        })
-        if (!sendResult.success) throw new Error("Email send failed")
-        return true
-    } catch (error) {
-        console.error("Failed to send invite email:", error)
-        if (verificationTokenKey) {
-            try {
-                await prisma.verificationToken.deleteMany({ where: verificationTokenKey })
-            } catch (cleanupError) {
-                console.error("Failed to clean up verification token:", cleanupError)
-            }
-        }
-        return false
-    }
-}
+import { sendInviteEmail } from "@/lib/auth/invite"
 
 export async function GET() {
     const user = await getCurrentUser()
