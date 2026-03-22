@@ -53,7 +53,8 @@ export function meetingSetSql(spec: SubsetSpec): string {
     const window = `SELECT w."cityId", w.id FROM (
       SELECT m."cityId", m.id, row_number() OVER (PARTITION BY m."cityId", coalesce(m."administrativeBodyId", '(none)') ORDER BY m."dateTime" DESC, m.id) AS rn
         FROM public."CouncilMeeting" m JOIN public."City" c ON c.id = m."cityId"
-       WHERE m.released AND m."dateTime" <= '${spec.asOf.toISOString()}'::timestamptz AND c.status = 'supported'
+        JOIN public."Transcript" t ON (t."workspaceId", t.id) = (m."cityId", m.id)
+       WHERE t.released AND m."dateTime" <= '${spec.asOf.toISOString()}'::timestamptz AND c.status = 'supported'
          AND EXISTS (SELECT 1 FROM public."Subject" s WHERE (s."cityId", s."councilMeetingId") = (m."cityId", m.id))
          AND EXISTS (SELECT 1 FROM public."SpeakerSegment" g WHERE (g."cityId", g."meetingId") = (m."cityId", m.id))) w
      WHERE w.rn <= ${spec.meetingsPerBody}`;
@@ -80,6 +81,11 @@ const EXPLICIT_QUERIES: Record<string, (spec: SubsetSpec) => string> = {
 export function subsetTransformation(spec: SubsetSpec, explicitQuery: string[]): TransformationEntry[] {
     const meetings = meetingSetSql(spec);
     const entries: TransformationEntry[] = [
+        // SpeakerSegment and TaskStatus reference Transcript, so the meeting set limits Transcript too.
+        // Workspaces, transcripts and speakers that are not a city, a meeting or a person are private.
+        { schema: 'public', name: 'Workspace', subset_conds: [`public."Workspace".id IN (SELECT c.id FROM public."City" c)`] },
+        { schema: 'public', name: 'Transcript', subset_conds: [`(public."Transcript"."workspaceId", public."Transcript".id) IN (${meetings})`] },
+        { schema: 'public', name: 'Speaker', subset_conds: [`public."Speaker".id IN (SELECT p.id FROM public."Person" p)`] },
         { schema: 'public', name: 'CouncilMeeting', subset_conds: [`(public."CouncilMeeting"."cityId", public."CouncilMeeting".id) IN (${meetings})`] },
         { schema: 'public', name: 'SpeakerTag', subset_conds: [`public."SpeakerTag".id IN (SELECT ss."speakerTagId" FROM public."SpeakerSegment" ss WHERE (ss."cityId", ss."meetingId") IN (${meetings}))`] },
         { schema: 'public', name: 'Location', subset_conds: [`public."Location".id IN (SELECT s."locationId" FROM public."Subject" s WHERE s."locationId" IS NOT NULL AND (s."cityId", s."councilMeetingId") IN (${meetings}))`] },

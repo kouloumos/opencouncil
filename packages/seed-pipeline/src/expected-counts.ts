@@ -23,7 +23,7 @@ export async function pinProblems(client: Client, pins: Pin[]): Promise<string[]
     const { rows } = await client.query<{ cityId: string; meetingId: string; found: boolean; released: boolean; hasSubject: boolean; hasSegment: boolean }>(`
         SELECT p.c AS "cityId", p.m AS "meetingId",
                EXISTS (SELECT 1 FROM public."CouncilMeeting" m WHERE (m."cityId", m.id) = (p.c, p.m)) AS found,
-               EXISTS (SELECT 1 FROM public."CouncilMeeting" m WHERE (m."cityId", m.id) = (p.c, p.m) AND m.released) AS released,
+               EXISTS (SELECT 1 FROM public."CouncilMeeting" m JOIN public."Transcript" t ON (t."workspaceId", t.id) = (m."cityId", m.id) WHERE (m."cityId", m.id) = (p.c, p.m) AND t.released) AS released,
                EXISTS (SELECT 1 FROM public."Subject" s WHERE (s."cityId", s."councilMeetingId") = (p.c, p.m)) AS "hasSubject",
                EXISTS (SELECT 1 FROM public."SpeakerSegment" g WHERE (g."cityId", g."meetingId") = (p.c, p.m)) AS "hasSegment"
           FROM unnest($1::text[], $2::text[]) WITH ORDINALITY AS p(c, m, n)

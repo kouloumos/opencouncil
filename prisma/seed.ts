@@ -600,6 +600,21 @@ async function seedPersons(persons: any[]) {
 async function seedMeetings(meetings: any[]) {
   console.log(`Seeding ${meetings.length} meetings...`)
 
+  // The media and the release state are on the transcript. A database trigger
+  // creates the transcript of a meeting without them, so create it first.
+  await prisma.transcript.createMany({
+    data: meetings.map(meeting => ({
+      id: meeting.id,
+      workspaceId: meeting.cityId,
+      name: meeting.name ?? meeting.id,
+      videoUrl: meeting.videoUrl,
+      audioUrl: meeting.audioUrl,
+      muxPlaybackId: meeting.muxPlaybackId,
+      released: meeting.released || false,
+    })),
+    skipDuplicates: true,
+  })
+
   // Prepare meeting data for batch creation
   const meetingData = meetings.map(meeting => ({
     id: meeting.id,
@@ -608,10 +623,6 @@ async function seedMeetings(meetings: any[]) {
     dateTime: new Date(meeting.dateTime),
     youtubeUrl: meeting.youtubeUrl,
     agendaUrl: meeting.agendaUrl,
-    videoUrl: meeting.videoUrl,
-    audioUrl: meeting.audioUrl,
-    muxPlaybackId: meeting.muxPlaybackId,
-    released: meeting.released || false,
     cityId: meeting.cityId,
     administrativeBodyId: meeting.administrativeBodyId,
   }))

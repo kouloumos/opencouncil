@@ -31,9 +31,12 @@ describe('meetingSetSql', () => {
 });
 
 describe('subsetTransformation', () => {
-    test('conditions CouncilMeeting, SpeakerTag, Location and gives DecisionCandidate a query', () => {
+    test('conditions the base tables, CouncilMeeting, SpeakerTag, Location and gives DecisionCandidate a query', () => {
         const entries = subsetTransformation(spec, ['DecisionCandidate']);
         const byName = Object.fromEntries(entries.map((e) => [e.name, e]));
+        expect(byName.Workspace.subset_conds?.[0]).toContain('public."City"');
+        expect(byName.Transcript.subset_conds?.[0]).toContain('public."Transcript"."workspaceId", public."Transcript".id');
+        expect(byName.Speaker.subset_conds?.[0]).toContain('public."Person"');
         expect(byName.CouncilMeeting.subset_conds?.[0]).toContain('public."CouncilMeeting"."cityId", public."CouncilMeeting".id');
         expect(byName.SpeakerTag.subset_conds?.[0]).toContain('ss."speakerTagId"');
         expect(byName.Location.subset_conds?.[0]).toContain('s."locationId"');
@@ -67,6 +70,6 @@ describe('buildGreenmaskConfig', () => {
         const text = greenmaskConfigYaml({ conn, storageDir: '/tmp/s', tmpDir: '/tmp/t', privateTables: [], ignoreTables: [], explicitQuery: ['DecisionCandidate'], subset: spec });
         const parsed = load(text) as { storage: { type: string }; dump: { transformation: unknown[] } };
         expect(parsed.storage.type).toBe('directory');
-        expect(parsed.dump.transformation).toHaveLength(4);
+        expect(parsed.dump.transformation).toHaveLength(7);
     });
 });

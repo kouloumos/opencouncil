@@ -32,11 +32,14 @@ maybe('pinProblems', () => {
             await pg.createDatabase('pins');
             await withClient(pg.url('pins'), async (client) => {
                 await client.query(`
-                    CREATE TABLE "CouncilMeeting" ("cityId" text, id text, released boolean DEFAULT true);
+                    CREATE TABLE "CouncilMeeting" ("cityId" text, id text);
+                    CREATE TABLE "Transcript" ("workspaceId" text, id text, released boolean DEFAULT true);
                     CREATE TABLE "Subject" ("cityId" text, "councilMeetingId" text);
                     CREATE TABLE "SpeakerSegment" ("cityId" text, "meetingId" text);
                     INSERT INTO "CouncilMeeting" VALUES ('athens', 'full'), ('athens', 'no-subject'), ('athens', 'empty');
-                    INSERT INTO "CouncilMeeting" VALUES ('athens', 'draft', false);
+                    INSERT INTO "CouncilMeeting" VALUES ('athens', 'draft');
+                    INSERT INTO "Transcript" SELECT "cityId", id FROM "CouncilMeeting";
+                    UPDATE "Transcript" SET released = false WHERE id = 'draft';
                     INSERT INTO "Subject" VALUES ('athens', 'full'), ('athens', 'empty-elsewhere'), ('athens', 'draft');
                     INSERT INTO "SpeakerSegment" VALUES ('athens', 'full'), ('athens', 'no-subject'), ('athens', 'draft');`);
                 const pin = (meetingId: string) => ({ cityId: 'athens', meetingId, reason: '' });
