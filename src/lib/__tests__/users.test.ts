@@ -10,7 +10,17 @@ jest.mock('../api/errors', () => {
       super(409, message);
     }
   }
-  return { ApiError, ConflictError };
+  class BadRequestError extends ApiError {
+    constructor(message: string = "Invalid request") {
+      super(400, message);
+    }
+  }
+  class NotFoundError extends ApiError {
+    constructor(message: string = "Not found") {
+      super(404, message);
+    }
+  }
+  return { ApiError, BadRequestError, ConflictError, NotFoundError };
 });
 
 jest.mock('../auth', () => ({
@@ -24,7 +34,6 @@ jest.mock('../db/prisma', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
-      delete: jest.fn(),
     },
     administers: {
       deleteMany: jest.fn(),
@@ -120,12 +129,24 @@ describe('users db layer - normalization and duplicate handling', () => {
       expect(mockWithUserAuthorizedToEdit).not.toHaveBeenCalled();
     });
 
-    it('re-throws non-P2002 errors', async () => {
+    it('throws BadRequestError for empty email', async () => {
+      await expect(
+        createUser({ email: '   ' })
+      ).rejects.toThrow('Email cannot be empty');
+    });
+
+    it('throws BadRequestError when email is missing', async () => {
+      await expect(
+        createUser({ name: 'No Email' })
+      ).rejects.toThrow('Email is required to create a user');
+    });
+
+    it('masks non-P2002 errors with generic message', async () => {
       mockCreate.mockRejectedValueOnce(new Error('connection failed'));
 
       await expect(
         createUser({ email: 'test@example.com' })
-      ).rejects.toThrow('connection failed');
+      ).rejects.toThrow('Failed to create user');
     });
   });
 
@@ -173,12 +194,34 @@ describe('users db layer - normalization and duplicate handling', () => {
       ).rejects.toThrow('A user with this email already exists.');
     });
 
-    it('re-throws non-P2002 errors', async () => {
+    it('masks non-P2002 errors with generic message', async () => {
       mockUpdate.mockRejectedValueOnce(new Error('connection failed'));
 
       await expect(
         updateUser('user-1', { email: 'test@example.com' })
-      ).rejects.toThrow('connection failed');
+      ).rejects.toThrow('Failed to update user');
+    });
+
+    it('maps P2002 error to ConflictError in transaction path', async () => {
+      mockTransaction.mockRejectedValueOnce({ code: 'P2002' });
+
+      await expect(
+        updateUser('user-1', {
+          email: 'duplicate@example.com',
+          administers: [{ city: { connect: { id: 'city-1' } } }],
+        })
+      ).rejects.toThrow('A user with this email already exists.');
+    });
+
+    it('masks non-P2002 errors in transaction path', async () => {
+      mockTransaction.mockRejectedValueOnce(new Error('tx failed'));
+
+      await expect(
+        updateUser('user-1', {
+          email: 'test@example.com',
+          administers: [{ city: { connect: { id: 'city-1' } } }],
+        })
+      ).rejects.toThrow('Failed to update user');
     });
   });
 });

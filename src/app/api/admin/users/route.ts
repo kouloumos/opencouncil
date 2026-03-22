@@ -37,9 +37,11 @@ async function generateSignInLink(email: string): Promise<{ signInUrl: string, v
 }
 
 async function sendInviteEmail(email: string, name: string) {
-    const { signInUrl, verificationTokenKey } = await generateSignInLink(email)
+    let verificationTokenKey: { identifier: string, token: string } | undefined
     try {
-        const emailHtml = await render(UserInviteEmail({ name: name || email, inviteUrl: signInUrl }))
+        const signInLink = await generateSignInLink(email)
+        verificationTokenKey = signInLink.verificationTokenKey
+        const emailHtml = await render(UserInviteEmail({ name: name || email, inviteUrl: signInLink.signInUrl }))
         const sendResult = await sendEmail({
             from: "OpenCouncil <auth@opencouncil.gr>",
             to: email,
@@ -50,7 +52,13 @@ async function sendInviteEmail(email: string, name: string) {
         return true
     } catch (error) {
         console.error("Failed to send invite email:", error)
-        try { await prisma.verificationToken.deleteMany({ where: verificationTokenKey }) } catch { }
+        if (verificationTokenKey) {
+            try {
+                await prisma.verificationToken.deleteMany({ where: verificationTokenKey })
+            } catch (cleanupError) {
+                console.error("Failed to clean up verification token:", cleanupError)
+            }
+        }
         return false
     }
 }
@@ -65,8 +73,7 @@ export async function GET() {
         const users = await getUsers()
         return NextResponse.json(users)
     } catch (error) {
-        console.error("Failed to fetch users:", error)
-        return new NextResponse("Failed to fetch users", { status: 500 })
+        return handleApiError(error, "Failed to fetch users")
     }
 }
 
@@ -84,11 +91,16 @@ export async function POST(request: Request) {
 
         // Send invitation email
         const inviteEmailSent = await sendInviteEmail(newUser.email, newUser.name ?? newUser.email)
+
         if (!inviteEmailSent) {
             console.error(`User ${newUser.id} created, but invite email failed to send`)
+            return NextResponse.json(
+                { ...newUser, warning: "User created but invite email could not be sent." },
+                { status: 207 }
+            )
         }
 
-        // Send Discord admin alert for admin invite
+        // Only alert when the full invite flow succeeded
         sendUserOnboardedAdminAlert({
             cityName: isSuperAdmin ? 'Super Admin' : 'Admin User',
             onboardingSource: 'admin_invite',
