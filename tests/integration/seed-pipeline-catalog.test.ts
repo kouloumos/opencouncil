@@ -43,8 +43,9 @@ describe('seed-pipeline catalog derivation on the real schema', () => {
             'TaskStatus.TaskStatus_councilMeetingId_cityId_fkey',
         ])
         const segment = misorderedCompositeFks(fks).find((f) => f.table === 'SpeakerSegment')
-        expect(segment?.parentPk).toEqual(['cityId', 'id'])
-        expect(segment?.refColumns).toEqual(['id', 'cityId'])
+        // A segment references its Transcript, whose key is (workspaceId, id).
+        expect(segment?.parentPk).toEqual(['workspaceId', 'id'])
+        expect(segment?.refColumns).toEqual(['id', 'workspaceId'])
     })
 
     test('finds the self-referencing keys on Subject and CouncilMeeting', async () => {

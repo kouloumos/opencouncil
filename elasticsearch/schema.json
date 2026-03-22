@@ -194,14 +194,14 @@
           }
         },
         {
-          "table": "CouncilMeeting",
+          "table": "Transcript",
           "schema": "public",
           "columns": ["released"],
           "label": "meeting_released",
           "relationship": {
             "variant": "scalar",
             "type": "one_to_one",
-            "foreign_key": { "parent": ["councilMeetingId", "cityId"], "child": ["id", "cityId"] }
+            "foreign_key": { "parent": ["councilMeetingId", "cityId"], "child": ["id", "workspaceId"] }
           }
         },
         {

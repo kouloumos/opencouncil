@@ -3,8 +3,8 @@
     "main": {
       "prisma": "prisma/schema.prisma",
       "content": [
-        "City", "Topic", "Location", "Party", "AdministrativeBody", "Person", "Role",
-        "CouncilMeeting", "SpeakerTag", "Subject", "Decision", "DecisionCandidate",
+        "Workspace", "City", "Topic", "Location", "Party", "AdministrativeBody", "Speaker", "Person", "Role",
+        "Transcript", "CouncilMeeting", "SpeakerTag", "Subject", "Decision", "DecisionCandidate",
         "SubjectAttendance", "SubjectVote", "MeetingAttendance", "SpeakerSegment",
         "SpeakerContribution", "Utterance", "Word", "TopicLabel", "Summary", "Highlight",
         "HighlightedUtterance", "CityMessage", "Consultation", "TaskStatus",
@@ -33,7 +33,9 @@
     { "table": "Highlight", "action": "delete-when", "when": "\"createdById\" IS NOT NULL AND NOT \"isShowcased\"" }
   ],
   "masking": [
-    { "table": "CouncilMeeting", "action": "delete-when", "when": "NOT released" },
+    { "table": "Workspace", "action": "delete-when", "when": "NOT EXISTS (SELECT 1 FROM public.\"City\" c WHERE c.id = \"Workspace\".id)" },
+    { "table": "Speaker", "action": "delete-when", "when": "NOT EXISTS (SELECT 1 FROM public.\"Person\" p WHERE p.id = \"Speaker\".id)" },
+    { "table": "Transcript", "action": "delete-when", "when": "NOT released OR NOT EXISTS (SELECT 1 FROM public.\"CouncilMeeting\" m WHERE (m.\"cityId\", m.id) = (\"Transcript\".\"workspaceId\", \"Transcript\".id))" },
     { "table": "SpeakerTag", "action": "delete-when", "when": "NOT EXISTS (SELECT 1 FROM public.\"SpeakerSegment\" g WHERE g.\"speakerTagId\" = \"SpeakerTag\".id)" },
     { "table": "DecisionCandidate", "action": "delete-when", "when": "(\"councilMeetingId\" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.\"CouncilMeeting\" m WHERE (m.\"cityId\", m.id) = (\"DecisionCandidate\".\"cityId\", \"DecisionCandidate\".\"councilMeetingId\"))) OR (\"subjectId\" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.\"Subject\" s WHERE s.id = \"DecisionCandidate\".\"subjectId\")) OR (\"decisionId\" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.\"Decision\" d WHERE d.id = \"DecisionCandidate\".\"decisionId\"))" },
     { "table": "TaskStatus", "action": "delete-when", "when": "type = 'generateHighlight' AND pg_input_is_valid(\"requestBody\", 'jsonb') AND NOT EXISTS (SELECT 1 FROM public.\"Highlight\" h WHERE h.id = \"requestBody\"::jsonb #>> '{parts,0,id}')" },

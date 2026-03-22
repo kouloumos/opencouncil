@@ -13,6 +13,44 @@ datasource db {
   extensions = [postgis]
 }
 
+// ============================================================================
+// SCHEMA ARCHITECTURE OVERVIEW
+// ============================================================================
+//
+// This schema uses a layered inheritance pattern where specialized models
+// extend generic base models through explicit foreign key relationships:
+//
+// WORKSPACE LAYER:
+//   Workspace (base) ──extends──> City (specialized)
+//   - City.id = Workspace.id (same ID, explicit FK)
+//   - Administers.cityId references Workspace
+//
+// TRANSCRIPT LAYER:
+//   Transcript (base) ──extends──> CouncilMeeting (specialized)
+//   - (CouncilMeeting.cityId, CouncilMeeting.id) = (Transcript.workspaceId, Transcript.id)
+//   - SpeakerSegment (meetingId, cityId) and TaskStatus (councilMeetingId, cityId)
+//     reference Transcript. The columns keep their council names so that
+//     queries and raw SQL shared with upstream OpenCouncil keep working.
+//
+// SPEAKER LAYER:
+//   Speaker (base) ──extends──> Person (specialized)
+//   - Person.id = Speaker.id, Person.cityId = Speaker.workspaceId
+//   - SpeakerTag.personId and VoicePrint.personId reference Speaker
+//
+// ============================================================================
+
+model Workspace {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  administrators Administers[]
+  transcripts    Transcript[]
+  speakers       Speaker[]
+  city           City?
+}
+
 model City {
   id        String   @id @default(cuid())
   name      String   // Αθήνα
@@ -36,10 +74,10 @@ model City {
   realm  Realm      @default(greece)
   population Int?     // Used to determine platform pricing tier
 
+  workspace Workspace @relation(fields: [id], references: [id], onDelete: Cascade)
   parties        Party[]
   persons        Person[]
   councilMeetings CouncilMeeting[]
-  administrators Administers[]
   administrativeBodies AdministrativeBody[]
   
   petitions Petition[]
@@ -203,6 +241,22 @@ model Party {
   @@index([cityId])
 }
 
+model Speaker {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  speakerTags SpeakerTag[]
+  voicePrints VoicePrint[]
+  person      Person?
+  
+  @@index([workspaceId])
+}
+
 model Person {
   id        String   @id @default(cuid())
   name  String
@@ -221,12 +275,10 @@ model Person {
 
   voicePrintConsents VoicePrintConsent[]
 
-  speakerTags SpeakerTag[]
   speakerIdentifications SpeakerIdentification[]
-  voicePrints VoicePrint[]
+  speaker Speaker @relation(fields: [id], references: [id], onDelete: Cascade)
   city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   cityId String
-
 
   administrators Administers[]
   subjectsIntroduced Subject[]
@@ -246,16 +298,12 @@ model CouncilMeeting {
   dateTime  DateTime
   youtubeUrl String?
   agendaUrl String?
-  videoUrl String?
-  audioUrl String?
-  muxPlaybackId String?
   // Google Calendar event ID on the shared OpenCouncil calendar; set when the
   // event is created at meeting creation. Meetings from before this field
   // existed keep null and are never synced (their events stay manual).
   calendarEventId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  released  Boolean  @default(false)
 
   scheduleStatus       MeetingScheduleStatus @default(scheduled)
   scheduleStatusReason String?
@@ -288,14 +336,13 @@ model CouncilMeeting {
   continuationOf   CouncilMeeting?  @relation("Continuation", fields: [cityId, continuationOfId], references: [cityId, id], onDelete: NoAction, onUpdate: NoAction)
   continuations    CouncilMeeting[] @relation("Continuation")
 
+  transcript Transcript @relation(fields: [cityId, id], references: [workspaceId, id], onDelete: Cascade)
   city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
   cityId String
 
   administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: SetNull)
   administrativeBodyId String?
 
-  taskStatuses TaskStatus[]
-  speakerSegments SpeakerSegment[]
   highlights Highlight[]
   subjects Subject[]
   meetingAttendance MeetingAttendance[]
@@ -310,7 +357,7 @@ model CouncilMeeting {
   @@unique([cityId, postponedFromId])
   @@index([cityId, continuationOfId])
   @@index([dateTime])
-  @@index([released])
+  @@index([cityId, dateTime])
   @@index([administrativeBodyId])
 }
 
@@ -330,6 +377,27 @@ model MeetingOperator {
   @@unique([meetingCityId, meetingId])
 }
 
+model Transcript {
+  id          String         @default(cuid())
+  workspaceId String
+  name        String
+  videoUrl    String?
+  audioUrl    String?
+  muxPlaybackId String?
+  released    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  councilMeeting  CouncilMeeting?
+  taskStatuses    TaskStatus[]
+  speakerSegments SpeakerSegment[]
+  
+  @@id([workspaceId, id])
+  @@unique([workspaceId, id])
+  @@index([released])
+}
+
 model TaskStatus {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -344,7 +412,7 @@ model TaskStatus {
 
   version Int?
 
-  councilMeeting   CouncilMeeting @relation(fields: [councilMeetingId, cityId], references: [id, cityId], onDelete: Cascade)
+  transcript   Transcript @relation(fields: [councilMeetingId, cityId], references: [id, workspaceId], onDelete: Cascade)
   councilMeetingId String
   cityId           String
 
@@ -404,7 +472,7 @@ model VoicePrint {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   
-  person              Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  speaker             Speaker   @relation(fields: [personId], references: [id], onDelete: Cascade)
   personId            String
   
   // Reference to the speaker segment used to generate this voiceprint
@@ -421,7 +489,7 @@ model SpeakerTag {
   updatedAt       DateTime @updatedAt
   label           String?
 
-  person Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+  speaker Speaker? @relation(fields: [personId], references: [id], onDelete: SetNull)
   personId String?
   // Who decided personId. Null on a tag nobody has assigned. An automatic pass
   // never reassigns a reviewer's tag (see isReviewerAssignment in src/lib/speakerIdentifications.ts).
@@ -488,7 +556,7 @@ model SpeakerSegment {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
+  transcript Transcript @relation(fields: [meetingId, cityId], references: [id, workspaceId], onDelete: Cascade)
   meetingId String
   cityId String
 
@@ -1252,7 +1320,7 @@ model Administers {
   /// and Postgres treats NULLs as distinct.
   administrativeBodyId String?
   
-  city      City?    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [cityId], references: [id], onDelete: Cascade)
   party     Party?   @relation(fields: [partyId], references: [id], onDelete: Cascade)
   person    Person?  @relation(fields: [personId], references: [id], onDelete: Cascade)
   administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: Cascade)

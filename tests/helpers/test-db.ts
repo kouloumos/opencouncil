@@ -1,6 +1,7 @@
 import { GenericContainer, StartedTestContainer, Wait } from 'testcontainers'
 import { execFileSync } from 'child_process'
 import { randomBytes } from 'crypto'
+import fs from 'fs'
 import path from 'path'
 import { withClient } from '@opencouncil/seed-pipeline/catalog'
 import { quoteIdent } from '@opencouncil/seed-pipeline/normalize'
@@ -55,6 +56,20 @@ function prismaSchemaCommand(databaseUrl: string, args: string[]) {
     })
 }
 
+const WORKSPACE_MIGRATION = path.join(process.cwd(), 'prisma', 'migrations', '20261025120000_workspace_inheritance', 'migration.sql')
+
+/**
+ * `prisma db push` builds the tables only. The triggers that create, rename
+ * and delete the Workspace, Transcript and Speaker of a city, a meeting and a
+ * person live in the migration, so take them from there.
+ */
+async function applyBaseRowTriggers(databaseUrl: string) {
+    const sql = fs.readFileSync(WORKSPACE_MIGRATION, 'utf8')
+    const block = sql.match(/-- BEGIN base row sync triggers[^\n]*\n([\s\S]*?)-- END base row sync triggers/)?.[1]
+    if (!block) throw new Error(`No base row sync triggers in ${WORKSPACE_MIGRATION}`)
+    await withClient(databaseUrl, (client) => client.query(block))
+}
+
 /** The integration config's `globalSetup`. Runs once, before any test file. */
 export async function startTestServer(): Promise<void> {
     ensureTestEnvVars()
@@ -73,6 +88,7 @@ export async function startTestServer(): Promise<void> {
             prismaSchemaCommand(externalUrl, ['migrate', 'deploy'])
         } catch {
             prismaSchemaCommand(externalUrl, ['db', 'push', '--skip-generate'])
+            await applyBaseRowTriggers(externalUrl)
         }
         return
     }
@@ -112,6 +128,7 @@ export async function startTestServer(): Promise<void> {
     // public schema without the default PUBLIC grant, so the notis views
     // test still fails when a migration forgets to grant notis_reader.
     prismaSchemaCommand(`${templateUrl}?schema=public`, ['db', 'push', '--force-reset', '--skip-generate'])
+    await applyBaseRowTriggers(templateUrl)
 
     await withClient(serverUrl, async (client) => {
         // A role belongs to the server, not to a database. The notis views
@@ -223,6 +240,7 @@ export async function resetDatabase(prisma: { $executeRawUnsafe: (q: string) => 
     // Truncate in a single statement; CASCADE clears dependent rows and join tables
     await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      "Workspace",
       "NotificationDelivery",
       "NotificationSubject",
       "Notification",

@@ -11,6 +11,10 @@ const MIGRATION = path.join(
     __dirname,
     '../../prisma/migrations/20261014120000_meeting_record/migration.sql',
 )
+const WORKSPACE_MIGRATION = path.join(
+    __dirname,
+    '../../prisma/migrations/20261025120000_workspace_inheritance/migration.sql',
+)
 
 /** The test database is built with `prisma db push`, which knows nothing of
  *  the hand-written parts of the migration. Replay those parts: the named
@@ -24,6 +28,17 @@ function migrationStatements(match: RegExp): string[] {
 
 async function addNamedChecks() {
     for (const statement of migrationStatements(/CHECK \(/)) {
+        // "released" moved to Transcript: the workspace migration keeps this
+        // rule with constraint triggers, replayed below.
+        await prisma.$executeRawUnsafe(statement.replace(
+            /,\s*ADD CONSTRAINT "CouncilMeeting_hidden_by_postponement_not_released"\s*CHECK \(NOT \("hiddenByPostponement" AND "released"\)\)/,
+            '',
+        ))
+    }
+    const hiddenCheck = fs.readFileSync(WORKSPACE_MIGRATION, 'utf8')
+        .match(/-- BEGIN hidden meeting check[^\n]*\n([\s\S]*?)-- END hidden meeting check/)?.[1]
+    if (!hiddenCheck) throw new Error(`No hidden meeting check in ${WORKSPACE_MIGRATION}`)
+    for (const statement of splitSqlStatements(hiddenCheck)) {
         await prisma.$executeRawUnsafe(statement)
     }
 }
@@ -54,7 +69,7 @@ describe('meeting lifecycle schema', () => {
     test('the named checks exist in pg_constraint', async () => {
         const rows = await prisma.$queryRaw<{ conname: string }[]>`
             SELECT conname FROM pg_constraint
-            WHERE conrelid = '"CouncilMeeting"'::regclass AND contype = 'c'
+            WHERE conrelid = '"CouncilMeeting"'::regclass AND contype IN ('c', 't')
             ORDER BY conname`
         expect(rows.map((r) => r.conname)).toEqual(expect.arrayContaining([
             'CouncilMeeting_continuation_owns_nothing',

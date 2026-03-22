@@ -30,6 +30,10 @@ const TITLE_MIGRATION_PATH = path.join(
     __dirname,
     '../../prisma/migrations/20261014120100_meeting_title/migration.sql',
 )
+const WORKSPACE_MIGRATION_PATH = path.join(
+    __dirname,
+    '../../prisma/migrations/20261025120000_workspace_inheritance/migration.sql',
+)
 
 /** The consumer's half of the contract: the Prisma models Notis reads the
  *  views through. Kept in a separate file from the SQL that defines them,
@@ -71,6 +75,10 @@ async function applyNotisMigration() {
     await prisma.$executeRawUnsafe(
         'ALTER TABLE "NotificationPreference" ADD COLUMN IF NOT EXISTS "notifyByPhone" BOOLEAN NOT NULL DEFAULT true',
     )
+    // The views before the workspace migration read "released" from CouncilMeeting.
+    await prisma.$executeRawUnsafe(
+        'ALTER TABLE "CouncilMeeting" ADD COLUMN IF NOT EXISTS "released" BOOLEAN NOT NULL DEFAULT false',
+    )
     for (const migrationPath of MIGRATION_PATHS) {
         const sql = fs.readFileSync(migrationPath, 'utf8')
         for (const statement of splitSqlStatements(sql)) {
@@ -85,6 +93,14 @@ async function applyNotisMigration() {
             await prisma.$executeRawUnsafe(statement)
         }
     }
+    // The workspace migration reads "released" from Transcript, and then drops
+    // the column from CouncilMeeting.
+    for (const statement of splitSqlStatements(fs.readFileSync(WORKSPACE_MIGRATION_PATH, 'utf8'))) {
+        if (statement.includes('CREATE OR REPLACE VIEW "notis_meeting_events"')) {
+            await prisma.$executeRawUnsafe(statement)
+        }
+    }
+    await prisma.$executeRawUnsafe('ALTER TABLE "CouncilMeeting" DROP COLUMN "released"')
 }
 
 describe('notis views migration', () => {
