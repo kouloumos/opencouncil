@@ -78,8 +78,12 @@ export function klitiki(name: string): string {
     return "";
   }
 
-  const decline = (s: string) => {
+  const decline = (s: string): string => {
     if (!s) return "";
+    // If the segment contains spaces (e.g. after splitting by hyphen), decline each word individually
+    if (/\s/.test(s)) {
+      return s.split(/\s+/).map(decline).join(" ");
+    }
     // Normalize to Title Case for the library
     const capitalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
     return greekKlitiki(capitalized);

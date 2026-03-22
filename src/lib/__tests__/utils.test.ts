@@ -220,6 +220,10 @@ describe('klitiki', () => {
   it('should handle multiple names with various endings', () => {
     expect(klitiki('Χρήστος Κώστας Γεώργιος')).toBe('Χρήστο Κώστα Γεώργιε');
   });
+
+  it('should handle hyphenated names followed by spaces', () => {
+    expect(klitiki('Κώστας-Γιώργος Παπαδόπουλος')).toBe('Κώστα-Γιώργο Παπαδόπουλε');
+  });
 });
 
 describe('debounce', () => {
