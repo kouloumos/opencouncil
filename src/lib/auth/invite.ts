@@ -26,7 +26,7 @@ export async function generateSignInLink(email: string): Promise<{ signInUrl: st
     }
 }
 
-export async function sendInviteEmail(email: string, name: string): Promise<boolean> {
+export async function sendInviteEmail(email: string, name: string | null | undefined): Promise<boolean> {
     const { signInUrl, verificationTokenKey } = await generateSignInLink(email)
     try {
         const emailHtml = await render(UserInviteEmail({ name: name || email, inviteUrl: signInUrl }))

@@ -51,7 +51,7 @@ describe('generateSignInLink', () => {
     const { data } = mockCreate.mock.calls[0][0] as { data: { identifier: string; token: string; expires: Date } };
     expect(data.identifier).toBe('user@example.com');
     expect(typeof data.token).toBe('string');
-    expect(data.token).toHaveLength(64); // sha256 hex
+    expect(data.token).toHaveLength(64); // randomBytes(32) hex
     const expiresMs = data.expires.getTime();
     expect(expiresMs).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000 - 100);
     expect(expiresMs).toBeLessThanOrEqual(after + 24 * 60 * 60 * 1000 + 100);
