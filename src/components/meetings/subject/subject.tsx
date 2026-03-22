@@ -22,8 +22,6 @@ import { VotingSection } from "./VotingSection";
 import { formatDate, formatRelativeTime } from "@/lib/formatters/time";
 import { useTranslations, useLocale } from "next-intl";
 import { requestPollDecisionForSubject, getLastPollTimeForMeeting, getDecisionForSubject } from "@/lib/tasks/pollDecisions";
-import { useSession } from "next-auth/react";
-import { DebugMetadataButton } from "@/components/ui/debug-metadata-button";
 import { useSubjectHeader } from "@/contexts/SubjectHeaderContext";
 
 export default function Subject({ subjectId }: { subjectId?: string }) {
@@ -31,8 +29,6 @@ export default function Subject({ subjectId }: { subjectId?: string }) {
     const { seekToAndPlay } = useVideo();
     const t = useTranslations("Subject");
     const locale = useLocale();
-    const { data: session } = useSession();
-    const isSuperAdmin = session?.user?.isSuperAdmin ?? false;
     const { setSubjectHeader } = useSubjectHeader();
     const [isFetchingDecision, setIsFetchingDecision] = useState(false);
     const [localDecision, setLocalDecision] = useState<{

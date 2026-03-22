@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 export interface SubjectHeaderInfo {
     name: string;
@@ -16,11 +16,7 @@ interface SubjectHeaderContextValue {
 const SubjectHeaderContext = createContext<SubjectHeaderContextValue | undefined>(undefined);
 
 export function SubjectHeaderProvider({ children }: { children: React.ReactNode }) {
-    const [subjectHeader, setSubjectHeaderState] = useState<SubjectHeaderInfo | null>(null);
-
-    const setSubjectHeader = useCallback((info: SubjectHeaderInfo | null) => {
-        setSubjectHeaderState(info);
-    }, []);
+    const [subjectHeader, setSubjectHeader] = useState<SubjectHeaderInfo | null>(null);
 
     return (
         <SubjectHeaderContext.Provider value={{ subjectHeader, setSubjectHeader }}>
