@@ -124,6 +124,7 @@ describe('sendInviteEmail', () => {
 
     await expect(sendInviteEmail('dberror@example.com', 'Dave')).rejects.toThrow('db error');
     expect(mockSendEmail).not.toHaveBeenCalled();
+    // No token was created, so cleanup should not be attempted
     expect(mockDeleteMany).not.toHaveBeenCalled();
   });
 

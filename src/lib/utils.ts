@@ -78,11 +78,22 @@ export function klitiki(name: string): string {
     return "";
   }
 
-  if (/\s/.test(normalizedName)) {
-    return normalizedName.split(/\s+/).map(greekKlitiki).join(" ");
+  const decline = (s: string) => {
+    if (!s) return "";
+    // Normalize to Title Case for the library
+    const capitalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return greekKlitiki(capitalized);
+  };
+
+  if (normalizedName.includes("-")) {
+    return normalizedName.split("-").map(decline).join("-");
   }
 
-  return greekKlitiki(normalizedName);
+  if (/\s/.test(normalizedName)) {
+    return normalizedName.split(/\s+/).map(decline).join(" ");
+  }
+
+  return decline(normalizedName);
 }
 
 export function debounce<T extends (...args: any[]) => any>(

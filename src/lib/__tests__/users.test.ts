@@ -54,6 +54,7 @@ const mockTransaction = prisma.$transaction as unknown as jest.Mock;
 describe('users db layer - normalization and duplicate handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
 
     mockWithUserAuthorizedToEdit.mockResolvedValue(true);
 
@@ -200,6 +201,14 @@ describe('users db layer - normalization and duplicate handling', () => {
       await expect(
         updateUser('user-1', { email: 'test@example.com' })
       ).rejects.toThrow('Failed to update user');
+    });
+
+    it('maps Prisma P2025 update error to NotFoundError', async () => {
+      mockUpdate.mockRejectedValueOnce({ code: 'P2025' } as { code: string });
+
+      await expect(
+        updateUser('non-existent', { email: 'notfound@example.com' })
+      ).rejects.toThrow('User not found');
     });
 
     it('maps P2002 error to ConflictError in transaction path', async () => {
