@@ -25,26 +25,32 @@ export async function findEligiblePeopleForVoiceprintGeneration(cityId: string):
     const peopleWithoutVoiceprints = await prisma.person.findMany({
         where: {
             cityId,
-            voicePrints: {
-                none: {}
+            speaker: {
+                voicePrints: {
+                    none: {}
+                }
             }
         },
         select: {
             id: true,
             name: true,
-            speakerTags: {
+            speaker: {
                 include: {
-                    speakerSegments: true
+                    speakerTags: {
+                        include: {
+                            speakerSegments: true
+                        }
+                    }
                 }
             }
         }
     });
 
     // Filter to only those with segments longer than VOICEPRINT_DURATION
-    const eligiblePeople = peopleWithoutVoiceprints.filter(person => {
+    const eligiblePeople = peopleWithoutVoiceprints.filter(person => {        
         // Flatten all segments from all speaker tags
         const allSegments: SpeakerSegment[] = [];
-        for (const tag of person.speakerTags) {
+        for (const tag of person.speaker.speakerTags) {
             allSegments.push(...tag.speakerSegments);
         }
 
@@ -123,15 +129,15 @@ export async function requestGenerateVoiceprint(personId: string) {
     }
 
     // Get meeting details
-    const meeting = await getCouncilMeeting(segment.cityId, segment.meetingId);
+    const meeting = await getCouncilMeeting(segment.workspaceId, segment.transcriptId);
 
     if (!meeting) {
         throw new Error("Meeting not found");
     }
 
-    await withUserAuthorizedToEdit({ cityId: segment.cityId });
+    await withUserAuthorizedToEdit({ cityId: segment.workspaceId });
 
-    const mediaUrl = meeting.audioUrl || meeting.videoUrl;
+    const mediaUrl = meeting.transcript?.audioUrl || meeting.transcript?.videoUrl;
     if (!mediaUrl) {
         throw new Error("Meeting media URL not found");
     }
@@ -151,10 +157,10 @@ export async function requestGenerateVoiceprint(personId: string) {
         segmentId: segment.id,
         startTimestamp,
         endTimestamp,
-        cityId: segment.cityId,
+        cityId: segment.workspaceId,
     };
 
-    return startTask("generateVoiceprint", request, segment.meetingId, segment.cityId);
+    return startTask("generateVoiceprint", request, segment.transcriptId, segment.workspaceId);
 }
 
 /**
@@ -165,21 +171,25 @@ export async function findLongestSpeakerSegmentForPerson(personId: string): Prom
         const person = await prisma.person.findUnique({
             where: { id: personId },
             include: {
-                speakerTags: {
+                speaker: {
                     include: {
-                        speakerSegments: true,
-                    },
-                },
+                        speakerTags: {
+                            include: {
+                                speakerSegments: true,
+                            },
+                        },
+                    }
+                }
             },
         });
 
-        if (!person || person.speakerTags.length === 0) {
+        if (!person?.speaker || person.speaker.speakerTags.length === 0) {
             return null;
         }
 
         // Collect all speaker segments from all speakerTags
         const allSegments: SpeakerSegment[] = [];
-        for (const tag of person.speakerTags) {
+        for (const tag of person.speaker.speakerTags) {
             allSegments.push(...tag.speakerSegments);
         }
 
@@ -217,7 +227,7 @@ export async function handleGenerateVoiceprintResult(taskId: string, result: Gen
 
     try {
         await createVoicePrint({
-            personId: requestBody.personId,
+            speakerId: requestBody.personId,
             sourceSegmentId: requestBody.segmentId,
             startTimestamp: requestBody.startTimestamp,
             endTimestamp: requestBody.endTimestamp,

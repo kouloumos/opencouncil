@@ -2,96 +2,45 @@
 
 import { TaskUpdate } from '../apiTypes';
 import prisma from '@/lib/db/prisma';
-import { MeetingTaskType, TASK_CONFIG, getDiscordAlertMode } from '@/lib/tasks/types';
+import { MeetingTaskType } from '@/lib/tasks/types';
 import { withUserAuthorizedToEdit } from '../auth';
 import { env } from '@/env.mjs';
-import { sendTaskAdminAlert } from '@/lib/discord';
-import { Prisma, TaskStatus } from '@prisma/client';
+import { sendTaskStartedAdminAlert, sendTaskCompletedAdminAlert, sendTaskFailedAdminAlert } from '@/lib/discord';
+import { Prisma } from '@prisma/client';
 import { revalidateTag } from 'next/cache';
-import { taskHandlers, taskTerminalHooks } from './registry';
-
-export interface TaskIdempotencyResult {
-    proceed: boolean;
-    existingTask: TaskStatus | null;
-    blockedReason?: 'already_succeeded' | 'already_running';
-}
-
-export async function checkTaskIdempotency(
-    taskType: MeetingTaskType,
-    cityId: string,
-    councilMeetingId: string,
-    options: { force?: boolean } = {}
-): Promise<TaskIdempotencyResult> {
-    if (options.force) {
-        return { proceed: true, existingTask: null };
-    }
-
-    // Check for already-succeeded task
-    const succeededTask = await prisma.taskStatus.findFirst({
-        where: {
-            councilMeetingId,
-            cityId,
-            type: taskType,
-            status: 'succeeded',
-        },
-        orderBy: { createdAt: 'desc' },
-    });
-
-    if (succeededTask) {
-        return { proceed: false, existingTask: succeededTask, blockedReason: 'already_succeeded' };
-    }
-
-    // Check for currently running task
-    const runningTask = await prisma.taskStatus.findFirst({
-        where: {
-            councilMeetingId,
-            cityId,
-            type: taskType,
-            status: { notIn: ['failed', 'succeeded'] },
-        },
-    });
-
-    if (runningTask) {
-        return { proceed: false, existingTask: runningTask, blockedReason: 'already_running' };
-    }
-
-    return { proceed: true, existingTask: null };
-}
-
-export interface TaskVersionsFilter {
-    taskTypes: MeetingTaskType[];
-    dateFrom?: Date;
-    dateTo?: Date;
-    cityIds?: string[];
-    versionMin?: number;
-    versionMax?: number;
-}
+import { taskHandlers } from './registry';
 
 const taskStatusWithMeetingInclude = {
-    councilMeeting: {
+    transcript: {
         select: {
-            name_en: true,
-            city: {
+            name: true,
+            councilMeeting: {
                 select: {
-                    name_en: true
+                    name_en: true,
+                    city: {
+                        select: {
+                            name_en: true
+                        }
+                    }
                 }
             }
         }
     }
 } satisfies Prisma.TaskStatusInclude;
 
-export const startTask = async (taskType: MeetingTaskType, requestBody: any, councilMeetingId: string, cityId: string, options: { force?: boolean; silent?: boolean } = {}) => {
-    // Only enforce idempotency for core pipeline tasks — non-pipeline tasks
-    // (generateHighlight, splitMediaFile, etc.) can legitimately run multiple times
-    if (TASK_CONFIG[taskType].requiredForPipeline) {
-        const idempotency = await checkTaskIdempotency(taskType, cityId, councilMeetingId, options);
-        if (!idempotency.proceed) {
-            throw new Error(
-                idempotency.blockedReason === 'already_succeeded'
-                    ? `A ${taskType} task has already succeeded for this council meeting`
-                    : `A ${taskType} task is already running for this council meeting`
-            );
+export const startTask = async (taskType: MeetingTaskType, requestBody: any, councilMeetingId: string, cityId: string, options: { force?: boolean } = {}) => {
+    // Check for existing running task
+    const existingTask = await prisma.taskStatus.findFirst({
+        where: {
+            transcriptId: councilMeetingId,
+            workspaceId: cityId,
+            type: taskType,
+            status: { notIn: ['failed', 'succeeded'] }
         }
+    });
+
+    if (existingTask && !options.force) {
+        throw new Error(`A task of type ${taskType} is already running for this transcript`);
     }
 
     // Create new task in database
@@ -100,13 +49,17 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
             type: taskType,
             status: 'pending',
             requestBody: JSON.stringify(requestBody),
-            councilMeeting: { connect: { cityId_id: { cityId, id: councilMeetingId } } }
+            transcript: { 
+                connect: { 
+                    workspaceId_id: { workspaceId: cityId, id: councilMeetingId } 
+                } 
+            }
         },
         include: taskStatusWithMeetingInclude
     });
 
     // Prepare callback URL
-    const callbackUrl = `${env.NEXTAUTH_URL}/api/cities/${cityId}/meetings/${councilMeetingId}/taskStatuses/${newTask.id}`;
+    const callbackUrl = `${env.NEXT_PUBLIC_BASE_URL}/api/cities/${cityId}/meetings/${councilMeetingId}/taskStatuses/${newTask.id}`;
     console.log(`Callback URL: ${callbackUrl}`);
 
     // Add callback URL to request body
@@ -130,8 +83,13 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
         console.error('Error starting task:', error);
     }
 
-
     if (error || !response || !response.ok) {
+        // Update task status to failed if API call fails
+        await prisma.taskStatus.update({
+            where: { id: newTask.id },
+            data: { status: 'failed' }
+        });
+
         let errorMessage = 'no response body';
         if (response) {
             console.log(`Status: ${response.status}`);
@@ -146,15 +104,7 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
             errorMessage = (error as Error).message;
         }
 
-        const fullError = `Failed to start task: ${response?.statusText} (${errorMessage})`;
-
-        // Update task status to failed with error details
-        await prisma.taskStatus.update({
-            where: { id: newTask.id },
-            data: { status: 'failed', responseBody: fullError }
-        });
-
-        throw new Error(fullError);
+        throw new Error(`Failed to start task: ${response?.statusText} (${errorMessage})`);
     }
 
     // Update task with full request body including callback URL
@@ -163,18 +113,15 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
         data: { requestBody: JSON.stringify(fullRequestBody) }
     });
 
-    // Send Discord admin alert unless silent or alert mode is 'none'
-    if (!options.silent && getDiscordAlertMode(taskType) !== 'none') {
-        sendTaskAdminAlert({
-            status: 'started',
-            taskType: taskType,
-            cityName: newTask.councilMeeting.city.name_en,
-            meetingName: newTask.councilMeeting.name_en,
-            taskId: newTask.id,
-            cityId: cityId,
-            meetingId: councilMeetingId,
-        });
-    }
+    // Council-specific: Send Discord admin alert
+    sendTaskStartedAdminAlert({
+        taskType: taskType,
+        cityName: newTask.transcript.councilMeeting?.city.name_en || 'Unknown',
+        meetingName: newTask.transcript.councilMeeting?.name_en || newTask.transcript.name,
+        taskId: newTask.id,
+        cityId: cityId,
+        meetingId: councilMeetingId,
+    });
 
     return newTask;
 }
@@ -191,9 +138,6 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
         return;
     }
 
-    // Check if generic Discord alerts should be sent for this task type
-    const sendGenericAlerts = getDiscordAlertMode(task.type) !== 'none';
-
     if (update.status === 'success') {
         const updatedTask = await prisma.taskStatus.update({
             where: { id: taskId },
@@ -205,64 +149,53 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
                 await processResult(taskId, update.result, options);
 
                 // Send Discord admin alert for successful completion AFTER processing succeeds
-                if (sendGenericAlerts) {
-                    sendTaskAdminAlert({
-                        status: 'completed',
-                        taskType: task.type,
-                        cityName: task.councilMeeting.city.name_en,
-                        meetingName: task.councilMeeting.name_en,
-                        taskId: task.id,
-                        cityId: task.cityId,
-                        meetingId: task.councilMeetingId,
-                    });
-                }
-
+                sendTaskCompletedAdminAlert({
+                    taskType: task.type,
+                    cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                    meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
+                    taskId: task.id,
+                    cityId: task.workspaceId,
+                    meetingId: task.transcriptId,
+                });
+                
                 // Revalidate cache only for successful tasks that affect meeting data
-                if (updatedTask.cityId && shouldRevalidateForTaskType(updatedTask.type as MeetingTaskType)) {
+                if (updatedTask.workspaceId && shouldRevalidateForTaskType(updatedTask.type as MeetingTaskType)) {
                     try {
-                        revalidateTag(`city:${updatedTask.cityId}:meetings`);
+                        revalidateTag(`city:${updatedTask.workspaceId}:meetings`);
                     } catch (revalidateError) {
                         console.error(`Error revalidating cache for task ${taskId}:`, revalidateError);
                     }
                 }
             } catch (error) {
-                console.error(`Error processing result for task ${taskId}:`, error);
-                const originalResponse = JSON.stringify(update.result);
-                const errorDetail = `Processing error: ${(error as Error).message}\n\n--- Original task server response ---\n${originalResponse}`;
+                console.error(`Error processing result for task ${taskId}: ${error}`);
                 await prisma.taskStatus.update({
                     where: { id: taskId },
-                    data: { status: 'failed', responseBody: errorDetail, version: update.version }
+                    data: { status: 'failed', version: update.version }
                 });
 
                 // Send Discord admin alert for processing failure
-                if (sendGenericAlerts) {
-                    sendTaskAdminAlert({
-                        status: 'failed',
-                        taskType: task.type,
-                        cityName: task.councilMeeting.city.name_en,
-                        meetingName: task.councilMeeting.name_en,
-                        taskId: task.id,
-                        cityId: task.cityId,
-                        meetingId: task.councilMeetingId,
-                        error: (error as Error).message,
-                    });
-                }
+                sendTaskFailedAdminAlert({
+                    taskType: task.type,
+                    cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                    meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
+                    taskId: task.id,
+                    cityId: task.workspaceId,
+                    meetingId: task.transcriptId,
+                    error: (error as Error).message,
+                });
             }
         } else {
             console.log(`No result for task ${taskId}`);
 
             // Task succeeded but has no result to process - still send completion admin alert
-            if (sendGenericAlerts) {
-                sendTaskAdminAlert({
-                    status: 'completed',
-                    taskType: task.type,
-                    cityName: task.councilMeeting.city.name_en,
-                    meetingName: task.councilMeeting.name_en,
-                    taskId: task.id,
-                    cityId: task.cityId,
-                    meetingId: task.councilMeetingId,
-                });
-            }
+            sendTaskCompletedAdminAlert({
+                taskType: task.type,
+                cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+                meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
+                taskId: task.id,
+                cityId: task.workspaceId,
+                meetingId: task.transcriptId,
+            });
         }
     } else if (update.status === 'error') {
         await prisma.taskStatus.update({
@@ -271,40 +204,20 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
         });
 
         // Send Discord admin alert for task failure
-        if (sendGenericAlerts) {
-            sendTaskAdminAlert({
-                status: 'failed',
-                taskType: task.type,
-                cityName: task.councilMeeting.city.name_en,
-                meetingName: task.councilMeeting.name_en,
-                taskId: task.id,
-                cityId: task.cityId,
-                meetingId: task.councilMeetingId,
-                error: update.error,
-            });
-        }
+        sendTaskFailedAdminAlert({
+            taskType: task.type,
+            cityName: task.transcript.councilMeeting?.city.name_en || 'Unknown',
+            meetingName: task.transcript.councilMeeting?.name_en || task.transcript.name,
+            taskId: task.id,
+            cityId: task.workspaceId,
+            meetingId: task.transcriptId,
+            error: update.error,
+        });
     } else if (update.status === 'processing') {
-        // Use updateMany with WHERE clause to atomically prevent overwriting terminal states
-        await prisma.taskStatus.updateMany({
-            where: {
-                id: taskId,
-                status: { notIn: ['succeeded', 'failed'] }
-            },
+        await prisma.taskStatus.update({
+            where: { id: taskId },
             data: { status: 'pending', stage: update.stage, percentComplete: update.progressPercent, version: update.version }
         });
-    }
-
-    // After the task reaches a terminal state, call registered hooks.
-    // Runs after all DB status updates are settled, so hooks always see correct state.
-    if (update.status === 'success' || update.status === 'error') {
-        const terminalHook = taskTerminalHooks[task.type];
-        if (terminalHook) {
-            try {
-                await terminalHook(taskId, task.createdAt);
-            } catch (hookError) {
-                console.error(`Error in terminal hook for task ${taskId}:`, hookError);
-            }
-        }
     }
 }
 
@@ -312,9 +225,8 @@ export const handleTaskUpdate = async <T>(taskId: string, update: TaskUpdate<T>,
 function shouldRevalidateForTaskType(taskType: MeetingTaskType): boolean {
     // Only revalidate for tasks that affect meeting data that would be displayed in lists
     const revalidationTaskTypes = [
-        'summarize',
+        'summarize', 
         'processAgenda',
-        'pollDecisions',
     ];
     return revalidationTaskTypes.includes(taskType);
 }
@@ -362,53 +274,30 @@ export const getHighestVersionsForTasks = async (taskTypes: MeetingTaskType[]): 
     return highestVersions;
 }
 
-export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): Promise<Record<string, any>[]> => {
+export const getTaskVersionsForMeetings = async (taskTypes: MeetingTaskType[]): Promise<Record<string, any>[]> => {
     await withUserAuthorizedToEdit({});
-
-    // Build meeting where clause
-    const meetingWhere: Prisma.CouncilMeetingWhereInput = {
-        city: {
-            status: { not: 'pending' }
-        }
-    };
-
-    if (filters.dateFrom || filters.dateTo) {
-        meetingWhere.dateTime = {};
-        if (filters.dateFrom) {
-            meetingWhere.dateTime.gte = filters.dateFrom;
-        }
-        if (filters.dateTo) {
-            meetingWhere.dateTime.lte = filters.dateTo;
-        }
-    }
-
-    if (filters.cityIds && filters.cityIds.length > 0) {
-        meetingWhere.cityId = { in: filters.cityIds };
-    }
-
-    // Build task status where clause
-    const taskStatusWhere: Prisma.TaskStatusWhereInput = {
-        type: { in: filters.taskTypes },
-        status: "succeeded"
-    };
-
-    if (filters.versionMin !== undefined || filters.versionMax !== undefined) {
-        taskStatusWhere.version = {};
-        if (filters.versionMin !== undefined) {
-            taskStatusWhere.version.gte = filters.versionMin;
-        }
-        if (filters.versionMax !== undefined) {
-            taskStatusWhere.version.lte = filters.versionMax;
-        }
-    }
-
-    const meetings = await prisma.councilMeeting.findMany({
+    // Get all meetings via transcripts
+    const transcripts = await prisma.transcript.findMany({
         select: {
             id: true,
-            cityId: true,
-            dateTime: true,
+            workspaceId: true,
+            councilMeeting: {
+                select: {
+                    cityId: true,
+                    city: {
+                        select: {
+                            status: true
+                        }
+                    }
+                }
+            },
             taskStatuses: {
-                where: taskStatusWhere,
+                where: {
+                    type: {
+                        in: taskTypes
+                    },
+                    status: "success" // Only get completed tasks
+                },
                 select: {
                     type: true,
                     version: true
@@ -418,21 +307,25 @@ export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): P
                 }
             }
         },
-        where: meetingWhere,
-        orderBy: { dateTime: 'desc' }
+        where: {
+            councilMeeting: {
+                city: {
+                    status: { not: 'pending' }
+                }
+            }
+        }
     });
 
     // Transform into desired format
-    return meetings.map(meeting => {
+    return transcripts.map(transcript => {
         const result: Record<string, any> = {
-            cityId: meeting.cityId,
-            meetingId: meeting.id,
-            dateTime: meeting.dateTime
+            cityId: transcript.councilMeeting?.cityId || transcript.workspaceId,
+            meetingId: transcript.id
         };
 
         // Add version for each task type
-        filters.taskTypes.forEach(taskType => {
-            const taskStatus = meeting.taskStatuses.find(t => t.type === taskType);
+        taskTypes.forEach(taskType => {
+            const taskStatus = transcript.taskStatuses.find(t => t.type === taskType);
             result[taskType] = taskStatus?.version ?? null;
         });
 
@@ -440,24 +333,17 @@ export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): P
     });
 };
 
-export const getTaskVersionsGroupedByCity = async (filters: TaskVersionsFilter): Promise<Record<string, any>> => {
+export const getTaskVersionsGroupedByCity = async (taskTypes: MeetingTaskType[]): Promise<Record<string, any>> => {
     await withUserAuthorizedToEdit({});
 
     // Get all meetings with their task versions
-    const meetingsWithVersions = await getTaskVersionsForMeetings(filters);
-
-    // Build city where clause
-    const cityWhere: Prisma.CityWhereInput = {
-        status: { not: 'pending' }
-    };
-
-    if (filters.cityIds && filters.cityIds.length > 0) {
-        cityWhere.id = { in: filters.cityIds };
-    }
+    const meetingsWithVersions = await getTaskVersionsForMeetings(taskTypes);
 
     // Get city information
     const cities = await prisma.city.findMany({
-        where: cityWhere,
+        where: {
+            status: { not: 'pending' }
+        },
         select: {
             id: true,
             name: true,
@@ -489,13 +375,4 @@ export const getTaskVersionsGroupedByCity = async (filters: TaskVersionsFilter):
     });
 
     return groupedByCity;
-};
-
-export const getAvailableCities = async (): Promise<{ id: string; name: string; name_en: string }[]> => {
-    await withUserAuthorizedToEdit({});
-    return prisma.city.findMany({
-        where: { status: { not: 'pending' } },
-        select: { id: true, name: true, name_en: true },
-        orderBy: { name_en: 'asc' }
-    });
 };

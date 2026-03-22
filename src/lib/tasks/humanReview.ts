@@ -2,56 +2,32 @@
 
 import prisma from '@/lib/db/prisma';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { checkTaskIdempotency } from './tasks';
 import { revalidateTag } from 'next/cache';
 import { getMeetingReviewStats } from '@/lib/db/reviews';
 import { sendHumanReviewCompletedAdminAlert } from '@/lib/discord';
-import { sendTranscriptToMunicipality } from './sendTranscript';
-
-/**
- * Get the contact emails for a meeting's administrative body
- * Returns empty array if no contact emails are configured
- */
-export async function getMeetingContactEmails(cityId: string, meetingId: string): Promise<{
-    contactEmails: string[];
-    administrativeBodyName: string | null;
-}> {
-    const meeting = await prisma.councilMeeting.findUnique({
-        where: { cityId_id: { cityId, id: meetingId } },
-        include: {
-            administrativeBody: {
-                select: {
-                    contactEmails: true,
-                    name: true,
-                }
-            }
-        }
-    });
-
-    return {
-        contactEmails: meeting?.administrativeBody?.contactEmails || [],
-        administrativeBodyName: meeting?.administrativeBody?.name || null,
-    };
-}
 
 /**
  * Mark human review as complete for a meeting
  * This creates a virtual task that represents human review completion
- *
+ * 
  * @param manualReviewTime - Optional manual time estimate provided by reviewer if calculated time is inaccurate
- * @param sendTranscript - Whether to send the transcript email to the municipality (default: false; callers must opt in)
  */
-export async function markHumanReviewComplete(
-    cityId: string,
-    meetingId: string,
-    manualReviewTime?: string,
-    sendTranscript: boolean = false
-) {
+export async function markHumanReviewComplete(cityId: string, meetingId: string, manualReviewTime?: string) {
     await withUserAuthorizedToEdit({ councilMeetingId: meetingId, cityId });
     
-    const idempotency = await checkTaskIdempotency('humanReview', cityId, meetingId);
-    if (!idempotency.proceed && idempotency.existingTask) {
-        return idempotency.existingTask;
+    // If one already exists, return it
+    const existing = await prisma.taskStatus.findFirst({
+        where: { 
+            workspaceId: cityId,
+            transcriptId: meetingId, 
+            type: 'humanReview', 
+            status: 'succeeded' 
+        },
+        orderBy: [{ version: 'desc' }, { createdAt: 'desc' }]
+    });
+    
+    if (existing) {
+        return existing;
     }
 
     // Get actual reviewer stats from the meeting's edit history
@@ -74,7 +50,7 @@ export async function markHumanReviewComplete(
                 triggeredBy: 'user',
                 ...(manualReviewTime && { manualReviewTime })
             }),
-            councilMeeting: { connect: { cityId_id: { cityId, id: meetingId } } }
+            transcript: { connect: { workspaceId_id: { workspaceId: cityId, id: meetingId } } }
         }
     });
 
@@ -120,19 +96,6 @@ export async function markHumanReviewComplete(
         // Cache revalidation is not critical for the core functionality
         console.error(`Failed to revalidate cache for city ${cityId}:`, error);
     }
-
-    // Send transcript to municipality after marking review complete
-    // Awaited to ensure it completes before the server action returns
-    if (sendTranscript) {
-        const result = await sendTranscriptToMunicipality(cityId, meetingId);
-        if (result.success && !result.skipped) {
-            console.log(`[humanReview] Transcript sent to ${result.recipientEmails?.join(', ')} for ${cityId}/${meetingId}`);
-        } else if (result.skipped) {
-            console.log(`[humanReview] Transcript sending skipped (no contact emails) for ${cityId}/${meetingId}`);
-        }
-    } else {
-        console.log(`[humanReview] Transcript sending disabled by reviewer for ${cityId}/${meetingId}`);
-    }
-
+    
     return created;
 }

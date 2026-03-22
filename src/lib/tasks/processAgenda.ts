@@ -3,11 +3,10 @@
 import { ProcessAgendaRequest, ProcessAgendaResult } from "../apiTypes";
 import { startTask } from "./tasks";
 import prisma from "../db/prisma";
-import { saveSubjectsForMeeting } from "../db/utils";
+import { createSubjectsForMeeting } from "../db/utils";
 import { withUserAuthorizedToEdit } from "../auth";
 import { getAllTopics } from "../db/topics";
-import { getPartyFromRoles, getRoleNameForPerson } from "../utils";
-import { getPeopleForMeeting } from "../db/people";
+import { getPartyFromRoles, getSingleCityRole } from "../utils";
 
 export async function requestProcessAgenda(agendaUrl: string, councilMeetingId: string, cityId: string, {
     force = false
@@ -31,12 +30,22 @@ export async function requestProcessAgenda(agendaUrl: string, councilMeetingId: 
                 take: 1
             },
             city: {
-                select: {
-                    name: true
+                include: {
+                    persons: {
+                        include: {
+                            roles: {
+                                include: {
+                                    party: true
+                                }
+                            }
+                        }
+                    }
                 }
-            }
+            },
         }
     });
+
+    const topicLabels = await getAllTopics();
 
     if (!councilMeeting) {
         throw new Error("Council meeting not found");
@@ -45,12 +54,6 @@ export async function requestProcessAgenda(agendaUrl: string, councilMeetingId: 
     if (councilMeeting.subjects.length > 0) {
         if (force) {
             console.log(`Deleting existing subjects for meeting ${councilMeetingId}`);
-            // Delete auto-generated subject-linked highlights before subjects to avoid orphans.
-            // User-created highlights (createdById is set) are preserved — their subjectId
-            // will be set to null by the onDelete: SetNull cascade when subjects are deleted.
-            await prisma.highlight.deleteMany({
-                where: { meetingId: councilMeetingId, cityId, subjectId: { not: null }, createdById: null }
-            });
             await prisma.subject.deleteMany({
                 where: {
                     councilMeetingId,
@@ -63,30 +66,15 @@ export async function requestProcessAgenda(agendaUrl: string, councilMeetingId: 
         }
     }
 
-    // Get relevant people for the meeting (filtered by administrative body)
-    const people = await getPeopleForMeeting(cityId, councilMeeting.administrativeBodyId);
-    const topicLabels = await getAllTopics();
-
-    // Build people array with deduplication by ID (keep last entry)
-    const peopleMap = new Map();
-    for (const p of people) {
-        const roleName = getRoleNameForPerson(p.roles, councilMeeting.dateTime, councilMeeting.administrativeBodyId);
-        const party = getPartyFromRoles(p.roles, councilMeeting.dateTime);
-
-        peopleMap.set(p.id, {
-            id: p.id,
-            name: p.name, // Use full name, not name_short
-            role: roleName,
-            party: party?.name || ''
-        });
-    }
-
-    console.log(`ProcessAgenda people array:`, Array.from(peopleMap.values()));
-
     const body: Omit<ProcessAgendaRequest, 'callbackUrl'> = {
         agendaUrl,
         date: councilMeeting.dateTime.toISOString(),
-        people: Array.from(peopleMap.values()),
+        people: councilMeeting.city.persons.map(p => ({
+            id: p.id,
+            name: p.name_short,
+            role: getSingleCityRole(p.roles, councilMeeting.dateTime, councilMeeting.administrativeBodyId || undefined)?.name || '',
+            party: getPartyFromRoles(p.roles)?.name || ''
+        })),
         topicLabels: topicLabels.map(t => t.name),
         cityName: councilMeeting.city.name
     }
@@ -101,27 +89,33 @@ export async function handleProcessAgendaResult(taskId: string, response: Proces
             id: taskId
         },
         include: {
-            councilMeeting: {
+            transcript: {
                 include: {
-                    administrativeBody: true,
-                    city: true
+                    councilMeeting: {
+                        include: {
+                            administrativeBody: true,
+                            city: true
+                        }
+                    }
                 }
             }
         }
     });
 
-    if (!task) {
-        throw new Error('Task not found');
+    if (!task || !task.transcript?.councilMeeting) {
+        throw new Error('Task or council meeting not found');
     }
 
-    await saveSubjectsForMeeting(
+    const councilMeeting = task.transcript.councilMeeting;
+
+    await createSubjectsForMeeting(
         response.subjects,
-        task.councilMeeting.cityId,
-        task.councilMeeting.id
+        councilMeeting.cityId,
+        councilMeeting.id
     );
 
     // Create notifications if administrative body allows it
-    const adminBody = task.councilMeeting.administrativeBody;
+    const adminBody = councilMeeting.administrativeBody;
     if (adminBody && adminBody.notificationBehavior !== 'NOTIFICATIONS_DISABLED') {
         const { createNotificationsForMeeting } = await import('../db/notifications');
         const { releaseNotifications } = await import('../notifications/deliver');
@@ -129,8 +123,8 @@ export async function handleProcessAgendaResult(taskId: string, response: Proces
 
         try {
             const stats = await createNotificationsForMeeting(
-                task.councilMeeting.cityId,
-                task.councilMeeting.id,
+                councilMeeting.cityId,
+                councilMeeting.id,
                 'beforeMeeting'
             );
 
@@ -141,13 +135,13 @@ export async function handleProcessAgendaResult(taskId: string, response: Proces
             // Send Discord admin alert about notification creation
             if (stats.notificationsCreated > 0) {
                 sendNotificationsCreatedAdminAlert({
-                    cityName: task.councilMeeting.city.name_en,
-                    meetingName: task.councilMeeting.name,
+                    cityName: councilMeeting.city.name_en,
+                    meetingName: councilMeeting.name,
                     notificationType: 'beforeMeeting',
                     notificationsCreated: stats.notificationsCreated,
                     subjectsTotal: stats.subjectsTotal,
-                    cityId: task.councilMeeting.cityId,
-                    meetingId: task.councilMeeting.id,
+                    cityId: councilMeeting.cityId,
+                    meetingId: councilMeeting.id,
                     autoSend
                 });
             }
@@ -160,10 +154,6 @@ export async function handleProcessAgendaResult(taskId: string, response: Proces
 
                 // Send Discord admin alert about sending
                 sendNotificationsSentAdminAlert({
-                    cityId: task.councilMeeting.cityId,
-                    meetingId: task.councilMeeting.id,
-                    cityName: task.councilMeeting.city.name_en,
-                    meetingName: task.councilMeeting.name,
                     notificationCount: stats.notificationsCreated,
                     emailsSent: releaseResult.emailsSent,
                     messagesSent: releaseResult.messagesSent,

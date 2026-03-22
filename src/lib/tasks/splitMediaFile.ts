@@ -20,7 +20,7 @@ export async function requestSplitMediaFileForPodcast(podcastId: string) {
 
     await withUserAuthorizedToEdit({ cityId: meeting.cityId, councilMeetingId: meeting.id });
 
-    if (!meeting.audioUrl) {
+    if (!meeting.transcript?.audioUrl) {
         throw new Error('Meeting audio URL not found');
     }
 
@@ -37,7 +37,7 @@ export async function requestSplitMediaFileForPodcast(podcastId: string) {
     });
 
     const request: Omit<SplitMediaFileRequest, 'callbackUrl'> = {
-        url: meeting.audioUrl,
+        url: meeting.transcript.audioUrl,
         type: 'audio',
         parts: audioParts,
     }
@@ -49,7 +49,11 @@ export async function requestSplitMediaFileForHighlight(highlightId: string) {
     const highlight = await prisma.highlight.findUnique({
         where: { id: highlightId },
         include: {
-            meeting: true,
+            meeting: {
+                include: {
+                    transcript: true
+                }
+            },
             highlightedUtterances: {
                 include: {
                     utterance: true
@@ -64,7 +68,7 @@ export async function requestSplitMediaFileForHighlight(highlightId: string) {
 
     await withUserAuthorizedToEdit({ cityId: highlight.cityId, councilMeetingId: highlight.meeting.id });
 
-    if (!highlight.meeting.videoUrl) {
+    if (!highlight.meeting.transcript?.videoUrl) {
         throw new Error('Meeting video URL not found');
     }
 
@@ -74,7 +78,7 @@ export async function requestSplitMediaFileForHighlight(highlightId: string) {
     })).sort((a, b) => a.startTimestamp - b.startTimestamp);
 
     const request: Omit<SplitMediaFileRequest, 'callbackUrl'> = {
-        url: highlight.meeting.videoUrl,
+        url: highlight.meeting.transcript.videoUrl,
         type: 'video',
         parts: [{
             id: highlight.id,
@@ -89,14 +93,24 @@ export async function handleSplitMediaFileResult(taskId: string, response: Split
     console.log('handleSplitMediaFileResult', taskId, response);
     const task = await prisma.taskStatus.findUnique({
         where: { id: taskId },
-        include: { councilMeeting: true }
+        include: { 
+            transcript: {
+                include: {
+                    councilMeeting: true
+                }
+            }
+        }
     });
 
     if (!task) {
         throw new Error('Task not found');
     }
 
-    const { councilMeeting } = task;
+    const councilMeeting = task.transcript?.councilMeeting;
+
+    if (!councilMeeting) {
+        throw new Error('Council meeting not found for task');
+    }
 
     // Validate the response
     if (!Array.isArray(response.parts)) {
