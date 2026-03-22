@@ -3,7 +3,7 @@
 import { Prisma, User } from "@prisma/client";
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit } from "../auth";
-import { ConflictError } from "@/lib/api/errors";
+import { BadRequestError, ConflictError, NotFoundError } from "@/lib/api/errors";
 
 const userWithAdministersInclude = {
     administers: {
@@ -50,14 +50,14 @@ export type AdminUserData = Partial<Pick<User, 'email' | 'name' | 'isSuperAdmin'
 function normalizeEmail(email: string): string {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-        throw new Error("Email cannot be empty");
+        throw new BadRequestError("Email cannot be empty");
     }
     return normalizedEmail;
 }
 
-function normalizeName(name: string | null | undefined): string | null | undefined {
+function normalizeName(name: string | null | undefined): string | null {
     if (typeof name !== "string") {
-        return name;
+        return null;
     }
 
     const normalizedName = name.trim();
@@ -89,7 +89,6 @@ export async function getUsers(): Promise<UserWithRelations[]> {
         });
         return users;
     } catch (error) {
-        console.error('Error fetching users:', error);
         throw new Error('Failed to fetch users');
     }
 }
@@ -101,7 +100,7 @@ export async function createUser(data: AdminUserData, options: { skipAuthCheck?:
 
     const normalizedData = normalizeAdminUserData(data);
     if (!normalizedData.email) {
-        throw new Error("Email is required to create a user");
+        throw new BadRequestError("Email is required to create a user");
     }
 
     const { email, name, isSuperAdmin, administers, onboarded } = normalizedData;
@@ -125,7 +124,7 @@ export async function createUser(data: AdminUserData, options: { skipAuthCheck?:
         if (errorWithCode.code === "P2002") {
             throw new ConflictError("A user with this email already exists.");
         }
-        throw error;
+        throw new Error("Failed to create user");
     }
 }
 
@@ -133,6 +132,11 @@ export async function updateUser(id: string, data: AdminUserData): Promise<UserW
     await withUserAuthorizedToEdit({});
 
     const normalizedData = normalizeAdminUserData(data);
+
+    if (normalizedData.email === null) {
+        throw new BadRequestError("Email cannot be null");
+    }
+
     const { administers, ...userData } = normalizedData;
 
     try {
@@ -164,7 +168,7 @@ export async function updateUser(id: string, data: AdminUserData): Promise<UserW
         if (errorWithCode.code === "P2002") {
             throw new ConflictError("A user with this email already exists.");
         }
-        throw error;
+        throw new Error("Failed to update user");
     }
 }
 
@@ -175,8 +179,11 @@ export async function deleteUser(id: string): Promise<void> {
             where: { id },
         });
     } catch (error) {
-        console.error('Error deleting user:', error);
-        throw error;
+        const errorWithCode = error as { code?: string };
+        if (errorWithCode.code === "P2025") {
+            throw new NotFoundError("User not found");
+        }
+        throw new Error("Failed to delete user");
     }
 }
 
@@ -190,7 +197,6 @@ export async function updateUserProfile(id: string, data: UserProfileUpdateData)
         });
         return updatedUser;
     } catch (error) {
-        console.error('Error updating user profile:', error);
-        throw new Error('Failed to update user profile');
+        throw new Error("Failed to update user profile");
     }
 }
