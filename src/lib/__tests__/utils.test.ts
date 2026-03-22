@@ -6,6 +6,7 @@ import {
   formatDateRange,
   cn,
   debounce,
+  klitiki,
   subjectToMapFeature,
   sortSubjectsByImportance,
   joinTranscriptSegments,
@@ -24,7 +25,14 @@ jest.mock('greek-name-klitiki', () =>
       'Γιώργος': 'Γιώργο',
       'Νίκος': 'Νίκο',
       'Μαρία': 'Μαρία',
-      'Ελένη': 'Ελένη'
+      'Ελένη': 'Ελένη',
+      'Κώστας': 'Κώστα',
+      'Ιωάννης': 'Ιωάννη',
+      'Γεώργιος': 'Γεώργιε',
+      'Σοφία': 'Σοφία',
+      'Χρήστος': 'Χρήστο',
+      'Παπαδόπουλος': 'Παπαδόπουλε',
+      'Αντωνίου': 'Αντωνίου',
     };
     return conversions[name] || name;
   },
@@ -144,6 +152,52 @@ describe('cn', () => {
     const isActive = true;
     const isDisabled = false;
     expect(cn('base', { 'active': isActive, 'disabled': isDisabled })).toBe('base active');
+  });
+});
+
+describe('klitiki', () => {
+  it('should trim and decline a single name', () => {
+    expect(klitiki('  Γιώργος  ')).toBe('Γιώργο');
+  });
+
+  it('should collapse extra spaces between multiple names', () => {
+    expect(klitiki('  Γιώργος   Νίκος  ')).toBe('Γιώργο Νίκο');
+  });
+
+  it('should return empty string for whitespace-only input', () => {
+    expect(klitiki('   ')).toBe('');
+  });
+
+  it('should return empty string for empty input', () => {
+    expect(klitiki('')).toBe('');
+  });
+
+  it('should decline a name ending in -ας', () => {
+    expect(klitiki('Κώστας')).toBe('Κώστα');
+  });
+
+  it('should decline a name ending in -ης', () => {
+    expect(klitiki('Ιωάννης')).toBe('Ιωάννη');
+  });
+
+  it('should decline a name ending in -ιος', () => {
+    expect(klitiki('Γεώργιος')).toBe('Γεώργιε');
+  });
+
+  it('should leave female names ending in -α unchanged', () => {
+    expect(klitiki('Σοφία')).toBe('Σοφία');
+  });
+
+  it('should leave female names ending in -η unchanged', () => {
+    expect(klitiki('Ελένη')).toBe('Ελένη');
+  });
+
+  it('should decline both parts of a full name', () => {
+    expect(klitiki('Χρήστος Παπαδόπουλος')).toBe('Χρήστο Παπαδόπουλε');
+  });
+
+  it('should decline first name but leave genitive surname unchanged', () => {
+    expect(klitiki('Ιωάννης Αντωνίου')).toBe('Ιωάννη Αντωνίου');
   });
 });
 
