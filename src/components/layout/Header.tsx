@@ -8,12 +8,13 @@ import { SidebarTrigger } from '../ui/sidebar'
 import { City } from '@prisma/client'
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
-import { Search, Building2, ChevronRight } from "lucide-react"
+import { Search, Building2, ChevronRight, type LucideIcon } from "lucide-react"
 import { useRouter, useSelectedLayoutSegment } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
 import { useSubjectHeaderOptional, SubjectHeaderInfo } from "@/contexts/SubjectHeaderContext"
 import { AutoScrollText } from "@/components/ui/auto-scroll-text"
 import Icon from "@/components/icon"
+import { MEETING_PAGE_SEGMENTS } from "@/lib/utils/meetingPages"
 
 export interface PathElement {
     name: string
@@ -95,6 +96,14 @@ function TopicIconBadge({ subjectInfo }: {
     )
 }
 
+function PageIconBadge({ icon: IconComponent }: { icon: LucideIcon }) {
+    return (
+        <div className="h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center rounded-full shrink-0 bg-gray-100">
+            <IconComponent className="h-[18px] w-[18px] text-gray-400" />
+        </div>
+    )
+}
+
 const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noContainer = false, className }: HeaderProps) => {
     const { scrollY } = useScroll();
     const blurBackgroundOpacity = useTransform(scrollY, [0, 50], [0, 1], { clamp: true });
@@ -128,20 +137,10 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                 name: subjectHeader.name,
                 link: '',
             });
-        } else if (segment !== 'subjects') {
-            const meetingPageLabels: Record<string, string> = {
-                'transcript': 'Απομαγνητοφώνηση',
-                'map': 'Χάρτης',
-                'highlights': 'Στιγμιότυπα',
-                'settings': 'Ρυθμίσεις',
-                'admin': 'Διαχείριση',
-            };
-            const pageLabel = segment ? meetingPageLabels[segment] : null;
-            if (pageLabel) {
-                dynamicPath.push({
-                    name: pageLabel,
-                    link: '',
-                });
+        } else {
+            const pageConfig = segment ? MEETING_PAGE_SEGMENTS[segment] : null;
+            if (pageConfig) {
+                dynamicPath.push({ name: pageConfig.title, link: '' });
             }
         }
     }
@@ -202,6 +201,9 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
     const currentPageElement = isMeetingContext ? dynamicPath[dynamicPath.length - 1] : null;
     const middleElements = isMeetingContext ? dynamicPath.slice(1, -1) : dynamicPath.slice(1);
     const isCurrentSubject = subjectHeader !== null;
+    const pageIcon = (showSidebarTrigger && !subjectHeader)
+        ? MEETING_PAGE_SEGMENTS[segment ?? 'overview']?.icon
+        : null;
 
     const renderBreadcrumbs = () => {
         if (dynamicPath.length === 0) return null;
@@ -219,8 +221,10 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
                         <Separator orientation="vertical" className="h-8 sm:h-12 mx-1 sm:mx-2 md:mx-4 hidden sm:block" />
 
                         <div className="hidden sm:flex items-center min-w-0 flex-1 gap-2">
-                            {isCurrentSubject && subjectHeader && (
+                            {isCurrentSubject && subjectHeader ? (
                                 <TopicIconBadge subjectInfo={subjectHeader} />
+                            ) : pageIcon && (
+                                <PageIconBadge icon={pageIcon} />
                             )}
                             {renderMeetingBreadcrumbContent()}
                         </div>
@@ -294,8 +298,10 @@ const Header = ({ path, showSidebarTrigger = false, currentEntity, children, noC
     const renderMobileBreadcrumbRow = () => (
         <div className="sm:hidden flex items-center min-w-0 px-2 pb-1 gap-2">
             {showSidebarTrigger && <SidebarTrigger className="shrink-0 h-5 w-5 text-muted-foreground/60" />}
-            {isCurrentSubject && subjectHeader && (
+            {isCurrentSubject && subjectHeader ? (
                 <TopicIconBadge subjectInfo={subjectHeader} />
+            ) : pageIcon && (
+                <PageIconBadge icon={pageIcon} />
             )}
             {renderMeetingBreadcrumbContent()}
         </div>
