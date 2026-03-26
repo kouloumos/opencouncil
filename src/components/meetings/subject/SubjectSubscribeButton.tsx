@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Bell, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export function SubjectSubscribeButton({
     // One-shot sync: populate checkboxes only on first open (or after loading completes on first open).
     // Using a ref guard prevents external subscription state changes from overwriting unsaved user edits.
     const hasSyncedRef = useRef(false);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!open) { hasSyncedRef.current = false; return; }
         if (!isLoading && !hasSyncedRef.current) {
             setTopicChecked(isTopicSubscribed);
