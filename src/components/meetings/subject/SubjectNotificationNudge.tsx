@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Bell, Loader2, MapPin } from "lucide-react";
 import { Link } from "@/i18n/routing";
@@ -12,6 +12,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import Icon from "@/components/icon";
 import { SubjectTopic, SubjectLocation } from "@/hooks/useSubjectSubscribe";
 import { useToast } from "@/hooks/use-toast";
@@ -61,8 +62,10 @@ export function SubjectNotificationNudge({
 
     // Sync checkbox state once when modal opens (or when loading finishes on first open).
     // Uses a ref to avoid overwriting user edits if subscription data changes after initial sync.
+    // useLayoutEffect prevents a rendered frame where checkboxes show false before the sync runs,
+    // which would otherwise cause the Save button to appear falsely enabled.
     const hasSyncedRef = useRef(false);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!open) {
             hasSyncedRef.current = false;
             return;
@@ -151,11 +154,9 @@ export function SubjectNotificationNudge({
                                 {/* Topic checkbox */}
                                 {topic ? (
                                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={topicChecked}
-                                            onChange={(e) => setTopicChecked(e.target.checked)}
-                                            className="w-4 h-4 rounded"
+                                            onCheckedChange={(checked) => setTopicChecked(checked === true)}
                                         />
                                         <div
                                             className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs font-medium"
@@ -179,11 +180,9 @@ export function SubjectNotificationNudge({
                                 {/* Location checkbox */}
                                 {location ? (
                                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={locationChecked}
-                                            onChange={(e) => setLocationChecked(e.target.checked)}
-                                            className="w-4 h-4 rounded"
+                                            onCheckedChange={(checked) => setLocationChecked(checked === true)}
                                         />
                                         <span className="flex items-center gap-1 text-muted-foreground">
                                             <MapPin className="w-3 h-3" />

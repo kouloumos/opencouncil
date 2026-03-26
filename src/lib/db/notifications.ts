@@ -282,6 +282,12 @@ export async function saveNotificationPreferences(data: OnboardingData & {
                 });
             }
         } else if (email) {
+            // Validate before creating a new user so we never create an orphaned user
+            // or send a magic link when there are no preferences to save.
+            if ((!locationIds || locationIds.length === 0) && (!topicIds || topicIds.length === 0)) {
+                return createError("No valid topics or locations provided");
+            }
+
             // Non-authenticated user
             // Check if this email already exists
             let user = await prisma.user.findUnique({

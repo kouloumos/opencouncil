@@ -4,6 +4,7 @@ import { useState, useLayoutEffect, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Bell, Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "@/i18n/routing";
 import {
     Popover,
@@ -106,7 +107,7 @@ export function SubjectSubscribeButton({
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t("subscribe")} className="w-9 h-9 rounded-full hover:bg-accent transition-colors relative">
+                <Button variant="ghost" size="icon" aria-label={t("subscribe")} aria-pressed={isSubscribed} className="w-9 h-9 rounded-full hover:bg-accent transition-colors relative">
                     <Bell className="w-4 h-4" />
                     {isSubscribed && (
                         <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary" />
@@ -125,11 +126,9 @@ export function SubjectSubscribeButton({
 
                             {/* Topic checkbox */}
                             <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input
-                                    type="checkbox"
+                                <Checkbox
                                     checked={topicChecked}
-                                    onChange={(e) => setTopicChecked(e.target.checked)}
-                                    className="w-4 h-4 rounded"
+                                    onCheckedChange={(checked) => setTopicChecked(checked === true)}
                                 />
                                 <div
                                     className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs font-medium"
@@ -146,11 +145,9 @@ export function SubjectSubscribeButton({
                             {/* Location checkbox */}
                             {location ? (
                                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
                                         checked={locationChecked}
-                                        onChange={(e) => setLocationChecked(e.target.checked)}
-                                        className="w-4 h-4 rounded"
+                                        onCheckedChange={(checked) => setLocationChecked(checked === true)}
                                     />
                                     <span className="flex items-center gap-1 text-muted-foreground">
                                         <MapPin className="w-3 h-3" />
