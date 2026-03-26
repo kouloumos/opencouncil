@@ -625,6 +625,8 @@
     },
     "Subject": {
         "agendaItem": "Θέμα #{index}",
+        "beforeAgenda": "Προ ημερησίας",
+        "outsideAgenda": "Εκτός ημερησίας",
         "parties": "Παρατάξεις",
         "minutes": "λεπτά",
         "speakers": "{count, plural, =1 {1 ομιλητής} other {# ομιλητές}}",

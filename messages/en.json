@@ -489,6 +489,8 @@
     },
     "Subject": {
         "agendaItem": "Subject #{index}",
+        "beforeAgenda": "Before Agenda",
+        "outsideAgenda": "Outside Agenda",
         "parties": "Parties",
         "minutes": "minutes",
         "speakers": "{count, plural, =1 {1 speaker} other {# speakers}}",

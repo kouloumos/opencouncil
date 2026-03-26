@@ -189,7 +189,7 @@ export default function Subject({ subjectId }: { subjectId?: string }) {
                                     <>
                                         <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                                         <span className="font-medium">
-                                            {subject.nonAgendaReason === 'beforeAgenda' ? "Προ ημερησίας" : "Εκτός ημερησίας"}
+                                            {subject.nonAgendaReason === 'beforeAgenda' ? t("beforeAgenda") : t("outsideAgenda")}
                                         </span>
                                     </>
                                 )}
