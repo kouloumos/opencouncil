@@ -3,7 +3,7 @@ import { getSubjectsForMeeting } from '@/lib/db/subject';
 import { getExtractedDataForMeeting, SubjectExtractedData } from '@/lib/db/decisions';
 import { getPeopleForCity } from '@/lib/db/people';
 import { getCity } from '@/lib/db/cities';
-import { getSpeakerDisplayInfo, isRoleActiveAt } from '@/lib/utils/roles';
+import { getSpeakerDisplayInfo, isRoleActiveAt, isMayorRole } from '@/lib/utils/roles';
 import { PersonWithRelations } from '@/lib/db/people';
 import { filterSubjectsForMinutes } from '@/lib/utils/subjects';
 import prisma from '@/lib/db/prisma';
@@ -171,6 +171,12 @@ export async function getMinutesData(
 
     const meetingDate = new Date(meeting.dateTime);
 
+    // Identify mayor once — used to exclude them from per-subject attendance/votes
+    // (the mayor is shown separately on the ΔΗΜΑΡΧΟΣ line in council composition)
+    const mayorPersonId = people.find(p =>
+        p.roles.some(r => isRoleActiveAt(r, meetingDate) && isMayorRole(r))
+    )?.id ?? null;
+
     function buildTranscriptEntries(subjectId: string): MinutesTranscriptEntry[] {
         const utterances = utterancesBySubject.get(subjectId) || [];
         return buildTranscriptEntriesFromUtterances(utterances, (personId, label) => {
@@ -208,11 +214,13 @@ export async function getMinutesData(
         const present: MinutesMember[] = [];
         const absent: MinutesMember[] = [];
 
-        // Sort all attendance by elected order upfront — category arrays preserve this order
-        const sortedAttendance = [...ed.attendance].sort((a, b) =>
-            compareRanks(getElectedOrder(a.personId), getElectedOrder(b.personId))
-            || a.personName.localeCompare(b.personName)
-        );
+        // Exclude mayor (shown separately) and sort by elected order
+        const sortedAttendance = ed.attendance
+            .filter(a => a.personId !== mayorPersonId)
+            .sort((a, b) =>
+                compareRanks(getElectedOrder(a.personId), getElectedOrder(b.personId))
+                || a.personName.localeCompare(b.personName)
+            );
 
         for (const a of sortedAttendance) {
             const person = peopleMap.get(a.personId);
@@ -274,9 +282,9 @@ export async function getMinutesData(
             }
         }
 
-        // Absent members: those in attendance who are absent and didn't vote
+        // Absent members: those in attendance who are absent and didn't vote (excluding mayor)
         const absentMembers = ed.attendance
-            .filter(a => a.status !== 'PRESENT' && !voterIds.has(a.personId))
+            .filter(a => a.status !== 'PRESENT' && !voterIds.has(a.personId) && a.personId !== mayorPersonId)
             .sort((a, b) =>
                 compareRanks(getElectedOrder(a.personId), getElectedOrder(b.personId))
                 || a.personName.localeCompare(b.personName)
@@ -376,21 +384,14 @@ export async function getMinutesData(
     const adminBodyId = meeting.administrativeBody?.id ?? null;
 
     function buildCouncilComposition(attendance: MinutesAttendance): MinutesCouncilComposition {
-        const allMembers = [...attendance.present, ...attendance.absent];
-        allMembers.sort(sortByElectedOrder);
-
         const presentIds = new Set(attendance.present.map(m => m.personId));
 
         // Find mayor from all city people (not just attendance — mayor may not be a council member)
         let mayor: MinutesCouncilComposition['mayor'] = null;
-        for (const person of people) {
-            const mayorRole = person.roles.find(r =>
-                isRoleActiveAt(r, meetingDate) &&
-                r.cityId != null && !r.partyId && !r.administrativeBodyId && r.isHead
-            );
-            if (mayorRole) {
-                mayor = { name: formatSurnameFirst(person.name), present: presentIds.has(person.id) };
-                break;
+        if (mayorPersonId) {
+            const mayorPerson = people.find(p => p.id === mayorPersonId);
+            if (mayorPerson) {
+                mayor = { name: formatSurnameFirst(mayorPerson.name), present: presentIds.has(mayorPersonId) };
             }
         }
 
@@ -408,6 +409,11 @@ export async function getMinutesData(
                 }
             }
         }
+
+        // Exclude mayor from members list — they're shown separately on the ΔΗΜΑΡΧΟΣ line
+        const allMembers = [...attendance.present, ...attendance.absent]
+            .filter(m => m.personId !== mayorPersonId);
+        allMembers.sort(sortByElectedOrder);
 
         return { mayor, president, members: allMembers };
     }
