@@ -315,10 +315,10 @@ describe('subjectToMapFeature', () => {
 });
 
 describe('sortSubjectsByImportance', () => {
-  it('should sort by speaking time', () => {
+  it('should sort by contributions count (descending)', () => {
     const subjects = [
-      { name: 'Subject 1', statistics: { speakingSeconds: 100 } },
-      { name: 'Subject 2', statistics: { speakingSeconds: 200 } }
+      { name: 'Subject 1', _count: { contributions: 2 } },
+      { name: 'Subject 2', _count: { contributions: 5 } }
     ];
 
     const sorted = sortSubjectsByImportance(subjects as any);
@@ -326,14 +326,105 @@ describe('sortSubjectsByImportance', () => {
     expect(sorted[1].name).toBe('Subject 1');
   });
 
-  it('should handle subjects without statistics', () => {
+  it('should sort beforeAgenda subjects last', () => {
     const subjects = [
-      { name: 'Subject 1' },
-      { name: 'Subject 2', statistics: { speakingSeconds: 200 } }
+      { name: 'Before', nonAgendaReason: 'beforeAgenda', _count: { contributions: 10 } },
+      { name: 'Agenda', agendaItemIndex: 1, _count: { contributions: 1 } },
+      { name: 'OutOfAgenda', nonAgendaReason: 'outOfAgenda', _count: { contributions: 3 } }
     ];
 
-    // Should not throw error
-    expect(() => sortSubjectsByImportance(subjects as any)).not.toThrow();
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted[0].name).toBe('OutOfAgenda');
+    expect(sorted[1].name).toBe('Agenda');
+    expect(sorted[2].name).toBe('Before');
+  });
+
+  it('should use agenda item index as tie-breaker', () => {
+    const subjects = [
+      { name: 'Item 3', agendaItemIndex: 3, _count: { contributions: 2 } },
+      { name: 'Item 1', agendaItemIndex: 1, _count: { contributions: 2 } }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted[0].name).toBe('Item 1');
+    expect(sorted[1].name).toBe('Item 3');
+  });
+
+  it('should fall back to alphabetical when no sorting fields are present', () => {
+    const subjects = [
+      { name: 'Zebra' },
+      { name: 'Alpha' },
+      { name: 'Middle' }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Alpha', 'Middle', 'Zebra']);
+  });
+});
+
+describe('sortSubjectsByImportance (appearance)', () => {
+  it('should sort by earliest speaker segment timestamp', () => {
+    const subjects = [
+      { name: 'Later', speakerSegments: [{ startTimestamp: 300 }, { startTimestamp: 500 }] },
+      { name: 'First', speakerSegments: [{ startTimestamp: 100 }] },
+      { name: 'Middle', speakerSegments: [{ startTimestamp: 200 }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['First', 'Middle', 'Later']);
+  });
+
+  it('should handle nested speakerSegment.startTimestamp structure', () => {
+    const subjects = [
+      { name: 'B', speakerSegments: [{ speakerSegment: { startTimestamp: 200 } }] },
+      { name: 'A', speakerSegments: [{ speakerSegment: { startTimestamp: 100 } }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['A', 'B']);
+  });
+
+  it('should fall back to agendaItemIndex when no timestamps', () => {
+    const subjects = [
+      { name: 'Third', agendaItemIndex: 3 },
+      { name: 'First', agendaItemIndex: 1 },
+      { name: 'Second', agendaItemIndex: 2 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['First', 'Second', 'Third']);
+  });
+
+  it('should sort subjects with agendaItemIndex before those without', () => {
+    const subjects = [
+      { name: 'No index' },
+      { name: 'Has index', agendaItemIndex: 5 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted[0].name).toBe('Has index');
+    expect(sorted[1].name).toBe('No index');
+  });
+
+  it('should fall back to alphabetical when timestamps are equal', () => {
+    const subjects = [
+      { name: 'Zebra', speakerSegments: [{ startTimestamp: 100 }] },
+      { name: 'Alpha', speakerSegments: [{ startTimestamp: 100 }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['Alpha', 'Zebra']);
+  });
+
+  it('should fall back to agendaItemIndex when only one subject has segments', () => {
+    const subjects = [
+      { name: 'No segments', agendaItemIndex: 1 },
+      { name: 'Has segments', speakerSegments: [{ startTimestamp: 100 }], agendaItemIndex: 2 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted[0].name).toBe('No segments');
+    expect(sorted[1].name).toBe('Has segments');
   });
 });
 
