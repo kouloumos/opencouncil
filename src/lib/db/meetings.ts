@@ -10,7 +10,7 @@ export type CouncilMeetingWithAdminBody = CouncilMeeting & {
 }
 
 export type CouncilMeetingWithAdminBodyAndSubjects = CouncilMeetingWithAdminBody & {
-    subjects: Subject[]
+    subjects: (Subject & { _count?: { contributions: number } })[]
 }
 
 export async function deleteCouncilMeeting(cityId: string, id: string): Promise<void> {
@@ -117,7 +117,8 @@ export async function getCouncilMeetingsForCity(cityId: string, { includeUnrelea
                     include: {
                         topic: true,
                         // Include speaker segments through the junction table
-                        speakerSegments: true // This gets all SubjectSpeakerSegment records
+                        speakerSegments: true, // This gets all SubjectSpeakerSegment records
+                        _count: { select: { contributions: true } }
                     }
                 },
                 administrativeBody: true
