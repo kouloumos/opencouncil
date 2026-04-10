@@ -1,5 +1,5 @@
 "use server";
-import { CouncilMeeting, Subject, AdministrativeBody } from '@prisma/client';
+import { CouncilMeeting, Subject, AdministrativeBody, AdministrativeBodyType } from '@prisma/client';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit, isUserAuthorizedToEdit } from '../auth';
@@ -79,20 +79,33 @@ export async function getCouncilMeeting(cityId: string, id: string): Promise<Cou
     }
 }
 
-export async function getCouncilMeetingsForCity(cityId: string, { includeUnreleased, limit, page, pageSize = 12 }: { includeUnreleased?: boolean; limit?: number; page?: number; pageSize?: number } = {}): Promise<CouncilMeetingWithAdminBodyAndSubjects[]> {
+export async function getCouncilMeetingsForCity(cityId: string, { includeUnreleased, limit, page, pageSize = 12, administrativeBodyTypes, timeFilter }: { includeUnreleased?: boolean; limit?: number; page?: number; pageSize?: number; administrativeBodyTypes?: AdministrativeBodyType[]; timeFilter?: 'upcoming' | 'past' } = {}): Promise<CouncilMeetingWithAdminBodyAndSubjects[]> {
 
     try {
         // Calculate pagination
         const skip = page ? (page - 1) * pageSize : undefined;
         const take = page ? pageSize : limit;
 
+        const now = new Date();
+        const dateFilter = timeFilter === 'upcoming'
+            ? { gt: now }
+            : timeFilter === 'past'
+                ? { lte: now }
+                : undefined;
+
         // First, get meetings with subjects and basic relationships
         const meetings = await prisma.councilMeeting.findMany({
-            where: { cityId, released: includeUnreleased ? undefined : true },
-            orderBy: [
-                { dateTime: 'desc' },
-                { createdAt: 'desc' }
-            ],
+            where: {
+                cityId,
+                released: includeUnreleased ? undefined : true,
+                ...(administrativeBodyTypes && administrativeBodyTypes.length > 0 && {
+                    administrativeBody: { type: { in: administrativeBodyTypes } }
+                }),
+                ...(dateFilter && { dateTime: dateFilter })
+            },
+            orderBy: timeFilter === 'upcoming'
+                ? [{ dateTime: 'asc' }, { createdAt: 'asc' }]
+                : [{ dateTime: 'desc' }, { createdAt: 'desc' }],
             ...(skip !== undefined && { skip }),
             ...(take && { take }),
             include: {
