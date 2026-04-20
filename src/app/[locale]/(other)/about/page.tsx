@@ -2,6 +2,7 @@ import About from "@/components/static/About"
 import { Metadata } from "next"
 import { env } from '@/env.mjs'
 import { getSupportedCitiesWithLogosCached } from '@/lib/cache/queries'
+import { buildHreflangAlternates } from "@/lib/utils/hreflang"
 
 export async function generateMetadata(): Promise<Metadata> {
     const description = "Το OpenCouncil χρησιμοποιεί τεχνητή νοημοσύνη για να παρακολουθεί τα δημοτικά συμβούλια και να τα κάνει απλά και κατανοητά. Μάθετε περισσότερα για την αποστολή μας, την τεχνολογία μας και την ομάδα μας.";
@@ -46,9 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
             creator: '@opencouncil',
             site: '@opencouncil'
         },
-        alternates: {
-            canonical: '/about',
-        },
+        alternates: buildHreflangAlternates('/about'),
         other: {
             'about:mission': 'transparency',
             'about:technology': 'artificial-intelligence',
