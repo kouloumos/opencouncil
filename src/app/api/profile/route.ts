@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { updateUserProfile } from "@/lib/db/users";
+import { updateUserProfile, deleteCurrentUser, UserProfileUpdateData } from "@/lib/db/users";
 import { sendUserOnboardedAdminAlert } from "@/lib/discord";
 
 export async function POST(request: Request) {
@@ -11,9 +11,8 @@ export async function POST(request: Request) {
         }
 
         const data = await request.json();
-
-        // Remove email if present in data to prevent email updates
-        const { email, ...updateData } = data;
+        const { name, phone, allowProductUpdates, allowPetitionUpdates, onboarded } = data ?? {};
+        const updateData: UserProfileUpdateData = { name, phone, allowProductUpdates, allowPetitionUpdates, onboarded };
 
         // Track if this is the user completing onboarding for the first time
         const isCompletingOnboarding = !user.onboarded && updateData.onboarded === true;
@@ -32,6 +31,20 @@ export async function POST(request: Request) {
         return NextResponse.json(updatedUser);
     } catch (error) {
         console.error("Failed to update profile:", error);
+        return new NextResponse("Internal Server Error", { status: 500 });
+    }
+}
+
+export async function DELETE() {
+    const user = await getCurrentUser();
+    if (!user) {
+        return new NextResponse("Unauthorized", { status: 401 });
+    }
+    try {
+        await deleteCurrentUser();
+        return new NextResponse(null, { status: 204 });
+    } catch (error) {
+        console.error("Failed to delete account:", error);
         return new NextResponse("Internal Server Error", { status: 500 });
     }
 }
