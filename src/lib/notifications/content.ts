@@ -4,6 +4,7 @@ import { render } from '@react-email/render';
 import { NotificationEmail } from '@/lib/email/templates/NotificationEmail';
 import { env } from '@/env.mjs';
 import { stripMarkdown } from '@/lib/formatters/markdown';
+import { buildUnsubscribeUrl } from '@/lib/notifications/tokens';
 
 interface NotificationSubject {
     id: string;
@@ -17,6 +18,8 @@ interface NotificationSubject {
 
 interface NotificationData {
     id: string;
+    userId: string;
+    cityId: string;
     type: 'beforeMeeting' | 'afterMeeting';
     subjects: NotificationSubject[];
     meeting: {
@@ -52,7 +55,8 @@ export async function generateEmailContent(notification: NotificationData): Prom
                 ...subject,
                 description: stripMarkdown(subject.description)
             })),
-            notificationUrl: `${env.NEXTAUTH_URL || 'https://opencouncil.gr'}/el/notifications/${notification.id}`
+            notificationUrl: `${env.NEXTAUTH_URL || 'https://opencouncil.gr'}/el/notifications/${notification.id}`,
+            unsubscribeUrl: buildUnsubscribeUrl(notification.userId, notification.cityId),
         })
     );
 
