@@ -1,16 +1,11 @@
-import { CouncilMeeting, Subject, Topic, AdministrativeBody } from '@prisma/client';
 import { sortSubjectsByImportance } from '@/lib/utils';
 import { formatDate } from '@/lib/formatters/time';
 import Icon from '@/components/icon';
 import { CalendarIcon, Building, ChevronRight } from 'lucide-react';
-
-type MeetingWithRelations = CouncilMeeting & {
-    subjects: (Subject & { topic?: Topic | null; _count?: { contributions: number } })[];
-    administrativeBody?: AdministrativeBody | null;
-};
+import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 
 interface EmbedMeetingCardProps {
-    meeting: MeetingWithRelations;
+    meeting: CouncilMeetingWithAdminBodyAndSubjects;
     locale: string;
     showSubjects: boolean;
     baseUrl: string;

@@ -1,18 +1,37 @@
 "use server";
-import { CouncilMeeting, Subject, AdministrativeBody, AdministrativeBodyType } from '@prisma/client';
+import { CouncilMeeting, AdministrativeBodyType, Prisma } from '@prisma/client';
 import { revalidateTag, revalidatePath } from 'next/cache';
 import prisma from "./prisma";
 import { withUserAuthorizedToEdit, isUserAuthorizedToEdit } from '../auth';
 import { buildDateFilter } from './reviews/dateFilters';
 import { formatDateAsMeetingId } from '../utils/meetingId';
 
-export type CouncilMeetingWithAdminBody = CouncilMeeting & {
-    administrativeBody: AdministrativeBody | null
-}
+const meetingWithAdminBodyInclude = {
+    administrativeBody: true,
+} satisfies Prisma.CouncilMeetingInclude;
 
-export type CouncilMeetingWithAdminBodyAndSubjects = CouncilMeetingWithAdminBody & {
-    subjects: (Subject & { _count?: { contributions: number } })[]
-}
+export type CouncilMeetingWithAdminBody = Prisma.CouncilMeetingGetPayload<{
+    include: typeof meetingWithAdminBodyInclude
+}>;
+
+const meetingWithSubjectsInclude = {
+    subjects: {
+        orderBy: [
+            { agendaItemIndex: 'asc' as const },
+            { name: 'asc' as const },
+        ],
+        include: {
+            topic: true,
+            speakerSegments: true,
+            _count: { select: { contributions: true } },
+        },
+    },
+    administrativeBody: true,
+} satisfies Prisma.CouncilMeetingInclude;
+
+export type CouncilMeetingWithAdminBodyAndSubjects = Prisma.CouncilMeetingGetPayload<{
+    include: typeof meetingWithSubjectsInclude
+}>;
 
 export async function deleteCouncilMeeting(cityId: string, id: string): Promise<void> {
     await withUserAuthorizedToEdit({ councilMeetingId: id, cityId: cityId });
@@ -39,9 +58,7 @@ export async function createCouncilMeeting(meetingData: Omit<CouncilMeeting, 'cr
 export async function createCouncilMeetingDirect(meetingData: Omit<CouncilMeeting, 'createdAt' | 'updatedAt' | 'audioUrl' | 'videoUrl'> & { audioUrl?: string, videoUrl?: string }): Promise<CouncilMeetingWithAdminBody> {
     return prisma.councilMeeting.create({
         data: meetingData,
-        include: {
-            administrativeBody: true
-        }
+        include: meetingWithAdminBodyInclude,
     });
 }
 
@@ -83,9 +100,7 @@ export async function editCouncilMeeting(cityId: string, id: string, meetingData
         const updatedMeeting = await prisma.councilMeeting.update({
             where: { cityId_id: { cityId, id } },
             data: meetingData,
-            include: {
-                administrativeBody: true
-            }
+            include: meetingWithAdminBodyInclude,
         });
         return updatedMeeting;
     } catch (error) {
@@ -99,9 +114,7 @@ export async function getCouncilMeeting(cityId: string, id: string): Promise<Cou
     try {
         const meeting = await prisma.councilMeeting.findUnique({
             where: { cityId_id: { cityId, id } },
-            include: {
-                administrativeBody: true
-            }
+            include: meetingWithAdminBodyInclude,
         });
         const endTime = performance.now();
 
@@ -151,21 +164,7 @@ export async function getCouncilMeetingsForCity(cityId: string, { includeUnrelea
                 : [{ dateTime: 'desc' }, { createdAt: 'desc' }],
             ...(skip !== undefined && { skip }),
             ...(take && { take }),
-            include: {
-                subjects: {
-                    orderBy: [
-                        { agendaItemIndex: 'asc' },
-                        { name: 'asc' }
-                    ],
-                    include: {
-                        topic: true,
-                        // Include speaker segments through the junction table
-                        speakerSegments: true, // This gets all SubjectSpeakerSegment records
-                        _count: { select: { contributions: true } }
-                    }
-                },
-                administrativeBody: true
-            }
+            include: meetingWithSubjectsInclude,
         });
 
         return meetings;
@@ -181,9 +180,7 @@ export async function toggleMeetingRelease(cityId: string, id: string, released:
         const updatedMeeting = await prisma.councilMeeting.update({
             where: { cityId_id: { cityId, id } },
             data: { released },
-            include: {
-                administrativeBody: true
-            }
+            include: meetingWithAdminBodyInclude,
         });
         // TODO: utilize api/cities/[cityId]/meetings/[meetingId] to edit the meeting
         revalidateTag(`city:${cityId}:meetings`);
