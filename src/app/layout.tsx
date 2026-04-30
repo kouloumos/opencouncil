@@ -61,6 +61,16 @@ export default async function RootLayout({
     return (
         <html lang={locale || routing.defaultLocale} suppressHydrationWarning>
             <head>
+                {process.env.NODE_ENV === 'development' && (
+                    <>
+                        <script src="https://unpkg.com/react-scan/dist/auto.global.js" crossOrigin="anonymous" />
+                        <script dangerouslySetInnerHTML={{ __html: `
+                            if (window.reactScan) {
+                                window.reactScan({ enabled: true, showToolbar: false, animationSpeed: 'off' });
+                            }
+                        `}} />
+                    </>
+                )}
             </head>
             <body
                 className={cn(

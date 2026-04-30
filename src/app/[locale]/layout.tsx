@@ -13,6 +13,9 @@ const QuickLogin = process.env.NODE_ENV === 'development'
 const MobilePreviewReporter = process.env.NODE_ENV === 'development'
     ? require("@/components/dev/MobilePreviewReporter").default
     : null;
+const RenderProfiler = process.env.NODE_ENV === 'development'
+    ? require("@/components/dev/RenderProfiler").default
+    : null;
 
 export function generateStaticParams() {
     return routing.locales.map((locale) => ({ locale }));
@@ -39,6 +42,7 @@ export default async function LocaleLayout({
             <Toaster />
             {QuickLogin && <QuickLogin />}
             {MobilePreviewReporter && <MobilePreviewReporter />}
+            {RenderProfiler && <RenderProfiler />}
         </NextIntlClientProvider>
     );
 }
