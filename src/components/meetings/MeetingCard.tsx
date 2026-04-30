@@ -1,5 +1,4 @@
 'use client'
-import { CouncilMeeting, Subject, Topic, AdministrativeBody } from '@prisma/client';
 import { useRouter, usePathname } from '../../i18n/routing';
 import { Card, CardContent } from "../ui/card";
 import { useLocale, useTranslations } from 'next-intl';
@@ -13,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Link } from '@/i18n/routing';
 import { Badge } from '../ui/badge';
 import { motion } from 'framer-motion';
+import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 
 // Helper function for development-only logs
 const logDev = (message: string, data?: any) => {
@@ -22,13 +22,7 @@ const logDev = (message: string, data?: any) => {
 };
 
 interface MeetingCardProps {
-    item: CouncilMeeting & {
-        subjects: (Subject & {
-            topic?: Topic | null,
-            speakerSegments?: any[] // Using any for flexibility with the structure
-        })[],
-        administrativeBody?: AdministrativeBody | null
-    };
+    item: CouncilMeetingWithAdminBodyAndSubjects;
     editable: boolean;
     mostRecent?: boolean;
     cityTimezone?: string;
