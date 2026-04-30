@@ -3,7 +3,7 @@ import createRedisHandler from '@neshca/cache-handler/redis-strings';
 import createLruHandler from '@neshca/cache-handler/local-lru';
 import { createClient } from 'redis';
 
-CacheHandler.onCreation(async () => {
+CacheHandler.onCreation(async ({ buildId }) => {
   if (!process.env.CACHE_URL) {
     console.info('[cache-handler] CACHE_URL not set — using in-memory LRU cache');
     return {
@@ -42,6 +42,30 @@ CacheHandler.onCreation(async () => {
   }
 
   if (client?.isReady) {
+    // Flush stale cached pages when a new build is deployed.
+    // Compares the current Next.js build ID against a sentinel key in Valkey.
+    // First instance to boot after a deploy flushes; others find the updated sentinel and skip.
+    const SENTINEL_KEY = 'oc:__build_id__';
+    try {
+      if (!buildId) {
+        console.warn('[cache-handler] No build ID available — skipping deploy flush check');
+      } else {
+        const storedBuildId = await client.get(SENTINEL_KEY);
+
+        if (storedBuildId !== buildId) {
+          console.info(
+            `[cache-handler] Build ID changed: ${storedBuildId ?? '(none)'} → ${buildId} — flushing cache`,
+          );
+          await client.flushDb();
+          await client.set(SENTINEL_KEY, buildId);
+        } else {
+          console.info(`[cache-handler] Build ID unchanged (${buildId}) — skipping flush`);
+        }
+      }
+    } catch (error) {
+      console.warn('[cache-handler] Deploy flush check failed:', error.message);
+    }
+
     const handler = createRedisHandler({
       client,
       keyPrefix: 'oc:',
