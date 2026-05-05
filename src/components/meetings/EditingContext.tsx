@@ -1,6 +1,6 @@
 "use client";
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { useCouncilMeetingData } from './CouncilMeetingDataContext';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
+import { useCouncilMeetingData, useCouncilMeetingActions } from './CouncilMeetingDataContext';
 import { ACTIONS, useKeyboardShortcut } from '@/contexts/KeyboardShortcutsContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
@@ -21,16 +21,20 @@ export function EditingProvider({ children }: { children: ReactNode }) {
     const [selectedUtteranceIds, setSelectedUtteranceIds] = useState<Set<string>>(new Set());
     const [lastClickedUtteranceId, setLastClickedUtteranceId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    
-    const { transcript, extractSpeakerSegment, getSpeakerSegmentById } = useCouncilMeetingData();
+
+    const { transcript, getSpeakerSegmentById } = useCouncilMeetingData();
+    const { extractSpeakerSegment } = useCouncilMeetingActions();
     const { toast } = useToast();
     const t = useTranslations('editing.toasts');
 
-    // Flatten utterances for easy range index finding
-    // Memoizing this might be expensive if transcript changes often, but necessary for range selection
-    const allUtterances = React.useMemo(() => {
-        return transcript.flatMap(segment => segment.utterances);
-    }, [transcript]);
+    // Refs read only inside callbacks (not in render output), kept in sync
+    // via render-time assignment so toggleSelection / extractSelectedSegment
+    // can be useCallback(..., []) without observing stale values.
+    const allUtterances = useMemo(() => transcript.flatMap(s => s.utterances), [transcript]);
+    const allUtterancesRef = useRef(allUtterances);
+    allUtterancesRef.current = allUtterances;
+    const lastClickedRef = useRef(lastClickedUtteranceId);
+    lastClickedRef.current = lastClickedUtteranceId;
 
     const clearSelection = useCallback(() => {
         setSelectedUtteranceIds(new Set());
@@ -38,31 +42,31 @@ export function EditingProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const toggleSelection = useCallback((id: string, modifiers: { shift: boolean, ctrl: boolean }) => {
+        const isShiftRange = modifiers.shift && lastClickedRef.current;
+
         setSelectedUtteranceIds(prev => {
             const newSet = new Set(prev);
-
-            if (modifiers.shift && lastClickedUtteranceId) {
-                // Range selection using shared utility
-                const rangeIds = calculateUtteranceRange(allUtterances, lastClickedUtteranceId, id);
+            if (isShiftRange) {
+                const rangeIds = calculateUtteranceRange(allUtterancesRef.current, lastClickedRef.current!, id);
                 rangeIds.forEach(rangeId => newSet.add(rangeId));
             } else if (modifiers.ctrl) {
-                // Toggle individual
-                if (newSet.has(id)) {
-                    newSet.delete(id);
-                } else {
-                    newSet.add(id);
-                }
-                setLastClickedUtteranceId(id);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
             } else {
-                // Single select (clear others)
                 newSet.clear();
                 newSet.add(id);
-                setLastClickedUtteranceId(id);
             }
-
             return newSet;
         });
-    }, [allUtterances, lastClickedUtteranceId]);
+
+        // Anchor moves on plain or ctrl click; shift-range click leaves it
+        // alone (so subsequent shift-clicks keep extending from the same
+        // anchor). Calling this outside the updater avoids the StrictMode
+        // double-fire pitfall.
+        if (!isShiftRange) {
+            setLastClickedUtteranceId(id);
+        }
+    }, []);
 
     const extractSelectedSegment = useCallback(async () => {
         if (selectedUtteranceIds.size === 0) return;
@@ -70,13 +74,13 @@ export function EditingProvider({ children }: { children: ReactNode }) {
 
         setIsProcessing(true);
         try {
+            const allUtterances = allUtterancesRef.current;
             const selectedList = Array.from(selectedUtteranceIds);
             const firstUtterance = allUtterances.find(u => u.id === selectedList[0]);
             if (!firstUtterance) throw new Error("Selected utterance not found");
 
             const targetSegmentId = firstUtterance.speakerSegmentId;
-            
-            // Validate all selected utterances belong to the same segment
+
             const allInSame = selectedList.every(id => {
                 const u = allUtterances.find(ut => ut.id === id);
                 return u && u.speakerSegmentId === targetSegmentId;
@@ -91,15 +95,13 @@ export function EditingProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Find chronological start and end utterances
             const indices = selectedList
                 .map(id => allUtterances.findIndex(u => u.id === id))
                 .sort((a, b) => a - b);
-            
+
             const startUtteranceId = allUtterances[indices[0]].id;
             const endUtteranceId = allUtterances[indices[indices.length - 1]].id;
 
-            // Validate extraction leaves utterances before and after (A-B-A pattern)
             const originalSegment = getSpeakerSegmentById(targetSegmentId);
             if (originalSegment) {
                 const totalUtterances = originalSegment.utterances.length;
@@ -108,7 +110,7 @@ export function EditingProvider({ children }: { children: ReactNode }) {
                 const extractionCount = segmentEndIndex - segmentStartIndex + 1;
 
                 if (extractionCount === totalUtterances) {
-                     toast({
+                    toast({
                         title: t('invalidOperationTitle'),
                         description: t('invalidOperationExtractAll'),
                         variant: "destructive"
@@ -127,7 +129,7 @@ export function EditingProvider({ children }: { children: ReactNode }) {
             }
 
             await extractSpeakerSegment(targetSegmentId, startUtteranceId, endUtteranceId);
-            
+
             clearSelection();
             toast({
                 description: t('extractionSuccess')
@@ -143,21 +145,33 @@ export function EditingProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsProcessing(false);
         }
-    }, [selectedUtteranceIds, isProcessing, allUtterances, extractSpeakerSegment, getSpeakerSegmentById, clearSelection, toast, t]);
+    }, [selectedUtteranceIds, isProcessing, extractSpeakerSegment, getSpeakerSegmentById, clearSelection, toast, t]);
 
     // Register Shortcuts
     useKeyboardShortcut(ACTIONS.EXTRACT_SEGMENT.id, extractSelectedSegment, selectedUtteranceIds.size > 0);
     useKeyboardShortcut(ACTIONS.CLEAR_SELECTION.id, clearSelection, selectedUtteranceIds.size > 0);
 
+    // Memoized so EditingProvider re-renders (triggered by any
+    // CouncilMeetingDataContext change) don't churn the value object and
+    // re-render every Utterance consuming useEditing().
+    const value = useMemo<EditingContextType>(() => ({
+        selectedUtteranceIds,
+        lastClickedUtteranceId,
+        toggleSelection,
+        clearSelection,
+        extractSelectedSegment,
+        isProcessing,
+    }), [
+        selectedUtteranceIds,
+        lastClickedUtteranceId,
+        toggleSelection,
+        clearSelection,
+        extractSelectedSegment,
+        isProcessing,
+    ]);
+
     return (
-        <EditingContext.Provider value={{
-            selectedUtteranceIds,
-            lastClickedUtteranceId,
-            toggleSelection,
-            clearSelection,
-            extractSelectedSegment,
-            isProcessing
-        }}>
+        <EditingContext.Provider value={value}>
             {children}
         </EditingContext.Provider>
     );

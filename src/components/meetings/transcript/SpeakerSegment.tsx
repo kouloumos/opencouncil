@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useCouncilMeetingData } from "../CouncilMeetingDataContext";
+import { useCouncilMeetingActions, useCouncilMeetingMeta } from "../CouncilMeetingDataContext";
 import { Transcript as TranscriptType } from '@/lib/db/transcript';
 import TopicBadge from './Topic';
 import { PersonBadge } from '@/components/persons/PersonBadge';
@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 const AddSegmentButton = ({ segmentId }: { segmentId: string }) => {
-    const { createEmptySegmentAfter } = useCouncilMeetingData();
+    const { createEmptySegmentAfter } = useCouncilMeetingActions();
     const { options } = useTranscriptOptions();
 
     if (!options.editable) return null;
@@ -51,7 +51,7 @@ const AddSegmentBeforeButton = ({ segmentId, isFirstSegment }: {
     segmentId: string, 
     isFirstSegment: boolean 
 }) => {
-    const { createEmptySegmentBefore } = useCouncilMeetingData();
+    const { createEmptySegmentBefore } = useCouncilMeetingActions();
     const { options } = useTranscriptOptions();
 
     // Only show for the first segment
@@ -82,7 +82,7 @@ const AddSegmentBeforeButton = ({ segmentId, isFirstSegment }: {
 };
 
 const EmptySegmentState = ({ segmentId }: { segmentId: string }) => {
-    const { addUtteranceToSegment } = useCouncilMeetingData();
+    const { addUtteranceToSegment } = useCouncilMeetingActions();
     const [isLoading, setIsLoading] = useState(false);
     const t = useTranslations('transcript.emptySegment');
 
@@ -124,7 +124,7 @@ const EmptySegmentState = ({ segmentId }: { segmentId: string }) => {
 };
 
 const AddUtteranceButton = ({ segmentId }: { segmentId: string }) => {
-    const { addUtteranceToSegment } = useCouncilMeetingData();
+    const { addUtteranceToSegment } = useCouncilMeetingActions();
     const { options } = useTranscriptOptions();
     const t = useTranslations('transcript.addUtterance');
 
@@ -172,7 +172,10 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
     segment: TranscriptType[number],
     isFirstSegment?: boolean
 }) => {
-    const { getPerson, getSpeakerTag, getSpeakerSegmentCount, people, speakerTags, updateSpeakerTagPerson, updateSpeakerTagLabel, deleteEmptySegment } = useCouncilMeetingData();
+    // useCouncilMeetingMeta() — not useCouncilMeetingData() — so this
+    // component bails on transcript-only edits.
+    const { getPerson, getSpeakerTag, getSpeakerSegmentCount, people, speakerTags } = useCouncilMeetingMeta();
+    const { updateSpeakerTagPerson, updateSpeakerTagLabel, deleteEmptySegment } = useCouncilMeetingActions();
     const { options } = useTranscriptOptions();
     const { data: session } = useSession();
     const { toast } = useToast();
@@ -220,16 +223,15 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
         return buildUnknownSpeakerLabel(maxIndex + 1);
     }, [speakerTags]);
 
-    const memoizedData = useMemo(() => {
-        const speakerTag = getSpeakerTag(segment.speakerTagId);
-        const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
-
-        const party = person ? getPartyFromRoles(person.roles) : null;
-        const borderColor = party?.colorHex || '#D3D3D3';
-
-        const segmentCount = speakerTag ? getSpeakerSegmentCount(speakerTag.id) : 0;
-        return { speakerTag, person, party, borderColor, segmentCount };
-    }, [segment.speakerTagId, getPerson, getSpeakerTag, getSpeakerSegmentCount]);
+    // Not memoized: the getter refs are stable for the provider's lifetime,
+    // so a useMemo over them would never recompute when underlying speaker
+    // tags / segment counts change.
+    const speakerTag = getSpeakerTag(segment.speakerTagId);
+    const person = speakerTag?.personId ? getPerson(speakerTag.personId) : undefined;
+    const party = person ? getPartyFromRoles(person.roles) : null;
+    const borderColor = party?.colorHex || '#D3D3D3';
+    const segmentCount = speakerTag ? getSpeakerSegmentCount(speakerTag.id) : 0;
+    const headerData = { speakerTag, person, party, borderColor, segmentCount };
 
     const utterances = segment.utterances;
     if (!utterances) {
@@ -241,14 +243,14 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
     const summary = segment.summary;
 
     const handlePersonChange = (personId: string | null) => {
-        if (memoizedData.speakerTag) {
-            updateSpeakerTagPerson(memoizedData.speakerTag.id, personId);
+        if (headerData.speakerTag) {
+            updateSpeakerTagPerson(headerData.speakerTag.id, personId);
         }
     };
 
     const handleLabelChange = (label: string) => {
-        if (memoizedData.speakerTag) {
-            updateSpeakerTagLabel(memoizedData.speakerTag.id, label);
+        if (headerData.speakerTag) {
+            updateSpeakerTagLabel(headerData.speakerTag.id, label);
         }
     };
 
@@ -268,7 +270,7 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
                 <AddSegmentBeforeButton segmentId={segment.id} isFirstSegment={true} />
             )}
             
-            <div className='mb-2 sm:mb-6 flex flex-col items-start w-full rounded-r-lg hover:bg-accent/5 transition-colors border-l-[3px] sm:border-l-4' style={{ borderLeftColor: memoizedData.borderColor }}>
+            <div className='mb-2 sm:mb-6 flex flex-col items-start w-full rounded-r-lg hover:bg-accent/5 transition-colors border-l-[3px] sm:border-l-4' style={{ borderLeftColor: headerData.borderColor }}>
                 <div className='w-full'>
                     <div 
                         className='sticky flex flex-row items-center justify-between w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-30 transition-all duration-200'
@@ -282,8 +284,8 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
                                         className='flex md:hidden items-center justify-between w-full px-2.5 py-1.5 hover:bg-accent/20 transition-colors bg-background border-b border-border/40'
                                     >
                                         <PersonBadge
-                                            person={memoizedData.person}
-                                            speakerTag={memoizedData.speakerTag}
+                                            person={headerData.person}
+                                            speakerTag={headerData.speakerTag}
                                             variant="inline"
                                             className="flex-1 min-w-0"
                                         />
@@ -300,11 +302,11 @@ const SpeakerSegment = React.memo(({ segment, isFirstSegment }: {
                                 <div className={`${isCollapsed ? 'hidden md:flex' : 'flex'} flex-col w-full space-y-2 py-2`}>
                                     <div className='flex items-center justify-between w-full px-2.5 sm:px-4 gap-2'>
                                         <div className='flex-grow overflow-hidden min-w-0'>
-                                            {memoizedData.speakerTag && (
+                                            {headerData.speakerTag && (
                                                 <PersonBadge
-                                                    person={memoizedData.person}
-                                                    speakerTag={memoizedData.speakerTag}
-                                                    segmentCount={memoizedData.segmentCount}
+                                                    person={headerData.person}
+                                                    speakerTag={headerData.speakerTag}
+                                                    segmentCount={headerData.segmentCount}
                                                     editable={options.editable}
                                                     onPersonChange={handlePersonChange}
                                                     onLabelChange={handleLabelChange}
