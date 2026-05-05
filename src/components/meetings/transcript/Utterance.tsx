@@ -1,6 +1,6 @@
 "use client";
 import { Utterance } from "@prisma/client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from 'next-intl';
 import { useVideoActions } from "../VideoProvider";
 import { useTranscriptOptions } from "../options/OptionsContext";
@@ -19,6 +19,33 @@ import { cn } from "@/lib/utils";
 import { useEditing } from "../EditingContext";
 import { formatTimestamp } from "@/lib/formatters/time";
 
+/**
+ * Resolve the character offset of a click within a text span.
+ * The span has `user-select: none` (for range-selection UX), which can
+ * block caret hit-testing. We temporarily lift it, measure, then restore.
+ */
+function getCaretOffsetFromClick(e: React.MouseEvent, maxOffset: number): number {
+    const target = e.currentTarget as HTMLElement;
+    const prev = target.style.userSelect;
+    target.style.userSelect = 'text';
+
+    let offset = 0;
+    // Firefox: caretPositionFromPoint, Chrome/Safari: caretRangeFromPoint
+    // TODO: remove the `unknown` cast once we upgrade to TS 5.6+ (adds caretPositionFromPoint to DOM lib)
+    if ('caretPositionFromPoint' in document) {
+        const pos = (document as unknown as { caretPositionFromPoint(x: number, y: number): { offset: number } | null })
+            .caretPositionFromPoint(e.clientX, e.clientY);
+        if (pos) offset = pos.offset;
+    } else if ('caretRangeFromPoint' in document) {
+        const range = (document as unknown as { caretRangeFromPoint(x: number, y: number): Range | null })
+            .caretRangeFromPoint(e.clientX, e.clientY);
+        if (range) offset = range.startOffset;
+    }
+
+    target.style.userSelect = prev;
+    return Math.min(offset, maxOffset);
+}
+
 const UtteranceC: React.FC<{
     utterance: Utterance,
     onUpdate?: (updatedUtterance: Utterance) => void
@@ -31,6 +58,7 @@ const UtteranceC: React.FC<{
     const { deleteUtterance, updateUtterance } = useCouncilMeetingActions();
     const { selectedUtteranceIds, toggleSelection } = useEditing();
 
+    const clickOffsetRef = useRef<number | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [localUtterance, setLocalUtterance] = useState(utterance);
     const [editedText, setEditedText] = useState(utterance.text);
@@ -90,10 +118,12 @@ const UtteranceC: React.FC<{
                 });
             } else if (isSelected) {
                 // Click on selected utterance: enable editing
+                clickOffsetRef.current = getCaretOffsetFromClick(e, editedText.length);
                 setIsEditing(true);
                 seekToWithoutScroll(localUtterance.startTimestamp);
             } else {
                  // Standard click: Seek & Edit
+                 clickOffsetRef.current = getCaretOffsetFromClick(e, editedText.length);
                  setIsEditing(true);
                  seekToWithoutScroll(localUtterance.startTimestamp);
             }
@@ -253,7 +283,15 @@ const UtteranceC: React.FC<{
                             }
                         }}
                         className="w-full resize-none border border-gray-300 rounded px-2 py-1 pr-16 text-sm min-h-[2.5em] transcript-text"
-                        autoFocus
+                        ref={(el) => {
+                            if (el) {
+                                el.focus();
+                                if (clickOffsetRef.current !== null) {
+                                    el.selectionStart = el.selectionEnd = clickOffsetRef.current;
+                                    clickOffsetRef.current = null;
+                                }
+                            }
+                        }}
                         rows={Math.max(1, editedText.split('\n').length)}
                         style={{
                             height: 'auto',
