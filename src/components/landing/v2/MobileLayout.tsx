@@ -59,11 +59,25 @@ export function MobileLayout({
     const t = useTranslations('landingV2');
     // null = closed; 'search' = opened via the search icon; 'filters' = opened via the filters icon.
     const [searchMode, setSearchMode] = useState<'search' | 'filters' | null>(null);
+    // Whether the active tab's list is collapsed. Collapsing keeps the tab's view (and its map
+    // layer — subject pins for 'subjects', logo markers for 'municipalities') and just hides the
+    // list panel, so the user can inspect that tab's map underneath.
+    const [listCollapsed, setListCollapsed] = useState(false);
 
     // Switch the bottom-nav view; the municipalities map drops any selected subject.
     const changeView = (v: LandingView) => {
         if (v === 'municipalities') clearSelection();
         setView(v);
+    };
+    // Bottom-tab tap: re-tapping the open tab collapses/expands its list; a different tab switches
+    // to that map and opens its list.
+    const selectTab = (v: LandingView) => {
+        if (view === v) {
+            setListCollapsed((c) => !c);
+        } else {
+            changeView(v);
+            setListCollapsed(false);
+        }
     };
     // Selecting a subject (list tap / search) brings the user to the Home map to see it.
     const selectOnMap = (id: string) => {
@@ -71,14 +85,17 @@ export function MobileLayout({
         setView('home');
     };
 
-    const onMap = view === 'home';
+    // A list view is active but not collapsed → the list panel covers the map.
+    const showList = (view === 'subjects' || view === 'municipalities') && !listCollapsed;
+    // The map is the interactive surface whenever no list panel is covering it.
+    const mapVisible = !showList;
 
     return (
         <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
             {mapNode}
 
             {/* full-screen list views over the map */}
-            {view === 'subjects' && (
+            {showList && view === 'subjects' && (
                 <section
                     style={{
                         backgroundImage:
@@ -90,6 +107,7 @@ export function MobileLayout({
                         title={t('nav.subjects')}
                         count={trending.length}
                         className="bg-card"
+                        trailing={<CollapsePanelButton onClick={() => setListCollapsed(true)} />}
                     />
                     <SubjectList
                         subjects={trending}
@@ -116,7 +134,7 @@ export function MobileLayout({
                 </section>
             )}
 
-            {view === 'municipalities' && (
+            {showList && view === 'municipalities' && (
                 <section
                     style={{
                         backgroundImage:
@@ -128,6 +146,7 @@ export function MobileLayout({
                         title={t('nav.municipalities')}
                         count={cities.length}
                         className="bg-card"
+                        trailing={<CollapsePanelButton onClick={() => setListCollapsed(true)} />}
                     />
                     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-4">
                         <MunicipalitiesList cities={cities} subjectCountByCity={subjectCountByCity} upcoming={upcoming} />
@@ -137,8 +156,8 @@ export function MobileLayout({
 
             <MobileHeader onOpenSearch={() => setSearchMode('search')} />
 
-            {/* HOME map extras — only when the map is the active screen */}
-            {onMap && (
+            {/* map extras — only when the map is the visible/interactive surface */}
+            {mapVisible && (
                 <>
                     {/* floating date range + filter icon, below the header */}
                     <div className="absolute inset-x-3 top-[78px] z-[7] flex items-center justify-end gap-2">
@@ -172,7 +191,7 @@ export function MobileLayout({
             )}
 
             {/* bottom view switcher */}
-            <MobileViewSwitch view={view} onChange={changeView} />
+            <MobileViewSwitch view={view} onSelect={selectTab} />
 
             {searchMode && (
                 <MobileSearchOverlay
@@ -204,9 +223,24 @@ export function MobileLayout({
     );
 }
 
-/* bottom-center floating switcher — Θέματα (list) / Δήμοι (list). Each tab opens its panel over
-   the map; tapping the already-open tab (its ▼) closes the panel back to the map ('home'). */
-function MobileViewSwitch({ view, onChange }: { view: LandingView; onChange: (v: LandingView) => void }) {
+/* collapse control at the right end of a list-panel header — closes the panel back to the map */
+function CollapsePanelButton({ onClick }: { onClick: () => void }) {
+    const t = useTranslations('landingV2');
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={t('common.close')}
+            className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
+        >
+            <ChevronDown className="h-5 w-5" />
+        </button>
+    );
+}
+
+/* bottom-center floating switcher — Θέματα (subject pins) / Δήμοι (logo markers). Each tab opens
+   its list over its own map; re-tapping the active tab collapses the list to reveal that map. */
+function MobileViewSwitch({ view, onSelect }: { view: LandingView; onSelect: (v: LandingView) => void }) {
     const t = useTranslations('landingV2');
     const items: { v: LandingView; icon: typeof MapIcon }[] = [
         { v: 'subjects', icon: MapIcon },
@@ -221,18 +255,16 @@ function MobileViewSwitch({ view, onChange }: { view: LandingView; onChange: (v:
                         <button
                             key={v}
                             type="button"
-                            // Tapping the open tab collapses it back to the map.
-                            onClick={() => onChange(active ? 'home' : v)}
+                            // Tapping the open tab collapses/expands its list; a different tab switches map.
+                            onClick={() => onSelect(v)}
                             aria-pressed={active}
-                            aria-expanded={active}
                             className={cn(
-                                'flex items-center gap-1.5 rounded-full py-2 pl-3.5 text-sm font-semibold transition-colors',
-                                active ? 'bg-foreground pr-2.5 text-background' : 'pr-3.5 text-muted-foreground hover:text-foreground',
+                                'flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors',
+                                active ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
                             )}
                         >
                             <Icon className="h-4 w-4" />
                             {t(`nav.${v}`)}
-                            {active && <ChevronDown className="h-4 w-4 opacity-80" />}
                         </button>
                     );
                 })}
