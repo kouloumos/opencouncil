@@ -146,7 +146,7 @@ export function SubjectCard({
                     <h3
                         className={cn(
                             'min-w-0 font-bold leading-snug text-foreground',
-                            preview ? 'pr-7 text-sm' : 'text-balance text-base',
+                            preview ? 'pr-7 text-lg leading-tight' : 'text-balance text-base',
                         )}
                     >
                         {subject.title}

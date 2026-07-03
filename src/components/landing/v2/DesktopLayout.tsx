@@ -84,11 +84,7 @@ export function DesktopLayout({
 
             {/* unified aside card: nav rail | vertical divider | collapsible list */}
             <aside
-                style={{
-                    backgroundImage:
-                        'linear-gradient(to bottom, color-mix(in srgb, hsl(var(--orange)) 10%, hsl(var(--muted))), hsl(var(--muted)) 55%)',
-                }}
-                className="absolute bottom-4 left-4 top-4 z-[7] flex overflow-hidden rounded-2xl border-2 border-border bg-muted shadow-2xl ring-1 ring-black/5"
+                className="absolute bottom-4 left-4 top-4 z-[7] flex overflow-hidden rounded-2xl border border-black/40 bg-muted shadow-2xl ring-1 ring-black/5"
             >
                 <LandingAside view={view} onSelect={selectView} />
 

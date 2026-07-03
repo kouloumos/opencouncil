@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Plus, Minus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { Topic } from '@prisma/client';
 import { cn } from '@/lib/utils';
@@ -38,13 +38,15 @@ export function TopicChip({ topic, small, iconOnly }: { topic: SubjectTopic; sma
 
 /* Shared list-panel header — bold title with the count in parentheses. `onBack` adds a back
    arrow (the mobile list variant); `trailing` slots a control on the right (e.g. the desktop
-   collapse button). Used by both the subjects and municipalities lists on either platform. */
+   collapse button); `onToggle` makes the whole header row a button (the mobile collapse tab,
+   with a ▼ affordance). Used by both the subjects and municipalities lists on either platform. */
 export function ListHeader({
     title,
     count,
     onBack,
     backLabel,
     trailing,
+    onToggle,
     tone = 'default',
     className,
 }: {
@@ -55,6 +57,9 @@ export function ListHeader({
     onBack?: () => void;
     backLabel?: string;
     trailing?: React.ReactNode;
+    /** when set, the whole header row becomes a button that calls this (collapses the panel),
+     *  rendering a ▼ on the right; takes precedence over `trailing`. */
+    onToggle?: () => void;
     /** 'brand' switches to light text, for sitting over an intense gradient / dark fill */
     tone?: 'default' | 'brand';
     /** extra classes on the header row (e.g. the gradient background) */
@@ -62,8 +67,9 @@ export function ListHeader({
 }) {
     const t = useTranslations('landingV2');
     const brand = tone === 'brand';
-    return (
-        <div className={cn('flex shrink-0 items-center justify-between gap-2 px-4 py-3', className)}>
+    const rowClass = cn('flex shrink-0 items-center justify-between gap-2 px-4 py-3', className);
+    const inner = (
+        <>
             <div className="flex min-w-0 items-center gap-1.5">
                 {onBack && (
                     <button
@@ -94,8 +100,26 @@ export function ListHeader({
                     )}
                 </h2>
             </div>
-            {trailing}
-        </div>
+            {onToggle ? (
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            ) : (
+                trailing
+            )}
+        </>
+    );
+    // The whole header row toggles the panel when `onToggle` is set (mobile); otherwise it's a
+    // plain, non-interactive row (desktop puts its own control in `trailing`).
+    return onToggle ? (
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-label={t('nav.collapse')}
+            className={cn(rowClass, 'w-full text-left transition-colors hover:bg-background/40')}
+        >
+            {inner}
+        </button>
+    ) : (
+        <div className={rowClass}>{inner}</div>
     );
 }
 

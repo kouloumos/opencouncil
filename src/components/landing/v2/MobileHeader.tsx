@@ -15,7 +15,7 @@ export function MobileHeader({ onOpenSearch }: { onOpenSearch: () => void }) {
     const t = useTranslations('landingV2');
     const { data: session, status } = useSession();
     return (
-        <div className="absolute inset-x-3 top-3 z-[9] flex items-center gap-1.5 rounded-2xl border border-border bg-card px-2 py-1.5 shadow-sm">
+        <div className="absolute inset-x-3 top-3 z-[9] flex items-center gap-1.5 rounded-2xl border border-black/40 bg-card px-2 py-1.5 shadow-sm">
             <Sheet>
                 <SheetTrigger asChild>
                     <button

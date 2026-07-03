@@ -97,17 +97,13 @@ export function MobileLayout({
             {/* full-screen list views over the map */}
             {showList && view === 'subjects' && (
                 <section
-                    style={{
-                        backgroundImage:
-                            'linear-gradient(to bottom, color-mix(in srgb, hsl(var(--orange)) 10%, hsl(var(--muted))), hsl(var(--muted)) 55%)',
-                    }}
-                    className="absolute inset-x-3 bottom-[64px] top-[76px] z-[8] flex flex-col overflow-hidden rounded-2xl border border-border bg-muted shadow-xl"
+                    className="absolute inset-x-3 bottom-[64px] top-[76px] z-[8] flex flex-col overflow-hidden rounded-2xl border border-black/40 bg-muted shadow-xl"
                 >
                     <ListHeader
                         title={t('nav.subjects')}
                         count={trending.length}
                         className="bg-card"
-                        trailing={<CollapsePanelButton onClick={() => setListCollapsed(true)} />}
+                        onToggle={() => setListCollapsed(true)}
                     />
                     <SubjectList
                         subjects={trending}
@@ -136,17 +132,13 @@ export function MobileLayout({
 
             {showList && view === 'municipalities' && (
                 <section
-                    style={{
-                        backgroundImage:
-                            'linear-gradient(to bottom, color-mix(in srgb, hsl(var(--orange)) 10%, hsl(var(--muted))), hsl(var(--muted)) 55%)',
-                    }}
-                    className="absolute inset-x-3 bottom-[64px] top-[76px] z-[8] flex flex-col overflow-hidden rounded-2xl border border-border bg-muted shadow-xl"
+                    className="absolute inset-x-3 bottom-[64px] top-[76px] z-[8] flex flex-col overflow-hidden rounded-2xl border border-black/40 bg-muted shadow-xl"
                 >
                     <ListHeader
                         title={t('nav.municipalities')}
                         count={cities.length}
                         className="bg-card"
-                        trailing={<CollapsePanelButton onClick={() => setListCollapsed(true)} />}
+                        onToggle={() => setListCollapsed(true)}
                     />
                     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-4">
                         <MunicipalitiesList cities={cities} subjectCountByCity={subjectCountByCity} upcoming={upcoming} />
@@ -191,7 +183,7 @@ export function MobileLayout({
             )}
 
             {/* bottom view switcher */}
-            <MobileViewSwitch view={view} onSelect={selectTab} />
+            <MobileViewSwitch view={view} collapsed={listCollapsed} onSelect={selectTab} />
 
             {searchMode && (
                 <MobileSearchOverlay
@@ -223,24 +215,18 @@ export function MobileLayout({
     );
 }
 
-/* collapse control at the right end of a list-panel header — closes the panel back to the map */
-function CollapsePanelButton({ onClick }: { onClick: () => void }) {
-    const t = useTranslations('landingV2');
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label={t('common.close')}
-            className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground"
-        >
-            <ChevronDown className="h-5 w-5" />
-        </button>
-    );
-}
-
 /* bottom-center floating switcher — Θέματα (subject pins) / Δήμοι (logo markers). Each tab opens
    its list over its own map; re-tapping the active tab collapses the list to reveal that map. */
-function MobileViewSwitch({ view, onSelect }: { view: LandingView; onSelect: (v: LandingView) => void }) {
+function MobileViewSwitch({
+    view,
+    collapsed,
+    onSelect,
+}: {
+    view: LandingView;
+    /** the active tab's list is collapsed → show a ▼ on it (tap to expand the list back up) */
+    collapsed: boolean;
+    onSelect: (v: LandingView) => void;
+}) {
     const t = useTranslations('landingV2');
     const items: { v: LandingView; icon: typeof MapIcon }[] = [
         { v: 'subjects', icon: MapIcon },
@@ -248,7 +234,7 @@ function MobileViewSwitch({ view, onSelect }: { view: LandingView; onSelect: (v:
     ];
     return (
         <div className="absolute bottom-[9px] left-1/2 z-[10] -translate-x-1/2">
-            <div className="flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-lg">
+            <div className="flex items-center gap-1 rounded-full border border-black/40 bg-card p-1 shadow-lg">
                 {items.map(({ v, icon: Icon }) => {
                     const active = view === v;
                     return (
@@ -265,6 +251,7 @@ function MobileViewSwitch({ view, onSelect }: { view: LandingView; onSelect: (v:
                         >
                             <Icon className="h-4 w-4" />
                             {t(`nav.${v}`)}
+                            {active && collapsed && <ChevronDown className="h-4 w-4 opacity-80" />}
                         </button>
                     );
                 })}
