@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Landmark, ArrowRight, LocateFixed, X, Home, Map as MapIcon } from 'lucide-react';
+import { Landmark, ArrowRight, LocateFixed, X, Map as MapIcon, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
@@ -89,8 +89,6 @@ export function MobileLayout({
                     <ListHeader
                         title={t('nav.subjects')}
                         count={trending.length}
-                        onBack={() => changeView('home')}
-                        backLabel={t('nav.backToMap')}
                         className="bg-card"
                     />
                     <SubjectList
@@ -129,8 +127,6 @@ export function MobileLayout({
                     <ListHeader
                         title={t('nav.municipalities')}
                         count={cities.length}
-                        onBack={() => changeView('home')}
-                        backLabel={t('nav.backToMap')}
                         className="bg-card"
                     />
                     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4 pt-4">
@@ -208,11 +204,11 @@ export function MobileLayout({
     );
 }
 
-/* bottom-center floating switcher — Αρχική (map) / Θέματα (list) / Δήμοι (list) */
+/* bottom-center floating switcher — Θέματα (list) / Δήμοι (list). Each tab opens its panel over
+   the map; tapping the already-open tab (its ▼) closes the panel back to the map ('home'). */
 function MobileViewSwitch({ view, onChange }: { view: LandingView; onChange: (v: LandingView) => void }) {
     const t = useTranslations('landingV2');
-    const items: { v: LandingView; icon: typeof Home }[] = [
-        { v: 'home', icon: Home },
+    const items: { v: LandingView; icon: typeof MapIcon }[] = [
         { v: 'subjects', icon: MapIcon },
         { v: 'municipalities', icon: Landmark },
     ];
@@ -225,15 +221,18 @@ function MobileViewSwitch({ view, onChange }: { view: LandingView; onChange: (v:
                         <button
                             key={v}
                             type="button"
-                            onClick={() => onChange(v)}
+                            // Tapping the open tab collapses it back to the map.
+                            onClick={() => onChange(active ? 'home' : v)}
                             aria-pressed={active}
+                            aria-expanded={active}
                             className={cn(
-                                'flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors',
-                                active ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                                'flex items-center gap-1.5 rounded-full py-2 pl-3.5 text-sm font-semibold transition-colors',
+                                active ? 'bg-foreground pr-2.5 text-background' : 'pr-3.5 text-muted-foreground hover:text-foreground',
                             )}
                         >
                             <Icon className="h-4 w-4" />
                             {t(`nav.${v}`)}
+                            {active && <ChevronDown className="h-4 w-4 opacity-80" />}
                         </button>
                     );
                 })}
