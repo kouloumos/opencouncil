@@ -219,10 +219,11 @@ export type InitialUrlState = {
  * Resolve the initial landing state from the URL query string (client-only, run once on
  * mount). Applies the deep-link rules: a `?subject=` forces the 'subjects' view and widens
  * the range to all-time (the subject may sit outside the default window) unless the URL
- * pins an explicit range; with no view/subject, mobile opens on 'home' and desktop on
- * 'subjects'. Absent params fall back to the defaults (empty cats/query, DEFAULT_RANGE, …).
+ * pins an explicit range; with no view/subject, both mobile and desktop open on 'subjects'
+ * (mobile starts with the list collapsed — see MobileLayout). Absent params fall back to the
+ * defaults (empty cats/query, DEFAULT_RANGE, …).
  */
-export function parseInitialUrlState(search: string, isMobile: boolean): InitialUrlState {
+export function parseInitialUrlState(search: string): InitialUrlState {
     const p = new URLSearchParams(search);
     const subject = p.get('subject');
 
@@ -230,7 +231,6 @@ export function parseInitialUrlState(search: string, isMobile: boolean): Initial
     let view: LandingView;
     if (subject) view = 'subjects';
     else if (viewParam === 'home' || viewParam === 'subjects' || viewParam === 'municipalities') view = viewParam;
-    else if (isMobile) view = 'home';
     else view = 'subjects';
 
     const catParam = p.get('cat');

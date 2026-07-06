@@ -90,17 +90,17 @@ export function LandingV2() {
     // the common desktop view has no layout flash; mobile flips in after hydration.
     const isMobile = useMediaQuery('(max-width: 1023px)');
 
-    // Desktop has no 'home' tab — mobile does. When the viewport crosses the breakpoint, remap
-    // the shared view so the target layout lands on the equivalent tab: the map-first view is
-    // 'subjects' on desktop and 'home' on mobile (municipalities maps 1:1). The first run (mount)
-    // is skipped — parseInitialUrlState already picks the right per-device view.
+    // The map-first view is 'subjects' on both layouts; desktop just has no 'home' tab. When the
+    // viewport crosses the breakpoint, map any stray 'home' (a mobile-only leftover, e.g. from
+    // selecting a subject) onto 'subjects' for desktop; mobile keeps the view as-is. The first
+    // run (mount) is skipped — parseInitialUrlState already picks the right view.
     const layoutSyncedRef = useRef(false);
     useEffect(() => {
         if (!layoutSyncedRef.current) {
             layoutSyncedRef.current = true;
             return;
         }
-        setView((v) => (isMobile ? (v === 'subjects' ? 'home' : v) : v === 'home' ? 'subjects' : v));
+        setView((v) => (isMobile ? v : v === 'home' ? 'subjects' : v));
     }, [isMobile]);
 
     // When subject data/pins are "active" — drives the lazy fetch + the map's subject layer.
@@ -170,7 +170,7 @@ export function LandingV2() {
     // Restore the selected subject + filters from the URL on first mount (client-only, so it
     // doesn't run during SSR and cause a hydration mismatch).
     useEffect(() => {
-        const init = parseInitialUrlState(window.location.search, window.matchMedia('(max-width: 1023px)').matches);
+        const init = parseInitialUrlState(window.location.search);
         setSelectedId(init.selectedId);
         // a deep-linked subject pans/zooms in once the data + map are ready (see below)
         if (init.selectedId) restoreSubjectRef.current = init.selectedId;
@@ -191,7 +191,7 @@ export function LandingV2() {
             return;
         }
         const p = new URLSearchParams();
-        if (view !== 'home') p.set('view', view);
+        if (view !== 'subjects') p.set('view', view);
         if (selectedId) p.set('subject', selectedId);
         if (cats.length) p.set('cat', cats.join(','));
         if (query.trim()) p.set('q', query.trim());

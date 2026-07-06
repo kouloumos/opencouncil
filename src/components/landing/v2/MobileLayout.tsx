@@ -61,8 +61,9 @@ export function MobileLayout({
     const [searchMode, setSearchMode] = useState<'search' | 'filters' | null>(null);
     // Whether the active tab's list is collapsed. Collapsing keeps the tab's view (and its map
     // layer — subject pins for 'subjects', logo markers for 'municipalities') and just hides the
-    // list panel, so the user can inspect that tab's map underneath.
-    const [listCollapsed, setListCollapsed] = useState(false);
+    // list panel, so the user can inspect that tab's map underneath. Starts collapsed: the mobile
+    // landing opens on the subjects map with the Θέματα tab active but its list closed.
+    const [listCollapsed, setListCollapsed] = useState(true);
 
     // Switch the bottom-nav view; the municipalities map drops any selected subject.
     const changeView = (v: LandingView) => {
