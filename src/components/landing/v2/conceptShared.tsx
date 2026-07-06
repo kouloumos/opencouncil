@@ -91,7 +91,7 @@ export function ListHeader({
                     {count != null && (
                         <span
                             className={cn(
-                                'ml-1.5 font-mono text-sm font-semibold tabular-nums',
+                                'ml-1.5 align-baseline font-mono text-xl font-semibold tabular-nums',
                                 brand ? 'text-muted-foreground' : 'text-muted-foreground',
                             )}
                         >

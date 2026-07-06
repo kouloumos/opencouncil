@@ -47,7 +47,7 @@ function MuniPanelCard({
 }) {
     const t = useTranslations('landingV2');
     return (
-        <div className="group flex shrink-0 flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-foreground/20">
+        <div className="group flex shrink-0 flex-col gap-3 rounded-2xl border border-black/40 bg-card p-4 shadow-sm transition-colors hover:border-black/60">
             <div className="flex items-center gap-2.5">
                 <Link
                     href={`/${city.id}`}

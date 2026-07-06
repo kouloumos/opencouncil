@@ -92,7 +92,7 @@ export function DesktopLayout({
                 {panelOpen && (
                     <div className="flex w-[400px] flex-col">
                         <ListHeader
-                            title={view === 'home' ? 'OpenCouncil' : view === 'subjects' ? t('nav.subjectsNearYou') : t('nav.municipalities')}
+                            title={view === 'home' ? 'OpenCouncil' : view === 'subjects' ? t('nav.subjects') : t('nav.municipalities')}
                             count={view === 'subjects' ? count : view === 'municipalities' ? cities.length : undefined}
                             className="bg-card"
                             trailing={
@@ -144,7 +144,7 @@ export function DesktopLayout({
                 <div className={`pointer-events-none absolute right-4 top-4 z-[6] flex flex-col gap-3 ${floatLeft}`}>
                     {/* z-20 keeps the search dropdown above the category row below it */}
                     <div className="pointer-events-auto relative z-20 flex items-center gap-2.5">
-                        <div className="w-full max-w-[720px]">
+                        <div className="min-w-0 flex-1">
                             <DesktopSearch
                                 topics={topics}
                                 cities={cities}

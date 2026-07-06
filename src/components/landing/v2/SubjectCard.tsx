@@ -21,7 +21,7 @@ export function SubjectPageLink({
 }) {
     const t = useTranslations('landingV2');
     const cls = cn(
-        'inline-flex items-center gap-1 text-[13px] font-semibold text-[hsl(var(--orange))] underline',
+        'inline-flex w-fit items-center gap-1 self-start text-[13px] font-semibold text-[hsl(var(--orange))] underline',
         className,
     );
     const label = (
@@ -145,21 +145,28 @@ export function SubjectCard({
                     )}
                     <h3
                         className={cn(
-                            'min-w-0 font-bold leading-snug text-foreground',
-                            preview ? 'pr-7 text-lg leading-tight' : 'text-balance text-base',
+                            'min-w-0 text-lg font-bold leading-tight text-foreground',
+                            preview ? 'pr-7' : 'text-balance',
                         )}
                     >
                         {subject.title}
                     </h3>
                 </div>
 
-                {/* date + location grouped in a soft gray panel (expanded card) */}
+                {/* duration + admin body + date + location grouped in a soft gray panel */}
                 <div className={cn('flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5')}>
                     {subject.durationMin > 0 && (
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                             <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
                                 <Clock className="h-3 w-3" /> {t('subject.discussionMinutes', { min: subject.durationMin })}
                             </span>
+                        </div>
+                    )}
+                    {/* administrative body — second row, non-bold */}
+                    {subject.bodyName && (
+                        <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
+                            <Landmark className="h-3.5 w-3.5 shrink-0" />
+                            <span className="min-w-0">{subject.bodyName}</span>
                         </div>
                     )}
                     {/* date on its own line, below */}
@@ -169,16 +176,10 @@ export function SubjectCard({
                         </div>
                     )}
 
-                    {(locationLine || subject.bodyName) && (
+                    {locationLine && (
                         <div className="flex items-start gap-1 text-xs font-medium text-foreground/80">
                             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                            <span className="min-w-0">
-                                {locationLine}
-                                {locationLine && subject.bodyName ? ' · ' : ''}
-                                {subject.bodyName && (
-                                    <span className="font-semibold text-foreground/80">{subject.bodyName}</span>
-                                )}
-                            </span>
+                            <span className="min-w-0">{locationLine}</span>
                         </div>
                     )}
                 </div>
