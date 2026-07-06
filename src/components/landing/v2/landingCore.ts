@@ -41,7 +41,6 @@ export type FlyTarget = GeoJSON.Geometry | null;
 
 /** Date-range options for subject filtering — days first, months for the long view. */
 export const DATE_RANGES = [
-    { key: '7d', label: '7 ημέρες', menuLabel: 'Τελευταίες 7 ημέρες', query: 'daysBack=7' },
     { key: '14d', label: '14 ημέρες', menuLabel: 'Τελευταίες 14 ημέρες', query: 'daysBack=14' },
     { key: '30d', label: '30 ημέρες', menuLabel: 'Τελευταίες 30 ημέρες', query: 'daysBack=30' },
     { key: '3m', label: '3 μήνες', menuLabel: 'Τελευταίοι 3 μήνες', query: 'monthsBack=3' },
@@ -50,9 +49,9 @@ export const DATE_RANGES = [
     { key: 'all', label: 'Όλο το διάστημα', menuLabel: 'Όλο το διάστημα', query: 'allTime=true' },
 ] as const;
 export type DateRangeKey = (typeof DATE_RANGES)[number]['key'];
-export const DEFAULT_RANGE: DateRangeKey = '7d';
+export const DEFAULT_RANGE: DateRangeKey = '14d';
 
-/** Widen the quick date range by two steps (7d → 30d, 14d → 3m, …), clamped at the widest. */
+/** Widen the quick date range by two steps (14d → 3m, 30d → 6m, …), clamped at the widest. */
 export function widenRange(current: DateRangeKey): DateRangeKey {
     const i = DATE_RANGES.findIndex((r) => r.key === current);
     const next = Math.min((i < 0 ? 0 : i) + 2, DATE_RANGES.length - 1);

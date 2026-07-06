@@ -153,20 +153,13 @@ export function SubjectCard({
                     </h3>
                 </div>
 
-                {/* duration + admin body + date + location grouped in a soft gray panel */}
+                {/* duration + date + location + admin body grouped in a soft gray panel */}
                 <div className={cn('flex flex-col gap-1.5 rounded-xl bg-muted/60 px-3 py-2.5')}>
                     {subject.durationMin > 0 && (
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                             <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
                                 <Clock className="h-3 w-3" /> {t('subject.discussionMinutes', { min: subject.durationMin })}
                             </span>
-                        </div>
-                    )}
-                    {/* administrative body — second row, non-bold */}
-                    {subject.bodyName && (
-                        <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
-                            <Landmark className="h-3.5 w-3.5 shrink-0" />
-                            <span className="min-w-0">{subject.bodyName}</span>
                         </div>
                     )}
                     {/* date on its own line, below */}
@@ -180,6 +173,14 @@ export function SubjectCard({
                         <div className="flex items-start gap-1 text-xs font-medium text-foreground/80">
                             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                             <span className="min-w-0">{locationLine}</span>
+                        </div>
+                    )}
+
+                    {/* administrative body — bottom row, non-bold */}
+                    {subject.bodyName && (
+                        <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
+                            <Landmark className="h-3.5 w-3.5 shrink-0" />
+                            <span className="min-w-0">{subject.bodyName}</span>
                         </div>
                     )}
                 </div>
