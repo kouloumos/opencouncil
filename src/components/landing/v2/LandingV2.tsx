@@ -19,6 +19,7 @@ import {
     useSubjectMarkers,
 } from './hooks/useMapMarkers';
 import { useMapPopups } from './hooks/useMapPopups';
+import { captureLanding, captureLandingAction, setLandingContext } from './analytics';
 import {
     detectMunicipalityQuery,
     type CenterMunicipality,
@@ -103,6 +104,11 @@ export function LandingV2() {
         setView((v) => (isMobile ? v : v === 'home' ? 'subjects' : v));
     }, [isMobile]);
 
+    // Keep the analytics context in sync so every landing_* event carries device + view.
+    useEffect(() => {
+        setLandingContext({ device: isMobile ? 'mobile' : 'desktop', view });
+    }, [isMobile, view]);
+
     // When subject data/pins are "active" — drives the lazy fetch + the map's subject layer.
     // Both the subjects view and the map-first 'home' show subject pins (on desktop 'home' is
     // the 'subjects' experience), so subject data loads for either; municipalities doesn't.
@@ -179,6 +185,20 @@ export function LandingV2() {
         setQuery(init.query);
         setRange(init.range);
         setFilters(init.filters);
+        setLandingContext({ view: init.view });
+        captureLanding('viewed', {
+            view: init.view,
+            range: init.range,
+            has_query: !!init.query.trim(),
+            has_filters:
+                init.cats.length > 0 ||
+                init.filters.cityIds.length > 0 ||
+                init.filters.bodyTypes.length > 0 ||
+                init.filters.dateFrom != null ||
+                init.filters.dateTo != null ||
+                init.filters.minDuration != null,
+            deep_linked_subject: !!init.selectedId,
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -421,17 +441,51 @@ export function LandingV2() {
         />
     );
 
+    // Analytics-tracked wrappers — used ONLY in layoutProps, so the internal setState calls above
+    // (URL restore, breakpoint remap, deep-link selection) stay untracked; only user actions fire.
+    const trackedSetView = (v: LandingView) => {
+        if (v !== view) captureLandingAction('view_changed', { to: v });
+        setView(v);
+    };
+    const trackedToggleCat = (id: string) => {
+        captureLandingAction('filter', { type: 'topic', topic_id: id, active: !cats.includes(id) });
+        onToggleCat(id);
+    };
+    const trackedSetRange = (v: DateRangeKey) => {
+        captureLandingAction('filter', { type: 'range', value: v });
+        setRange(v);
+    };
+    const trackedSetFilters = (next: MapFilters) => {
+        captureLandingAction('filter', {
+            type: 'pane',
+            city_count: next.cityIds.length,
+            body_types: next.bodyTypes,
+            date_from: next.dateFrom ?? null,
+            date_to: next.dateTo ?? null,
+            min_duration: next.minDuration ?? null,
+        });
+        setFilters(next);
+    };
+    const trackedZoomIn = () => {
+        captureLandingAction('map_zoom', { direction: 'in', method: 'button' });
+        zoomIn();
+    };
+    const trackedZoomOut = () => {
+        captureLandingAction('map_zoom', { direction: 'out', method: 'button' });
+        zoomOut();
+    };
+
     const layoutProps: LayoutProps = {
         // desktop has no 'home' tab → render 'home' as its 'subjects' split; mobile keeps all three
         view: isMobile ? view : desktopView(view),
-        setView,
+        setView: trackedSetView,
         cats,
-        onToggleCat,
+        onToggleCat: trackedToggleCat,
         onClearCats: clearCats,
         range,
-        setRange,
+        setRange: trackedSetRange,
         filters,
-        setFilters,
+        setFilters: trackedSetFilters,
         query,
         setQuery,
         queryKind,
@@ -464,8 +518,8 @@ export function LandingV2() {
         toggleMapStyle,
         locate,
         onLocateAddress: locateAddress,
-        zoomIn,
-        zoomOut,
+        zoomIn: trackedZoomIn,
+        zoomOut: trackedZoomOut,
         explainOpen,
         onCloseExplain: () => setExplainOpen(false),
         displayedMunicipality,

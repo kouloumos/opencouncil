@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/formatters/time';
 import type { MunicipalityInterest, UpcomingMeeting } from './landingData';
+import { captureLanding, captureLandingAction } from './analytics';
 
 /* delayed prompt nudging an anonymous, interested visitor toward notifications
    (in-network) or a petition to add their municipality (out-of-network) */
@@ -70,16 +71,35 @@ export function NotifyPrompt({
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:gap-3">
                     {known ? (
                         <Button asChild size="lg" className="sm:flex-1">
-                            <Link href={`/${interest.cityId}/notifications`}>
+                            <Link
+                                href={`/${interest.cityId}/notifications`}
+                                onClick={() =>
+                                    captureLandingAction('notify_cta', { surface: 'popup', city_id: interest.cityId })
+                                }
+                            >
                                 <Bell className="h-4 w-4 mr-2" /> {t('notify.enable')}
                             </Link>
                         </Button>
                     ) : (
                         <Button asChild size="lg" className="sm:flex-1">
-                            <Link href="/petition">{t('common.requestToAdd')}</Link>
+                            <Link
+                                href="/petition"
+                                onClick={() =>
+                                    captureLandingAction('petition_started', { source: 'popup', city_name: interest.name })
+                                }
+                            >
+                                {t('common.requestToAdd')}
+                            </Link>
                         </Button>
                     )}
-                    <Button variant="ghost" size="lg" onClick={onOptOut}>
+                    <Button
+                        variant="ghost"
+                        size="lg"
+                        onClick={() => {
+                            captureLanding('notify_opt_out', { surface: 'popup' });
+                            onOptOut();
+                        }}
+                    >
                         {t('notify.notNow')}
                     </Button>
                 </div>

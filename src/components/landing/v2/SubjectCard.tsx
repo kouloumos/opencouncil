@@ -7,19 +7,29 @@ import { cn } from '@/lib/utils';
 import Icon from '@/components/icon';
 import { formatDate } from '@/lib/formatters/time';
 import { subjectLocationLine, type LandingSubject } from './landingData';
+import { captureLandingAction } from './analytics';
 
 /* "view the subject's page" affordance. A real Link by default; when `onView` is given it
-   renders a button instead — for contexts without router context (e.g. a Mapbox popup). */
+   renders a button instead — for contexts without router context (e.g. a Mapbox popup).
+   `source` records where the subject page was opened from (list vs map preview). */
 export function SubjectPageLink({
     href,
     onView,
+    source,
+    subjectId,
+    cityId,
     className,
 }: {
     href?: string;
     onView?: () => void;
+    source?: 'list' | 'map_preview';
+    subjectId?: string;
+    cityId?: string;
     className?: string;
 }) {
     const t = useTranslations('landingV2');
+    const track = () =>
+        captureLandingAction('subject_opened', { source: source ?? null, subject_id: subjectId, city_id: cityId });
     const cls = cn(
         'inline-flex w-fit items-center gap-1 self-start text-[13px] font-semibold text-[hsl(var(--orange))] underline',
         className,
@@ -35,6 +45,7 @@ export function SubjectPageLink({
                 type="button"
                 onClick={(e) => {
                     e.stopPropagation();
+                    track();
                     onView();
                 }}
                 className={cls}
@@ -44,7 +55,14 @@ export function SubjectPageLink({
         );
     }
     return (
-        <Link href={href!} onClick={(e) => e.stopPropagation()} className={cls}>
+        <Link
+            href={href!}
+            onClick={(e) => {
+                e.stopPropagation();
+                track();
+            }}
+            className={cls}
+        >
             {label}
         </Link>
     );
@@ -203,7 +221,14 @@ export function SubjectCard({
                     </p>
                 )}
 
-                <SubjectPageLink href={subject.href} onView={onView} className={preview ? 'mt-0.5' : 'mt-1 underline'} />
+                <SubjectPageLink
+                    href={subject.href}
+                    onView={onView}
+                    source={preview ? 'map_preview' : 'list'}
+                    subjectId={subject.id}
+                    cityId={subject.cityId}
+                    className={preview ? 'mt-0.5' : 'mt-1 underline'}
+                />
             </div>
         </div>
     );

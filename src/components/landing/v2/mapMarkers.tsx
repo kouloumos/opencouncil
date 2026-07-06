@@ -12,6 +12,7 @@ type TFn = (key: string, values?: Record<string, string | number>) => string;
 import type { LandingGeneralCity, LandingMapCity, LandingSubject } from './landingData';
 import { CLUSTER_THRESHOLD, clusterCellDegrees, stylePin, type SubjectPin } from './landingCore';
 import { SubjectCard } from './SubjectCard';
+import { captureLandingAction } from './analytics';
 import { computeDonutSegments, donutDiameter, donutSegmentIcons, donutSvg } from './donut';
 
 /**
@@ -135,7 +136,10 @@ export function MunicipalityTooltip({
                     <p className="text-sm text-muted-foreground">{t('municipalityTooltip.body')}</p>
                     <button
                         type="button"
-                        onClick={onView}
+                        onClick={() => {
+                            captureLandingAction('petition_started', { source: 'map', city_name: name });
+                            onView();
+                        }}
                         className="mt-0.5 inline-flex items-center gap-1 text-[13px] font-semibold text-[hsl(var(--orange))] underline"
                     >
                         {t('common.requestToAdd')} <ArrowRight className="h-3.5 w-3.5" />

@@ -15,6 +15,7 @@ import {
 import { hasActiveFilters, SEARCH_FIELD_STYLE, type MapFilters } from './landingCore';
 import { FilterIconButton } from './controls';
 import { SearchBody } from './SearchBody';
+import { captureLandingAction } from './analytics';
 
 /* The search field itself (icon · input · clear), shared by the desktop dropdown and the
    mobile overlay so both look and behave identically. Enter applies a matched category /
@@ -73,6 +74,10 @@ function SearchField({
                     // anything else is geocoded as an address and the map flies there.
                     const catId = detectCategoryQuery(query, topics);
                     const municipality = detectMunicipalityQuery(query, cities);
+                    captureLandingAction('search', {
+                        query_length: query.trim().length,
+                        kind: catId ? 'category' : municipality?.kind === 'known' ? 'municipality' : 'address',
+                    });
                     if (catId) {
                         if (!cats.includes(catId)) onToggleCat(catId);
                         onQueryChange('');

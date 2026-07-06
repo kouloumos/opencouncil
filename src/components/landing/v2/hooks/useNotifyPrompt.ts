@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MunicipalityInterest, UpcomingMeeting } from '../landingData';
+import { captureLanding } from '../analytics';
 
 type Args = {
     /** the municipality the visitor seems interested in (filter / search / clicked subject) */
@@ -50,6 +51,21 @@ export function useNotifyPrompt({ interested, upcoming, sessionStatus }: Args): 
 
     const showNotifyPrompt =
         elapsed && !dismissed && !optedOut && sessionStatus !== 'authenticated' && interested !== null;
+
+    // Fire once when the prompt first becomes visible — the funnel's entry step. `seconds_since_load`
+    // records how long the visitor browsed before it appeared (the timer is ~4 min today).
+    const promptShownRef = useRef(false);
+    useEffect(() => {
+        if (showNotifyPrompt && !promptShownRef.current) {
+            promptShownRef.current = true;
+            captureLanding('notify_prompt_shown', {
+                city_id: interested?.kind === 'known' ? interested.cityId : null,
+                municipality_kind: interested?.kind ?? null,
+                seconds_since_load: Math.round(performance.now() / 1000),
+            });
+        }
+    }, [showNotifyPrompt, interested]);
+
     const nextMeeting =
         interested?.kind === 'known' ? upcoming.find((m) => m.cityId === interested.cityId) : undefined;
 

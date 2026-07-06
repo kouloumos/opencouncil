@@ -142,7 +142,7 @@ export function SearchBody({
             <>
                 {unknownMunicipality && (
                     <div className="mb-3">
-                        <PetitionCta unknownName={unknownMunicipality} />
+                        <PetitionCta unknownName={unknownMunicipality} source="search" />
                     </div>
                 )}
                 {matchedTopic && (

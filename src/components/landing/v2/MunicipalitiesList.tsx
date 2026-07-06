@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/formatters/time';
 import type { LandingCity, UpcomingMeeting } from './landingData';
 import { CityAvatar } from './controls';
+import { captureLandingAction } from './analytics';
 
 /* The Δήμοι tab content — one card per municipality + a petition CTA. Shared by the
    desktop panel and the mobile sheet. */
@@ -30,7 +31,7 @@ export function MunicipalitiesList({
                     next={upcoming.find((m) => m.cityId === c.id)}
                 />
             ))}
-            <PetitionCta big />
+            <PetitionCta big source="municipalities_list" />
         </>
     );
 }
@@ -67,6 +68,7 @@ function MuniPanelCard({
                     <Link
                         href={`/${city.id}/notifications`}
                         aria-label={next ? t('municipality.notifyMeeting', { name: city.name }) : t('municipality.notify', { name: city.name })}
+                        onClick={() => captureLandingAction('notify_cta', { surface: 'municipalities_list', city_id: city.id })}
                     >
                         <Bell className="h-3.5 w-3.5" />
                     </Link>
@@ -115,11 +117,21 @@ function MuniStat({ label, value }: { label: string; value: number }) {
 /* petition CTA — closes the Δήμοι tab (`big`) and also surfaces in the search results
    when the visitor looks up a municipality we don't cover yet (`unknownName` tailors
    the copy). Links to the petition page either way. */
-export function PetitionCta({ unknownName, big }: { unknownName?: string; big?: boolean }) {
+export function PetitionCta({
+    unknownName,
+    big,
+    source,
+}: {
+    unknownName?: string;
+    big?: boolean;
+    /** where the CTA lives, for the petition-entry analytics event */
+    source: 'municipalities_list' | 'search';
+}) {
     const t = useTranslations('landingV2');
     return (
         <Link
             href="/petition"
+            onClick={() => captureLandingAction('petition_started', { source, city_name: unknownName ?? null })}
             className={cn(
                 'flex shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background text-center font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground',
                 big ? 'gap-3 px-6 py-6 text-base' : 'px-4 py-3 text-sm',
