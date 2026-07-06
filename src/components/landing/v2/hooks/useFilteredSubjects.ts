@@ -16,7 +16,18 @@ import {
     type QueryKind,
 } from '../landingData';
 import { NEAREST_FALLBACK, type MapFilters } from '../landingCore';
-import { rankLandingSubjects } from '../ranking';
+import { sortByRanking, type RankableSubject } from '@/lib/ranking/subjects';
+
+// Adapt a landing subject into the shared ranker's input. The discussion signal is the
+// rounded discussion minutes (the only magnitude the landing API exposes), log-damped by
+// the ranker; `where` is the location text, so a non-empty one means the subject is located.
+const toRankable = (s: LandingSubject): RankableSubject => ({
+    cityId: s.cityId,
+    meetingDate: s.date,
+    contributionCount: s.durationMin,
+    adminBodyType: s.adminBodyType,
+    hasLocation: !!s.where.trim(),
+});
 
 // Non-located subjects appear in the list only while zoomed out below this level.
 const NONLOCATED_MAX_ZOOM = 14;
@@ -139,8 +150,8 @@ export function useFilteredSubjects({
             .filter((city) => city.subjects.length > 0);
     }, [generalCities, cats, query, queryKind, filters.minDuration]);
     // Importance-ranked (recency + discussion + small-municipality + όργανο + location
-    // bonuses — see rankLandingSubjects), z-scored over the current visible set.
-    const ordered = useMemo(() => rankLandingSubjects(visibleSubjects), [visibleSubjects]);
+    // bonuses — see @/lib/ranking/subjects), z-scored over the current visible set.
+    const ordered = useMemo(() => sortByRanking(visibleSubjects, toRankable), [visibleSubjects]);
 
     // Non-located subjects can also be selected (from a city-hall box) into the list, so
     // selection lookups search the located subjects first, then the general ones.
@@ -149,7 +160,7 @@ export function useFilteredSubjects({
     // out — importance-ranked the same way as the located ones (they land after them in the
     // list, so the location bonus surfaces as located-first).
     const visibleGeneralSubjects = useMemo(
-        () => rankLandingSubjects(visibleGeneralCities.flatMap((c) => c.subjects)),
+        () => sortByRanking(visibleGeneralCities.flatMap((c) => c.subjects), toRankable),
         [visibleGeneralCities],
     );
     const findSubject = (id: string): LandingSubject | null =>
