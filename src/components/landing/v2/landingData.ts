@@ -10,28 +10,10 @@
 import type { AdministrativeBodyType } from '@prisma/client';
 import { stripReferences } from '@/lib/utils/references';
 
-/** Row returned by GET /api/map/subjects (see src/app/api/map/subjects/route.ts). */
-export type MapSubject = {
-    id: string;
-    name: string;
-    description: string;
-    cityId: string;
-    councilMeetingId: string;
-    meetingDate?: string;
-    meetingName?: string;
-    bodyName?: string | null;
-    /** administrative body type (council/committee/community) — drives ranking */
-    adminBodyType?: AdministrativeBodyType | null;
-    locationText?: string;
-    locationType?: string;
-    topicId?: string | null;
-    topicName?: string;
-    topicColor: string;
-    topicIcon?: string | null;
-    discussionTimeSeconds?: number;
-    speakerCount?: number;
-    geometry: GeoJSON.Geometry;
-};
+// Row returned by GET /api/map/subjects — the wire shape is defined ONCE in the db layer
+// (getMapSubjects) and imported here, so route + client can't drift. See src/lib/db/subject.ts.
+import type { MapSubjectRow } from '@/lib/db/subject';
+export type MapSubject = MapSubjectRow;
 
 /** Subset of GET /api/cities (CityWithCounts, JSON-serialized) that the landing uses. */
 export type LandingCity = {
@@ -100,25 +82,10 @@ export type LandingSubject = {
     href: string;
 };
 
-/** GET /api/map/general-subjects — non-located subjects grouped per municipality, with
- *  the city centroid so the map can show one "general subjects" (city-hall) marker. */
-export type GeneralSubjectRow = {
-    id: string;
-    name: string;
-    description: string;
-    cityId: string;
-    councilMeetingId: string;
-    meetingDate?: string;
-    meetingName?: string;
-    bodyName?: string | null;
-    adminBodyType?: AdministrativeBodyType | null;
-    topicId?: string | null;
-    topicName?: string;
-    topicColor: string;
-    topicIcon?: string | null;
-    discussionTimeSeconds?: number;
-    speakerCount?: number;
-};
+/** GET /api/map/general-subjects — non-located subjects grouped per municipality. It's the
+ *  same subject wire row without the map-pin-only fields, so it derives from MapSubject
+ *  rather than restating 15 fields (they drift otherwise). */
+export type GeneralSubjectRow = Omit<MapSubject, 'geometry' | 'locationText' | 'locationType'>;
 export type GeneralCityRow = {
     cityId: string;
     cityName: string;

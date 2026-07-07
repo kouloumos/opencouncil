@@ -1,224 +1,35 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/db/prisma'
-import { Prisma } from '@prisma/client'
+import { AdministrativeBodyType } from '@prisma/client'
 import { getRealm } from '@/lib/realm.server'
+import { getMapSubjects, type MapSubjectFilters } from '@/lib/db/subject'
 
-// Disable caching for dynamic queries with different filters
+// Filters vary per request → not cached. (A cacheable variant would key on realm + filters.)
 export const dynamic = 'force-dynamic';
 
+const isBodyType = (b: string): b is AdministrativeBodyType =>
+    (Object.values(AdministrativeBodyType) as string[]).includes(b);
+
+// Thin wrapper: parse + validate params, then delegate to the db-layer finder. The query,
+// where-clause and wire type all live in src/lib/db/subject.ts (getMapSubjects / MapSubjectRow),
+// shared with the server-side initial load — no inline Prisma, no `any`, no re-typed response.
 export async function GET(request: Request) {
     try {
-        const realm = await getRealm();
-
-        // Parse query parameters
         const { searchParams } = new URL(request.url);
-        const monthsBackParam = searchParams.get('monthsBack');
-        const daysBackParam = searchParams.get('daysBack');
-        const topicIdsParam = searchParams.get('topicIds');
-
-        const monthsBack = monthsBackParam ? parseInt(monthsBackParam) : 6;
-        // daysBack takes precedence over monthsBack when both are given
-        const daysBack = daysBackParam ? parseInt(daysBackParam) : null;
-        // allTime=true disables the date filter entirely
-        const allTime = searchParams.get('allTime') === 'true';
-        const topicIds = topicIdsParam ? topicIdsParam.split(',') : [];
-        // Filter-pane params
-        const cityIds = (searchParams.get('cityIds') || '').split(',').filter(Boolean);
-        const bodyTypes = (searchParams.get('bodyType') || '').split(',').filter(Boolean);
-        const dateFromParam = searchParams.get('dateFrom');
-        const dateToParam = searchParams.get('dateTo');
-
-        // Calculate date threshold for the quick range
-        const dateThreshold = new Date();
-        if (daysBack && daysBack > 0) {
-            dateThreshold.setDate(dateThreshold.getDate() - daysBack);
-        } else {
-            dateThreshold.setMonth(dateThreshold.getMonth() - monthsBack);
-        }
-
-        // Date window. Future-dated meetings are always excluded (upper bound = now); explicit
-        // from/to overrides the quick range; allTime only drops the lower bound, never the cap.
-        const now = new Date();
-        const dateTimeFilter: { gte?: Date; lte: Date } = { lte: now };
-        if (dateFromParam || dateToParam) {
-            if (dateFromParam) dateTimeFilter.gte = new Date(dateFromParam);
-            if (dateToParam) {
-                const to = new Date(`${dateToParam}T23:59:59.999`);
-                if (to < now) dateTimeFilter.lte = to;
-            }
-        } else if (!allTime) {
-            dateTimeFilter.gte = dateThreshold;
-        }
-
-        console.log('🔍 API Filter params:', {
-            monthsBack,
-            daysBack,
-            allTime,
-            dateFrom: dateFromParam,
-            dateTo: dateToParam,
-            cityIds,
-            bodyTypes,
-            topicIdsCount: topicIds.length,
-        });
-
-        // Build where clause
-        const whereClause: any = {
-            locationId: {
-                not: null
-            },
-            // Only subjects that were actually discussed (have at least one speaker contribution).
-            contributions: { some: {} },
-            councilMeeting: {
-                city: {
-                    officialSupport: true,
-                    realm
-                },
-                released: true,
-                dateTime: dateTimeFilter,
-                ...(bodyTypes.length > 0 && { administrativeBody: { type: { in: bodyTypes } } })
-            }
+        const num = (v: string | null) => (v && Number.isFinite(Number(v)) ? Number(v) : undefined);
+        const filters: MapSubjectFilters = {
+            monthsBack: num(searchParams.get('monthsBack')),
+            daysBack: num(searchParams.get('daysBack')) ?? null,
+            allTime: searchParams.get('allTime') === 'true',
+            topicIds: (searchParams.get('topicIds') || '').split(',').filter(Boolean),
+            cityIds: (searchParams.get('cityIds') || '').split(',').filter(Boolean),
+            bodyTypes: (searchParams.get('bodyType') || '').split(',').filter(isBodyType),
+            dateFrom: searchParams.get('dateFrom'),
+            dateTo: searchParams.get('dateTo'),
         };
-
-        // Add topic filter if specified
-        if (topicIds.length > 0) {
-            whereClause.topicId = {
-                in: topicIds
-            };
-        }
-
-        // Add municipality filter if specified
-        if (cityIds.length > 0) {
-            whereClause.cityId = {
-                in: cityIds
-            };
-        }
-
-        // Get all subjects from officially supported cities that have locations
-        const subjects = await prisma.subject.findMany({
-            where: whereClause,
-            include: {
-                councilMeeting: {
-                    select: {
-                        dateTime: true,
-                        name: true,
-                        administrativeBody: { select: { name: true, type: true } }
-                    }
-                },
-                topic: {
-                    select: {
-                        name: true,
-                        name_en: true,
-                        colorHex: true,
-                        icon: true
-                    }
-                },
-                location: {
-                    select: {
-                        text: true,
-                        type: true
-                    }
-                },
-                speakerSegments: {
-                    select: {
-                        speakerSegment: {
-                            select: {
-                                startTimestamp: true,
-                                endTimestamp: true,
-                                speakerTag: {
-                                    select: {
-                                        id: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Get geometries for all locations
-        const locationIds = subjects.map(s => s.locationId).filter(Boolean) as string[];
-
-        if (locationIds.length === 0) {
-            return NextResponse.json([]);
-        }
-
-        const geometries = await prisma.$queryRaw<
-            { id: string; geometry: string }[]
-        >`
-            SELECT 
-                id,
-                ST_AsGeoJSON(coordinates, 15, 0)::text AS geometry
-            FROM "Location"
-            WHERE id IN (${Prisma.join(locationIds)})
-        `;
-
-        // Create a map of location id to geometry
-        // Fix coordinate order: PostGIS might return [lat, lon] but GeoJSON needs [lon, lat]
-        const geometryMap = new Map(
-            geometries.map(g => {
-                const geom = JSON.parse(g.geometry);
-                // Swap coordinates if it's a Point
-                if (geom.type === 'Point' && geom.coordinates.length === 2) {
-                    // Check if coordinates seem to be in [lat, lon] order (lat > lon for Greece)
-                    const [first, second] = geom.coordinates;
-                    if (first > 30 && first < 42 && second > 19 && second < 30) {
-                        // Likely [lat, lon], swap to [lon, lat]
-                        geom.coordinates = [second, first];
-                    }
-                }
-                return [g.id, geom];
-            })
-        );
-
-        // Combine subjects with their geometries
-        const subjectsWithGeometry = subjects
-            .filter(s => s.locationId && geometryMap.has(s.locationId))
-            .map(s => {
-                // Calculate discussion time (in seconds) and unique speakers
-                const speakerSegments = s.speakerSegments || [];
-                const totalTimeSeconds = speakerSegments.reduce((sum, sss) => {
-                    const duration = sss.speakerSegment.endTimestamp - sss.speakerSegment.startTimestamp;
-                    return sum + duration;
-                }, 0);
-
-                const uniqueSpeakerIds = new Set(
-                    speakerSegments.map(sss => sss.speakerSegment.speakerTag.id)
-                );
-
-                return {
-                    id: s.id,
-                    name: s.name,
-                    description: s.description,
-                    cityId: s.cityId,
-                    councilMeetingId: s.councilMeetingId,
-                    meetingDate: s.councilMeeting?.dateTime?.toISOString(),
-                    meetingName: s.councilMeeting?.name,
-                    bodyName: s.councilMeeting?.administrativeBody?.name ?? null,
-                    adminBodyType: s.councilMeeting?.administrativeBody?.type ?? null,
-                    locationText: s.location?.text,
-                    locationType: s.location?.type,
-                    topicId: s.topicId,
-                    topicName: s.topic?.name,
-                    topicColor: s.topic?.colorHex || '#627BBC',
-                    topicIcon: s.topic?.icon,
-                    discussionTimeSeconds: Math.round(totalTimeSeconds),
-                    speakerCount: uniqueSpeakerIds.size,
-                    geometry: geometryMap.get(s.locationId!)
-                };
-            });
-
-        console.log('✅ Returning', subjectsWithGeometry.length, 'subjects');
-        console.log('📊 Sample dates:', subjectsWithGeometry.slice(0, 3).map(s => ({
-            id: s.id,
-            date: s.meetingDate,
-            topic: s.topicName
-        })));
-
-        return NextResponse.json(subjectsWithGeometry);
+        const subjects = await getMapSubjects(await getRealm(), filters);
+        return NextResponse.json(subjects);
     } catch (error) {
         console.error('Error fetching subjects for map:', error);
         return NextResponse.json({ error: 'Failed to fetch subjects' }, { status: 500 });
     }
 }
-

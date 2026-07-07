@@ -16,6 +16,9 @@ type Args = {
     /** a free-text query is active → fetch every subject (ignore the range dropdown) so the
      *  search spans all time, not just the selected window */
     searching: boolean;
+    /** subjects loaded on the server for first paint (see page.tsx / getMapSubjects) — seeds
+     *  the initial state so the map renders real data before any client fetch. */
+    initialSubjects?: MapSubject[];
 };
 
 export type LandingData = {
@@ -38,8 +41,8 @@ export type LandingData = {
  * load lazily once the subjects map is active, then refetch when the date range or
  * server-applied filters change (minDuration is client-side, so it's intentionally excluded).
  */
-export function useLandingData({ subjectsActive, range, filters, searching }: Args): LandingData {
-    const [mapSubjects, setMapSubjects] = useState<MapSubject[]>([]);
+export function useLandingData({ subjectsActive, range, filters, searching, initialSubjects }: Args): LandingData {
+    const [mapSubjects, setMapSubjects] = useState<MapSubject[]>(initialSubjects ?? []);
     const [generalRows, setGeneralRows] = useState<GeneralCityRow[]>([]);
     const [cities, setCities] = useState<LandingCity[]>([]);
     const [upcoming, setUpcoming] = useState<UpcomingMeeting[]>([]);

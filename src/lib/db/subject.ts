@@ -11,6 +11,7 @@ import {
     VoteType,
     Prisma,
     Realm,
+    AdministrativeBodyType,
 } from '@prisma/client';
 import { PersonWithRelations } from '@/lib/db/people';
 import { extractUtteranceIds } from '@/lib/utils/references';
@@ -111,6 +112,172 @@ export async function getSubjectCountsByCity(realm: Realm): Promise<Record<strin
         _count: { _all: true },
     });
     return Object.fromEntries(grouped.map((g) => [g.cityId, g._count._all]));
+}
+
+// ── Landing map subjects ──────────────────────────────────────────────────────
+// PROTOTYPE (review slice): single source for the landing map's subject query + wire
+// type. Both the interactive /api/map/subjects route AND the server-side initial load
+// import these, so the shape is defined once (Prisma-derived) and never re-declared
+// client-side. `getGeneralSubjects` (non-located) would share `buildMapSubjectWhere`
+// with `located: false`, collapsing the ~30-line date-window + where duplication that
+// currently lives in both route handlers.
+
+export type MapSubjectFilters = {
+    monthsBack?: number;
+    daysBack?: number | null;
+    allTime?: boolean;
+    topicIds?: string[];
+    cityIds?: string[];
+    bodyTypes?: AdministrativeBodyType[];
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    /** true → located subjects (map pins); false → non-located (general/city list). */
+    located?: boolean;
+};
+
+/** The subject-map wire shape — imported by the route AND the client (no re-declaration). */
+export type MapSubjectRow = {
+    id: string;
+    name: string;
+    description: string;
+    cityId: string;
+    councilMeetingId: string;
+    meetingDate?: string;
+    meetingName?: string;
+    bodyName?: string | null;
+    adminBodyType?: AdministrativeBodyType | null;
+    locationText?: string;
+    locationType?: string;
+    topicId?: string | null;
+    topicName?: string;
+    topicColor: string;
+    topicIcon?: string | null;
+    discussionTimeSeconds?: number;
+    speakerCount?: number;
+    geometry: GeoJSON.Geometry;
+};
+
+const mapSubjectInclude = {
+    councilMeeting: {
+        select: {
+            dateTime: true,
+            name: true,
+            administrativeBody: { select: { name: true, type: true } },
+        },
+    },
+    topic: { select: { name: true, name_en: true, colorHex: true, icon: true } },
+    location: { select: { text: true, type: true } },
+    speakerSegments: {
+        select: {
+            speakerSegment: {
+                select: {
+                    startTimestamp: true,
+                    endTimestamp: true,
+                    speakerTag: { select: { id: true } },
+                },
+            },
+        },
+    },
+} satisfies Prisma.SubjectInclude;
+
+/**
+ * Shared where-clause for the landing map subject queries. Realm is REQUIRED, so a
+ * caller cannot forget to scope by tenant. `located` picks the map-pin variant
+ * (locationId not null) vs the general/city-list variant (locationId null) — the only
+ * real difference between the two endpoints that previously duplicated this block.
+ */
+export function buildMapSubjectWhere(realm: Realm, f: MapSubjectFilters): Prisma.SubjectWhereInput {
+    const now = new Date();
+    const dateTime: { gte?: Date; lte: Date } = { lte: now };
+    if (f.dateFrom || f.dateTo) {
+        if (f.dateFrom) dateTime.gte = new Date(f.dateFrom);
+        if (f.dateTo) {
+            const to = new Date(`${f.dateTo}T23:59:59.999`);
+            if (to < now) dateTime.lte = to;
+        }
+    } else if (!f.allTime) {
+        const threshold = new Date();
+        if (f.daysBack && f.daysBack > 0) threshold.setDate(threshold.getDate() - f.daysBack);
+        else threshold.setMonth(threshold.getMonth() - (f.monthsBack ?? 6));
+        dateTime.gte = threshold;
+    }
+    return {
+        locationId: f.located === false ? null : { not: null },
+        contributions: { some: {} },
+        ...(f.topicIds?.length ? { topicId: { in: f.topicIds } } : {}),
+        ...(f.cityIds?.length ? { cityId: { in: f.cityIds } } : {}),
+        councilMeeting: {
+            released: true,
+            dateTime,
+            city: { officialSupport: true, realm },
+            ...(f.bodyTypes?.length ? { administrativeBody: { type: { in: f.bodyTypes } } } : {}),
+        },
+    };
+}
+
+/**
+ * Located subjects for the landing map, realm-scoped. Returns the wire shape directly —
+ * the /api/map/subjects route is a thin wrapper over this AND the server component calls
+ * it for the initial load, so the query lives once and `MapSubjectRow` is the single type.
+ */
+export async function getMapSubjects(realm: Realm, filters: MapSubjectFilters): Promise<MapSubjectRow[]> {
+    const subjects = await prisma.subject.findMany({
+        where: buildMapSubjectWhere(realm, { ...filters, located: true }),
+        include: mapSubjectInclude,
+    });
+
+    const locationIds = subjects.map((s) => s.locationId).filter((id): id is string => Boolean(id));
+    if (locationIds.length === 0) return [];
+
+    const geometries = await prisma.$queryRaw<{ id: string; geometry: string }[]>`
+        SELECT id, ST_AsGeoJSON(coordinates, 15, 0)::text AS geometry
+        FROM "Location"
+        WHERE id IN (${Prisma.join(locationIds)})
+    `;
+    const geometryMap = new Map<string, GeoJSON.Geometry>(
+        geometries.map((g) => {
+            const geom = JSON.parse(g.geometry) as GeoJSON.Geometry;
+            // PostGIS may return [lat, lon]; GeoJSON needs [lon, lat] (swap Greek Points).
+            if (geom.type === 'Point' && geom.coordinates.length === 2) {
+                const [first, second] = geom.coordinates;
+                if (first > 30 && first < 42 && second > 19 && second < 30) {
+                    geom.coordinates = [second, first];
+                }
+            }
+            return [g.id, geom] as const;
+        }),
+    );
+
+    return subjects
+        .filter((s) => s.locationId && geometryMap.has(s.locationId))
+        .map((s): MapSubjectRow => {
+            const segs = s.speakerSegments ?? [];
+            const seconds = segs.reduce(
+                (sum, sss) => sum + (sss.speakerSegment.endTimestamp - sss.speakerSegment.startTimestamp),
+                0,
+            );
+            const speakers = new Set(segs.map((sss) => sss.speakerSegment.speakerTag.id)).size;
+            return {
+                id: s.id,
+                name: s.name,
+                description: s.description,
+                cityId: s.cityId,
+                councilMeetingId: s.councilMeetingId,
+                meetingDate: s.councilMeeting?.dateTime?.toISOString(),
+                meetingName: s.councilMeeting?.name,
+                bodyName: s.councilMeeting?.administrativeBody?.name ?? null,
+                adminBodyType: s.councilMeeting?.administrativeBody?.type ?? null,
+                locationText: s.location?.text,
+                locationType: s.location?.type,
+                topicId: s.topicId,
+                topicName: s.topic?.name,
+                topicColor: s.topic?.colorHex || '#627BBC',
+                topicIcon: s.topic?.icon,
+                discussionTimeSeconds: Math.round(seconds),
+                speakerCount: speakers,
+                geometry: geometryMap.get(s.locationId!)!,
+            };
+        });
 }
 
 export async function getAllSubjects(): Promise<SubjectWithRelations[]> {

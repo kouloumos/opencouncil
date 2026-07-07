@@ -28,6 +28,7 @@ import {
     type GeneralBox,
     type LandingGeneralCity,
     type LandingSubject,
+    type MapSubject,
     type MapViewport,
     type MunicipalityInterest,
 } from './landingData';
@@ -58,7 +59,15 @@ import { MobileLayout } from './MobileLayout';
  * Data comes from the real APIs: /api/map/subjects (geo-located subjects),
  * /api/topics, /api/cities and /api/meetings/upcoming — see ./landingData.ts.
  */
-export function LandingV2() {
+export function LandingV2({
+    defaultView = DEFAULT_VIEW,
+    initialSubjects = [],
+}: {
+    /** realm-resolved initial map framing — server passes getRealmDefaultMapView(realm) */
+    defaultView?: { center: [number, number]; zoom: number };
+    /** subjects loaded on the server for first paint (no client bootstrap fetch) */
+    initialSubjects?: MapSubject[];
+} = {}) {
     // Selected category (topic) ids — empty means "all". Multiple may be active at once.
     const [cats, setCats] = useState<string[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -72,11 +81,11 @@ export function LandingV2() {
     // Current map view (captured on moveend) — drives the in-view list and clustering.
     const [mapView, setMapView] = useState<MapViewport | null>(null);
     // Current zoom — non-located subjects show in the list only while zoomed out (< this).
-    const [mapZoom, setMapZoom] = useState(DEFAULT_VIEW.zoom);
+    const [mapZoom, setMapZoom] = useState(defaultView.zoom);
     // The geographic cluster-cell size for the current zoom. Markers only re-cluster when
     // this value actually changes (i.e. when crossing a zoom level that changes the cell) —
     // not on every tiny pan/zoom, which would otherwise rebuild and visibly flip the donuts.
-    const [clusterCell, setClusterCell] = useState(() => clusterCellDegrees(DEFAULT_VIEW.zoom));
+    const [clusterCell, setClusterCell] = useState(() => clusterCellDegrees(defaultView.zoom));
     // Open "co-located subjects" box: the subjects at one point + its screen position.
     const [coLocated, setCoLocated] = useState<CoLocatedBox | null>(null);
     // Open "general subjects" box: a municipality's non-located subjects + screen position.
@@ -168,6 +177,7 @@ export function LandingV2() {
         range,
         filters,
         searching,
+        initialSubjects,
     });
 
     // ---- URL state sync ----
