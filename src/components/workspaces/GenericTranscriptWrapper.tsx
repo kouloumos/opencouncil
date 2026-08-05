@@ -1,33 +1,29 @@
 "use client";
 
-import { GenericTranscriptDataProvider, useGenericTranscript } from './GenericTranscriptContext';
-import { CouncilMeetingDataProvider } from '../meetings/CouncilMeetingDataContext';
-import { VideoProvider } from '../meetings/VideoProvider';
-import { TranscriptOptionsProvider } from '../meetings/options/OptionsContext';
-import { HighlightProvider } from '../meetings/HighlightContext';
-import { EditingProvider } from '../meetings/EditingContext';
-import { KeyboardShortcutsProvider } from '@/contexts/KeyboardShortcutsContext';
-import { KeyboardShortcuts } from '../meetings/KeyboardShortcuts';
+import CouncilMeetingWrapper from '../meetings/CouncilMeetingWrapper';
 import { ShareProvider } from '@/contexts/ShareContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Transcript from '../meetings/transcript/Transcript';
-import TranscriptControls from '../meetings/TranscriptControls';
+import { PlaybackBar } from '../meetings/bar/PlaybackBar';
 import EditButton from '../meetings/EditButton';
 import { EditingModeBar } from '../meetings/EditingModeBar';
-import { Transcript as TranscriptType } from '@/lib/db/transcript';
-import { SpeakerTag, Transcript as PrismaTranscript } from '@prisma/client';
-import { useMemo, useState, useEffect } from 'react';
-import { ArrowLeft, Download, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import type { MeetingData } from '@/lib/getMeetingData';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Download, Loader2, XCircle } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
 
 interface GenericTranscriptData {
-  transcript: TranscriptType;
-  speakerTags: SpeakerTag[];
-  transcriptMeta: PrismaTranscript;
+  meetingData: MeetingData;
   latestTask: {
     id: string;
     status: string;
@@ -46,40 +42,6 @@ interface GenericTranscriptWrapperProps {
   data: GenericTranscriptData;
 }
 
-// Adapter component to bridge generic context to council context
-function ContextBridge({ children, speakerTags }: { children: React.ReactNode, speakerTags: SpeakerTag[] }) {
-  const genericContext = useGenericTranscript();
-  
-  // Adapt generic context to match council context shape
-  const councilContextData = useMemo(() => ({
-    ...genericContext,
-    meeting: {
-      ...genericContext.transcriptData,
-      id: genericContext.transcriptId,
-      cityId: genericContext.workspaceId, // For API compatibility, though it's actually a workspaceId
-    },
-    city: { id: genericContext.workspaceId, name: '' },
-    subjects: [],
-    highlights: [],
-    parties: [],
-    speakerTags, // Pass the actual speaker tags
-    taskStatus: { humanReview: true }, // Generic transcripts are considered verified by default
-    getSpeakerTag: (speakerTagId: string) => speakerTags.find(tag => tag.id === speakerTagId),
-    getParty: () => undefined,
-    getPersonsForParty: () => [],
-    getHighlight: () => undefined,
-    addHighlight: () => {},
-    updateHighlight: () => {},
-    removeHighlight: () => {},
-  }), [genericContext, speakerTags]);
-  
-  return (
-    <CouncilMeetingDataProvider data={councilContextData as any}>
-      {children}
-    </CouncilMeetingDataProvider>
-  );
-}
-
 export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -88,10 +50,6 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
   const t = useTranslations('workspaces.transcript');
   const tCommon = useTranslations('workspaces.common');
   const tDashboard = useTranslations('workspaces.dashboard');
-
-  const utterances = useMemo(() => {
-    return data.transcript.map(seg => seg.utterances).flat();
-  }, [data.transcript]);
 
   // Poll for task status updates when pending
   useEffect(() => {
@@ -123,17 +81,9 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
   }, [currentTask?.status, data.workspaceId, data.transcriptId, router]);
 
   // Check if transcript is empty (not transcribed yet)
-  const isTranscriptEmpty = data.transcript.length === 0;
-
-  // Create a meeting-like object for VideoProvider
-  const meeting = useMemo(() => ({
-    id: data.transcriptId,
-    name: data.transcriptMeta.name,
-    transcript: {
-      muxPlaybackId: data.transcriptMeta.muxPlaybackId,
-      videoUrl: data.transcriptMeta.videoUrl,
-    }
-  }), [data.transcriptId, data.transcriptMeta]);
+  const { meeting } = data.meetingData;
+  const isTranscriptEmpty = data.meetingData.transcript.length === 0;
+  const hasPlayback = Boolean(meeting.muxPlaybackId || meeting.videoUrl || meeting.audioUrl);
 
   const renderTaskStatus = () => {
     if (!currentTask) {
@@ -196,11 +146,11 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
     return null;
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: 'docx' | 'srt') => {
     setIsExporting(true);
     try {
       const response = await fetch(
-        `/api/workspaces/${data.workspaceId}/transcripts/${data.transcriptId}/export/docx`
+        `/api/workspaces/${data.workspaceId}/transcripts/${data.transcriptId}/export/${format}`
       );
 
       if (!response.ok) {
@@ -214,7 +164,7 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${data.transcriptMeta.name}_transcript.docx`;
+      a.download = `${meeting.name ?? data.transcriptId}_transcript.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -238,25 +188,13 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
 
   return (
     <TooltipProvider>
-      <GenericTranscriptDataProvider
-        transcript={data.transcript}
-        speakerTags={data.speakerTags}
-        transcriptMeta={data.transcriptMeta}
-        workspaceId={data.workspaceId}
-        transcriptId={data.transcriptId}
-        editable={data.editable}
-      >
-        <ContextBridge speakerTags={data.speakerTags}>
-          <ShareProvider>
-            <TranscriptOptionsProvider editable={data.editable} isGenericMode={true}>
-              <VideoProvider
-                meeting={meeting as any}
-                utterances={utterances}
-              >
-                <HighlightProvider>
-                  <KeyboardShortcutsProvider>
-                    <EditingProvider>
-                      <KeyboardShortcuts />
+      <ShareProvider>
+        <CouncilMeetingWrapper
+          meetingData={data.meetingData}
+          editable={data.editable}
+          canCreateHighlights={false}
+          isGenericMode
+        >
                       <div className="flex flex-col h-screen">
                       {/* Header with back button, title, and actions */}
                       <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
@@ -271,57 +209,64 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
                           {tCommon('back')}
                         </Button>
                         <h1 className="text-lg font-semibold truncate">
-                          {data.transcriptMeta.name}
+                          {meeting.name ?? data.transcriptId}
                         </h1>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleExport}
-                          disabled={isExporting}
-                        >
-                          {isExporting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              {t('exporting')}
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-2" />
-                              {t('export')}
-                            </>
-                          )}
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isExporting}
+                            >
+                              {isExporting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  {t('exporting')}
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  {t('export')}
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('docx')}>
+                              {t('exportDocx')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('srt')}>
+                              {t('exportSrt')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {data.editable && <EditButton />}
                       </div>
                     </div>
                     <EditingModeBar />
                     <div className="flex-1 flex min-h-0">
-                      <div className="flex-1 overflow-auto">
+                      {/* The same scroll frame as the meeting layout: the playback
+                          dock and the transcript scroll read these attributes. */}
+                      <div className="relative flex-1 overflow-auto" data-scroll-container>
                         {isTranscriptEmpty ? (
                           <div className="container max-w-2xl mx-auto py-12">
                             {renderTaskStatus()}
                           </div>
                         ) : (
                           <>
-                            <div className="pb-20">
+                            <div data-scroll-content className={hasPlayback ? 'pb-[var(--playback-dock-clearance)] max-md:pb-[calc(var(--playback-dock-clearance-mobile)+env(safe-area-inset-bottom))]' : undefined}>
                               <Transcript />
                             </div>
-                            {data.transcriptMeta.muxPlaybackId && <TranscriptControls />}
+                            {hasPlayback && <PlaybackBar />}
                           </>
                         )}
                       </div>
                         </div>
                       </div>
-                    </EditingProvider>
-                  </KeyboardShortcutsProvider>
-                </HighlightProvider>
-              </VideoProvider>
-            </TranscriptOptionsProvider>
-          </ShareProvider>
-        </ContextBridge>
-      </GenericTranscriptDataProvider>
+        </CouncilMeetingWrapper>
+      </ShareProvider>
     </TooltipProvider>
   );
 }
