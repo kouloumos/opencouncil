@@ -170,6 +170,8 @@
   "transcript": {
     "export": "Εξαγωγή",
     "exporting": "Εξαγωγή...",
+    "exportDocx": "Word (.docx)",
+    "exportSrt": "Υπότιτλοι (.srt)",
     "exportSuccess": "Η απομαγνητοφώνηση εξήχθη επιτυχώς",
     "exportError": "Αποτυχία εξαγωγής απομαγνητοφώνησης",
     "noTranscript": "Δεν υπάρχει απομαγνητοφώνηση",

@@ -170,6 +170,8 @@
   "transcript": {
     "export": "Export",
     "exporting": "Exporting...",
+    "exportDocx": "Word (.docx)",
+    "exportSrt": "Subtitles (.srt)",
     "exportSuccess": "Transcript exported successfully",
     "exportError": "Failed to export transcript",
     "noTranscript": "No transcript available",

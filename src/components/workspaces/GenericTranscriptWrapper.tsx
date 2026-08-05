@@ -11,6 +11,12 @@ import { KeyboardShortcuts } from '../meetings/KeyboardShortcuts';
 import { ShareProvider } from '@/contexts/ShareContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Transcript from '../meetings/transcript/Transcript';
 import TranscriptControls from '../meetings/TranscriptControls';
@@ -196,11 +202,11 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
     return null;
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: 'docx' | 'srt') => {
     setIsExporting(true);
     try {
       const response = await fetch(
-        `/api/workspaces/${data.workspaceId}/transcripts/${data.transcriptId}/export/docx`
+        `/api/workspaces/${data.workspaceId}/transcripts/${data.transcriptId}/export/${format}`
       );
 
       if (!response.ok) {
@@ -214,7 +220,7 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${data.transcriptMeta.name}_transcript.docx`;
+      a.download = `${data.transcriptMeta.name}_transcript.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -275,24 +281,35 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
                         </h1>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleExport}
-                          disabled={isExporting}
-                        >
-                          {isExporting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              {t('exporting')}
-                            </>
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-2" />
-                              {t('export')}
-                            </>
-                          )}
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isExporting}
+                            >
+                              {isExporting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  {t('exporting')}
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  {t('export')}
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport('docx')}>
+                              {t('exportDocx')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('srt')}>
+                              {t('exportSrt')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {data.editable && <EditButton />}
                       </div>
                     </div>
