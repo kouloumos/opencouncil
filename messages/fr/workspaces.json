@@ -1,0 +1,204 @@
+{
+  "list": {
+    "title": "Mes espaces de travail",
+    "noWorkspaces": "Vous n'avez encore aucun espace de travail",
+    "noWorkspacesDescription": "Contactez votre administrateur pour accéder à un espace de travail",
+    "createWorkspace": "Créer votre espace de travail personnel",
+    "createWorkspaceDescription": "Créez un espace de travail pour commencer à téléverser et transcrire vos contenus",
+    "workspaceName": "Nom de l'espace de travail",
+    "workspaceNamePlaceholder": "Mon espace de travail personnel",
+    "create": "Créer l'espace de travail",
+    "creating": "Création...",
+    "redirecting": "Ouverture de votre espace de travail...",
+    "createYourFirstWorkspace": "Créez votre premier espace de travail pour commencer vos transcriptions",
+    "workspacesDescription": "Sélectionnez un espace de travail pour consulter et gérer les transcriptions",
+    "transcriptsCount": "{count, plural, =0 {Aucune transcription} one {# transcription} other {# transcriptions}}",
+    "membersCount": "{count, plural, =0 {Aucun membre} one {# membre} other {# membres}}",
+    "errors": {
+      "nameRequired": "Le nom de l'espace de travail est obligatoire",
+      "createFailed": "Échec de la création de l'espace de travail"
+    },
+    "success": {
+      "created": "Espace de travail créé !",
+      "createdDescription": "Vous pouvez maintenant téléverser des transcriptions"
+    }
+  },
+  "dashboard": {
+    "title": "Transcriptions",
+    "noTranscripts": "Aucune transcription pour le moment",
+    "noTranscriptsDescription": "Téléversez votre premier fichier pour commencer",
+    "viewTranscript": "Voir",
+    "uploadNewTranscript": "Téléverser un nouveau fichier",
+    "backToWorkspaces": "Retour aux espaces de travail",
+    "confirmDelete": "Voulez-vous vraiment supprimer la transcription « {name} » ? Cette action est irréversible.",
+    "deleteSuccess": "Transcription supprimée",
+    "deleteError": "Échec de la suppression de la transcription",
+    "transcribing": "Transcription en cours",
+    "failed": "Échec"
+  },
+  "upload": {
+    "title": "Téléverser une nouvelle transcription",
+    "transcriptName": "Nom de la transcription",
+    "transcriptNamePlaceholder": "p. ex. Réunion d'équipe - 15 janvier",
+    "videoLabel": "Vidéo",
+    "audioLabel": "Audio",
+    "dropFiles": "Déposez des fichiers ici ou sélectionnez-les sur votre ordinateur",
+    "pasteLink": "Ou collez un lien",
+    "linkPlaceholder": "https://...",
+    "uploadButton": "Téléverser et créer",
+    "uploading": "Téléversement...",
+    "cancel": "Annuler",
+    "errors": {
+      "nameRequired": "Le nom est obligatoire",
+      "fileOrLinkRequired": "Téléversez un fichier ou indiquez un lien",
+      "uploadFailed": "Échec du téléversement. Veuillez réessayer."
+    },
+    "success": {
+      "title": "Transcription créée !",
+      "description": "Vous pouvez maintenant lancer la transcription."
+    }
+  },
+  "transcribe": {
+    "startTranscription": "Lancer la transcription",
+    "transcribing": "Transcription en cours...",
+    "transcriptionInProgress": "Transcription en cours",
+    "transcriptionComplete": "Transcription terminée",
+    "transcriptionFailed": "Échec de la transcription",
+    "retryTranscription": "Relancer la transcription",
+    "errors": {
+      "failed": "Impossible de lancer la transcription. Veuillez réessayer.",
+      "noMedia": "Aucun fichier média disponible pour la transcription"
+    }
+  },
+  "viewer": {
+    "editMode": "Mode édition",
+    "viewMode": "Mode lecture",
+    "noTranscript": "Aucune transcription pour le moment",
+    "noTranscriptDescription": "Lancez la transcription pour voir le contenu",
+    "loading": "Chargement...",
+    "backToWorkspace": "Retour à l'espace de travail"
+  },
+  "speakers": {
+    "unknownSpeaker": "Intervenant inconnu",
+    "editSpeaker": "Modifier l'intervenant",
+    "speakerName": "Nom de l'intervenant",
+    "speakerNamePlaceholder": "p. ex. Jean Dupont",
+    "setLabel": "Définir l'étiquette sur « {label} »",
+    "removePerson": "Retirer la personne",
+    "segmentCount": "{count, plural, one {# segment} other {# segments}}"
+  },
+  "members": {
+    "title": "Membres de l'espace de travail",
+    "inviteMember": "Inviter un membre",
+    "email": "E-mail",
+    "emailPlaceholder": "email@example.com",
+    "name": "Nom (facultatif)",
+    "namePlaceholder": "p. ex. Jean Dupont",
+    "invite": "Envoyer l'invitation",
+    "inviting": "Envoi...",
+    "cancel": "Annuler",
+    "removeMember": "Retirer le membre",
+    "confirmRemove": "Voulez-vous vraiment retirer ce membre ?",
+    "noMembers": "Aucun membre pour le moment",
+    "noMembersDescription": "Invitez des membres de votre équipe pour collaborer",
+    "errors": {
+      "inviteFailed": "Échec de l'envoi de l'invitation. Veuillez réessayer.",
+      "alreadyMember": "Cet utilisateur est déjà membre",
+      "removeFailed": "Impossible de retirer le membre. Veuillez réessayer.",
+      "invalidEmail": "Saisissez une adresse e-mail valide"
+    },
+    "success": {
+      "invited": "Invitation envoyée !",
+      "invitedDescription": "L'utilisateur a reçu un e-mail avec les instructions de connexion",
+      "removed": "Membre retiré"
+    }
+  },
+  "tasks": {
+    "title": "Gestion des tâches",
+    "noTasks": "Aucune tâche en cours",
+    "taskStatuses": "État des tâches"
+  },
+  "admin": {
+    "title": "Gestion des espaces de travail",
+    "createWorkspace": "Créer un espace de travail",
+    "workspaceName": "Nom de l'espace de travail",
+    "workspaceNamePlaceholder": "p. ex. Équipe marketing",
+    "create": "Créer",
+    "creating": "Création...",
+    "cancel": "Annuler",
+    "editWorkspace": "Modifier l'espace de travail",
+    "deleteWorkspace": "Supprimer l'espace de travail",
+    "confirmDelete": "Voulez-vous vraiment supprimer cet espace de travail ?",
+    "confirmDeleteDescription": "Cette action est irréversible. Toutes les transcriptions et données seront définitivement supprimées.",
+    "delete": "Supprimer",
+    "deleting": "Suppression...",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "noWorkspaces": "Aucun espace de travail pour le moment",
+    "noWorkspacesDescription": "Créez votre premier espace de travail pour commencer",
+    "manageMembers": "Gérer les membres",
+    "viewWorkspace": "Voir l'espace de travail",
+    "errors": {
+      "createFailed": "Échec de la création de l'espace de travail. Veuillez réessayer.",
+      "updateFailed": "Échec de la mise à jour de l'espace de travail. Veuillez réessayer.",
+      "deleteFailed": "Échec de la suppression de l'espace de travail. Veuillez réessayer.",
+      "nameRequired": "Le nom est obligatoire"
+    },
+    "success": {
+      "created": "Espace de travail créé !",
+      "updated": "Espace de travail mis à jour !",
+      "deleted": "Espace de travail supprimé !"
+    }
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "close": "Fermer",
+    "back": "Retour",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "confirm": "Confirmer",
+    "search": "Rechercher",
+    "noResults": "Aucun résultat",
+    "actions": "Actions"
+  },
+  "transcript": {
+    "export": "Exporter",
+    "exporting": "Export...",
+    "exportDocx": "Word (.docx)",
+    "exportSrt": "Sous-titres (.srt)",
+    "exportSuccess": "Transcription exportée",
+    "exportError": "Échec de l'export de la transcription",
+    "noTranscript": "Aucune transcription disponible",
+    "noTranscriptDescription": "Lancez la transcription pour voir le contenu",
+    "transcriptionInProgress": "La transcription est en cours. La page se mettra à jour automatiquement à la fin.",
+    "transcriptionFailed": "Échec de la transcription. Veuillez réessayer ou contacter l'assistance."
+  },
+  "landing": {
+    "generic": {
+      "tagline": "Téléversez, transcrivez et modifiez vos vidéos",
+      "features": {
+        "upload": {
+          "title": "Téléversement simple",
+          "description": "Téléversez une vidéo ou un audio depuis votre ordinateur, ou collez un lien"
+        },
+        "transcribe": {
+          "title": "Transcription automatique",
+          "description": "Notre système convertit automatiquement vos médias en texte"
+        },
+        "edit": {
+          "title": "Modifier et collaborer",
+          "description": "Modifiez les transcriptions et collaborez avec votre équipe"
+        }
+      },
+      "signIn": "Se connecter",
+      "signInHint": "Connectez-vous pour utiliser OpenTranscripts",
+      "goToWorkspaces": "Accéder aux espaces de travail",
+      "accessWorkspaces": "Accédez à vos espaces de transcription"
+    }
+  }
+}

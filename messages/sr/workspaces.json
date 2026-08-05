@@ -1,0 +1,204 @@
+{
+  "list": {
+    "title": "Моји радни простори",
+    "noWorkspaces": "Још немате ниједан радни простор",
+    "noWorkspacesDescription": "Обратите се администратору за приступ радном простору",
+    "createWorkspace": "Направите свој лични радни простор",
+    "createWorkspaceDescription": "Направите радни простор да бисте почели да отпремате и транскрибујете садржај",
+    "workspaceName": "Назив радног простора",
+    "workspaceNamePlaceholder": "Мој лични радни простор",
+    "create": "Направи радни простор",
+    "creating": "Прави се...",
+    "redirecting": "Отвара се ваш радни простор...",
+    "createYourFirstWorkspace": "Направите свој први радни простор да бисте почели са транскрипцијама",
+    "workspacesDescription": "Изаберите радни простор да бисте прегледали транскрипте и управљали њима",
+    "transcriptsCount": "{count, plural, =0 {Нема транскрипата} one {# транскрипт} few {# транскрипта} other {# транскрипата}}",
+    "membersCount": "{count, plural, =0 {Нема чланова} one {# члан} few {# члана} other {# чланова}}",
+    "errors": {
+      "nameRequired": "Назив радног простора је обавезан",
+      "createFailed": "Прављење радног простора није успело"
+    },
+    "success": {
+      "created": "Радни простор је направљен!",
+      "createdDescription": "Сада можете да отпремате транскрипте"
+    }
+  },
+  "dashboard": {
+    "title": "Транскрипти",
+    "noTranscripts": "Још нема транскрипата",
+    "noTranscriptsDescription": "Отпремите свој први фајл да бисте почели",
+    "viewTranscript": "Прикажи",
+    "uploadNewTranscript": "Отпреми нови фајл",
+    "backToWorkspaces": "Назад на радне просторе",
+    "confirmDelete": "Да ли сигурно желите да обришете транскрипт „{name}”? Ова радња се не може опозвати.",
+    "deleteSuccess": "Транскрипт је обрисан",
+    "deleteError": "Брисање транскрипта није успело",
+    "transcribing": "Транскрибује се",
+    "failed": "Неуспешно"
+  },
+  "upload": {
+    "title": "Отпреми нови транскрипт",
+    "transcriptName": "Назив транскрипта",
+    "transcriptNamePlaceholder": "нпр. Састанак тима - 15. јануар",
+    "videoLabel": "Видео",
+    "audioLabel": "Аудио",
+    "dropFiles": "Превуците фајлове овде или их изаберите са рачунара",
+    "pasteLink": "Или налепите линк",
+    "linkPlaceholder": "https://...",
+    "uploadButton": "Отпреми и направи",
+    "uploading": "Отпрема се...",
+    "cancel": "Откажи",
+    "errors": {
+      "nameRequired": "Назив је обавезан",
+      "fileOrLinkRequired": "Отпремите фајл или унесите линк",
+      "uploadFailed": "Отпремање није успело. Покушајте поново."
+    },
+    "success": {
+      "title": "Транскрипт је направљен!",
+      "description": "Сада можете да покренете транскрипцију."
+    }
+  },
+  "transcribe": {
+    "startTranscription": "Покрени транскрипцију",
+    "transcribing": "Транскрибује се...",
+    "transcriptionInProgress": "Транскрипција је у току",
+    "transcriptionComplete": "Транскрипција је завршена",
+    "transcriptionFailed": "Транскрипција није успела",
+    "retryTranscription": "Поново покрени транскрипцију",
+    "errors": {
+      "failed": "Покретање транскрипције није успело. Покушајте поново.",
+      "noMedia": "Нема медијског фајла за транскрипцију"
+    }
+  },
+  "viewer": {
+    "editMode": "Режим уређивања",
+    "viewMode": "Режим прегледа",
+    "noTranscript": "Још нема транскрипта",
+    "noTranscriptDescription": "Покрените транскрипцију да бисте видели садржај",
+    "loading": "Учитава се...",
+    "backToWorkspace": "Назад на радни простор"
+  },
+  "speakers": {
+    "unknownSpeaker": "Непознати говорник",
+    "editSpeaker": "Уреди говорника",
+    "speakerName": "Име говорника",
+    "speakerNamePlaceholder": "нпр. Петар Петровић",
+    "setLabel": "Постави ознаку на „{label}”",
+    "removePerson": "Уклони особу",
+    "segmentCount": "{count, plural, one {# сегмент} few {# сегмента} other {# сегмената}}"
+  },
+  "members": {
+    "title": "Чланови радног простора",
+    "inviteMember": "Позови члана",
+    "email": "Имејл",
+    "emailPlaceholder": "email@example.com",
+    "name": "Име (опционо)",
+    "namePlaceholder": "нпр. Петар Петровић",
+    "invite": "Пошаљи позивницу",
+    "inviting": "Шаље се...",
+    "cancel": "Откажи",
+    "removeMember": "Уклони члана",
+    "confirmRemove": "Да ли сигурно желите да уклоните овог члана?",
+    "noMembers": "Још нема чланова",
+    "noMembersDescription": "Позовите чланове тима да бисте почели да сарађујете",
+    "errors": {
+      "inviteFailed": "Слање позивнице није успело. Покушајте поново.",
+      "alreadyMember": "Овај корисник је већ члан",
+      "removeFailed": "Уклањање члана није успело. Покушајте поново.",
+      "invalidEmail": "Унесите исправну имејл адресу"
+    },
+    "success": {
+      "invited": "Позивница је послата!",
+      "invitedDescription": "Корисник је добио имејл са упутствима за пријаву",
+      "removed": "Члан је уклоњен"
+    }
+  },
+  "tasks": {
+    "title": "Управљање задацима",
+    "noTasks": "Нема задатака у току",
+    "taskStatuses": "Статуси задатака"
+  },
+  "admin": {
+    "title": "Управљање радним просторима",
+    "createWorkspace": "Направи радни простор",
+    "workspaceName": "Назив радног простора",
+    "workspaceNamePlaceholder": "нпр. Маркетинг тим",
+    "create": "Направи",
+    "creating": "Прави се...",
+    "cancel": "Откажи",
+    "editWorkspace": "Уреди радни простор",
+    "deleteWorkspace": "Обриши радни простор",
+    "confirmDelete": "Да ли сигурно желите да обришете овај радни простор?",
+    "confirmDeleteDescription": "Ова радња се не може опозвати. Сви транскрипти и подаци биће трајно обрисани.",
+    "delete": "Обриши",
+    "deleting": "Брише се...",
+    "save": "Сачувај",
+    "saving": "Чува се...",
+    "noWorkspaces": "Још нема радних простора",
+    "noWorkspacesDescription": "Направите свој први радни простор да бисте почели",
+    "manageMembers": "Управљај члановима",
+    "viewWorkspace": "Прикажи радни простор",
+    "errors": {
+      "createFailed": "Прављење радног простора није успело. Покушајте поново.",
+      "updateFailed": "Ажурирање радног простора није успело. Покушајте поново.",
+      "deleteFailed": "Брисање радног простора није успело. Покушајте поново.",
+      "nameRequired": "Назив је обавезан"
+    },
+    "success": {
+      "created": "Радни простор је направљен!",
+      "updated": "Радни простор је ажуриран!",
+      "deleted": "Радни простор је обрисан!"
+    }
+  },
+  "common": {
+    "loading": "Учитава се...",
+    "error": "Грешка",
+    "success": "Успех",
+    "close": "Затвори",
+    "back": "Назад",
+    "save": "Сачувај",
+    "cancel": "Откажи",
+    "delete": "Обриши",
+    "edit": "Уреди",
+    "create": "Направи",
+    "confirm": "Потврди",
+    "search": "Претрага",
+    "noResults": "Нема резултата",
+    "actions": "Радње"
+  },
+  "transcript": {
+    "export": "Извези",
+    "exporting": "Извози се...",
+    "exportDocx": "Word (.docx)",
+    "exportSrt": "Титлови (.srt)",
+    "exportSuccess": "Транскрипт је извезен",
+    "exportError": "Извоз транскрипта није успео",
+    "noTranscript": "Нема доступног транскрипта",
+    "noTranscriptDescription": "Покрените транскрипцију да бисте видели садржај",
+    "transcriptionInProgress": "Транскрипција је у току. Страница ће се аутоматски освежити када се заврши.",
+    "transcriptionFailed": "Транскрипција није успела. Покушајте поново или се обратите подршци."
+  },
+  "landing": {
+    "generic": {
+      "tagline": "Отпремите, транскрибујте и уредите своје видео-снимке",
+      "features": {
+        "upload": {
+          "title": "Једноставно отпремање",
+          "description": "Отпремите видео или аудио са рачунара или налепите линк"
+        },
+        "transcribe": {
+          "title": "Аутоматска транскрипција",
+          "description": "Наш систем аутоматски претвара ваше медије у текст"
+        },
+        "edit": {
+          "title": "Уређивање и сарадња",
+          "description": "Уређујте транскрипте и сарађујте са својим тимом"
+        }
+      },
+      "signIn": "Пријави се",
+      "signInHint": "Пријавите се да бисте користили OpenTranscripts",
+      "goToWorkspaces": "Иди на радне просторе",
+      "accessWorkspaces": "Приступите својим радним просторима за транскрипцију"
+    }
+  }
+}

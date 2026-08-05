@@ -83,10 +83,9 @@
     "editSpeaker": "Edit Speaker",
     "speakerName": "Speaker Name",
     "speakerNamePlaceholder": "e.g. John Doe",
-    "setLabel": "Set label to \"{{label}}\"",
+    "setLabel": "Set label to \"{label}\"",
     "removePerson": "Remove person",
-    "segmentCount": "{{count}} segments",
-    "segmentCount_one": "{{count}} segment"
+    "segmentCount": "{count, plural, one {# segment} other {# segments}}"
   },
   "members": {
     "title": "Workspace Members",
@@ -170,6 +169,8 @@
   "transcript": {
     "export": "Export",
     "exporting": "Exporting...",
+    "exportDocx": "Word (.docx)",
+    "exportSrt": "Subtitles (.srt)",
     "exportSuccess": "Transcript exported successfully",
     "exportError": "Failed to export transcript",
     "noTranscript": "No transcript available",
