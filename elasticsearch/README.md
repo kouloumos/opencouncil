@@ -160,6 +160,42 @@ PGSync requires helper views to denormalize complex relationships and handle Pos
 1. **LocationSearchView** - Converts PostGIS geometry to GeoJSON format
 2. **IntroducedByPartyView** - Resolves party affiliation through the `Role` table
 3. **SubjectSpeakerSegmentSearchView** - Denormalizes speaker segments with concatenated utterances
+4. **SubjectSearchView** - Strips markdown reference links from the description and precomputes the per-subject discussion metrics
+5. **SpeakerContributionSearchView** - Denormalizes speaker contributions with stripped reference links
+6. **MeetingAdministrativeBodyView** - Flattens the Subject → CouncilMeeting → AdministrativeBody join and casts the type enum to text. Exposes only the id and the type, because search results hydrate the full body from PostgreSQL
+
+### Discussion Metrics
+
+`SubjectSearchView` precomputes two scalar fields, because a nested array costs a nested query to
+aggregate at search time. They exist for score rescoring. The search API exposes no filter on them, so a
+caller cannot exclude a subject by how much the council discussed it:
+
+| Field | Meaning |
+|-------|---------|
+| `contributor_count` | Number of `SpeakerContribution` rows on the subject |
+| `discussion_speaking_seconds` | Time the council spent speaking about the subject |
+
+`contributor_count` counts rows, which is the same measure as `getContributionCount()` in
+`src/lib/utils.ts`. Both feed the same discussion signal, so they must agree. The count comes from
+`SpeakerContribution`, the model that replaces `SubjectSpeakerSegment`, so a subject that predates the
+contribution pipeline reports zero contributors.
+
+`discussion_speaking_seconds` repeats `getDiscussionSecondsForSubjects()` in `src/lib/db/subject.ts`, so
+the index agrees with the number the subject page shows:
+
+- **Primary source**: utterances tagged `SUBJECT_DISCUSSION`. The summarize task writes these tags. It no
+  longer writes `SubjectSpeakerSegment`.
+- **Excluded**: procedural segments, which are not part of a discussion.
+- **Fallback**: `SubjectSpeakerSegment`, and only for a subject with no tagged utterance at all. A subject
+  whose tagged utterances are all procedural reports 0 instead of falling back to the legacy table.
+
+Both sources sum the parts rather than measure the span from the first mention to the last, so a subject
+that the council revisits reports the time spent on it. The name avoids the word "duration" because
+`calculateMeetingDurationMs()` in `src/lib/db/utils/meetingDuration.ts` uses it for a wall-clock span.
+
+> **Read `SubjectSpeakerSegment` with care.** Only `prisma/seed.ts` still writes it, and it holds no rows
+> for most recent subjects. A metric that reads it looks correct against seeded data and returns 0 against
+> production data, so `views.sql` and `validate-views.sql` both report which source fed the number.
 
 ### Create the Views
 
@@ -170,7 +206,7 @@ psql "$DATABASE_URL" < elasticsearch/views.sql
 ```
 
 The script will:
-- Create all three required views
+- Create all six required views
 - Run verification checks on each view
 - Display sample data to confirm everything works
 - Show statistics about data coverage
@@ -715,6 +751,20 @@ A: PGSync's live sync receives WAL events with the base table's original column 
 3. Use `transform.rename` to map to the desired Elasticsearch field name (`"id": "contribution_id"`)
 
 This ensures bootstrap (reads from view) and live sync (reads from WAL) both work correctly.
+
+**Q: When do the discussion metrics refresh?**  
+A: PGSync rebuilds the whole document when it processes a change, so the metrics recompute on the next
+re-sync of the parent `Subject`. A change to a child table does not always trigger that re-sync (see
+[Testing Live Sync](#testing-live-sync-important)). The aggregates read `SpeakerContribution` and
+`Utterance`, which the view does not declare as base tables, so they refresh through the sibling nodes that
+do declare them (`speaker_contributions` and `speaker_segments`). Test both bootstrap and live sync after
+you change the aggregates in `SubjectSearchView`. Touch the parent `Subject` row if the numbers look stale.
+
+**Q: Why does an edit to an administrative body not appear in search?**  
+A: `MeetingAdministrativeBodyView` has the primary key `(id, cityId)` of `CouncilMeeting`. A WAL event from
+`AdministrativeBody` carries only that table's own `id`, which cannot match the key. A rename or a type change
+therefore reaches the index only after the meeting or the subject changes. Update the `Subject` row to force
+the re-sync.
 
 **Q: How is the speaker segments text concatenated?**  
 A: The `SubjectSpeakerSegmentSearchView` view concatenates all utterance texts within each speaker segment using `string_agg()`, ordered by timestamp. PGSync reads from this view and indexes the concatenated text.

@@ -25,7 +25,8 @@ WHERE schemaname = 'public'
     'IntroducedByPartyView', 
     'SubjectSpeakerSegmentSearchView',
     'SubjectSearchView',
-    'SpeakerContributionSearchView'
+    'SpeakerContributionSearchView',
+    'MeetingAdministrativeBodyView'
   )
 ORDER BY viewname;
 
@@ -53,6 +54,64 @@ SELECT
   LEFT(description, 100) || CASE WHEN LENGTH(description) > 100 THEN '...' ELSE '' END AS description_preview
 FROM "SubjectSearchView"
 WHERE description IS NOT NULL AND description != ''
+LIMIT 3;
+
+\echo ''
+
+-- ============================================================================
+-- 2b. Validate SubjectSearchView - discussion metrics
+-- ============================================================================
+\echo '2b. Validating SubjectSearchView (discussion metrics)...'
+SELECT
+  COUNT(*) AS total_subjects,
+  COUNT(CASE WHEN contributor_count IS NULL OR discussion_speaking_seconds IS NULL THEN 1 END) AS null_metrics,
+  COUNT(CASE WHEN contributor_count < 0 OR discussion_speaking_seconds < 0 THEN 1 END) AS negative_metrics,
+  CASE
+    WHEN COUNT(CASE WHEN contributor_count IS NULL OR discussion_speaking_seconds IS NULL THEN 1 END) > 0
+      THEN 'FAIL: Metrics must never be NULL'
+    WHEN COUNT(CASE WHEN contributor_count < 0 OR discussion_speaking_seconds < 0 THEN 1 END) > 0
+      THEN 'FAIL: Negative metrics found'
+    ELSE 'PASS: Metrics are non-null and non-negative'
+  END AS validation_result
+FROM "SubjectSearchView";
+
+\echo ''
+\echo '   Checking the speaking time reads the current source (tagged utterances)...'
+-- The regression this catches: the view sums SubjectSpeakerSegment, which the summarize task
+-- no longer writes, so every subject from the contribution pipeline reports 0 seconds.
+WITH tagged AS (
+  SELECT u."discussionSubjectId" AS id,
+         SUM(u."endTimestamp" - u."startTimestamp")
+           FILTER (WHERE sm.type IS NULL OR sm.type::text <> 'procedural') AS seconds
+  FROM "Utterance" u
+  INNER JOIN "SpeakerSegment" ss ON ss.id = u."speakerSegmentId"
+  LEFT JOIN "Summary" sm ON sm."speakerSegmentId" = ss.id
+  WHERE u."discussionStatus"::text = 'SUBJECT_DISCUSSION'
+    AND u."discussionSubjectId" IS NOT NULL
+  GROUP BY 1
+)
+SELECT
+  COUNT(*) AS subjects_with_tagged_time,
+  COUNT(CASE WHEN v.discussion_speaking_seconds = 0 THEN 1 END) AS reporting_zero,
+  CASE
+    WHEN COUNT(*) = 0
+      THEN 'SKIP: No tagged utterances in this database'
+    WHEN COUNT(CASE WHEN v.discussion_speaking_seconds = 0 THEN 1 END) > 0
+      THEN 'FAIL: Subjects with tagged discussion time report 0 seconds'
+    ELSE 'PASS: Speaking time follows the tagged utterances'
+  END AS validation_result
+FROM tagged
+INNER JOIN "SubjectSearchView" v ON v.id = tagged.id
+WHERE tagged.seconds > 0;
+
+\echo ''
+\echo '   Most discussed subjects (first 3):'
+SELECT
+  id,
+  contributor_count,
+  ROUND(discussion_speaking_seconds::numeric, 1) AS speaking_seconds
+FROM "SubjectSearchView"
+ORDER BY discussion_speaking_seconds DESC
 LIMIT 3;
 
 \echo ''
@@ -122,6 +181,34 @@ SELECT
   COUNT(geojson) AS with_geojson,
   COUNT(*) - COUNT(geojson) AS missing_geojson
 FROM "LocationSearchView";
+
+\echo ''
+
+-- ============================================================================
+-- 7. Validate MeetingAdministrativeBodyView - two-hop join and enum cast
+-- ============================================================================
+\echo '7. Validating MeetingAdministrativeBodyView...'
+SELECT
+  COUNT(*) AS total_meetings,
+  COUNT(administrative_body_id) AS with_body,
+  COUNT(*) - COUNT(administrative_body_id) AS without_body,
+  CASE
+    WHEN COUNT(CASE WHEN administrative_body_id IS NOT NULL AND administrative_body_type IS NULL THEN 1 END) > 0
+      THEN 'FAIL: Body present but type missing'
+    WHEN COUNT(CASE WHEN administrative_body_type NOT IN ('council', 'committee', 'community') THEN 1 END) > 0
+      THEN 'FAIL: Unexpected administrative body type'
+    ELSE 'PASS: Types resolve correctly'
+  END AS validation_result
+FROM "MeetingAdministrativeBodyView";
+
+\echo ''
+\echo '   Meetings per type:'
+SELECT
+  COALESCE(administrative_body_type, '(none)') AS administrative_body_type,
+  COUNT(*) AS meetings
+FROM "MeetingAdministrativeBodyView"
+GROUP BY 1
+ORDER BY 2 DESC;
 
 \echo ''
 
