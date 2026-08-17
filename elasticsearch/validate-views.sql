@@ -136,7 +136,7 @@ FROM "SpeakerContributionSearchView";
 \echo ''
 \echo '   Sample contributions (first 3):'
 SELECT 
-  contribution_id,
+  id AS contribution_id,
   speaker_person_name,
   speaker_party_name,
   LEFT(text, 80) || CASE WHEN LENGTH(text) > 80 THEN '...' ELSE '' END AS text_preview

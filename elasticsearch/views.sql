@@ -310,7 +310,7 @@ FROM "SubjectSpeakerSegmentSearchView";
 \echo '   Sample data from SubjectSpeakerSegmentSearchView:'
 SELECT 
   subject_id,
-  segment_id,
+  id AS segment_id,
   speaker_person_name,
   speaker_party_name,
   LEFT(text, 50) || '...' AS text_preview
@@ -380,7 +380,7 @@ FROM "SpeakerContributionSearchView";
 
 \echo '   Sample data from SpeakerContributionSearchView:'
 SELECT 
-  contribution_id,
+  id AS contribution_id,
   subject_id,
   speaker_person_name,
   speaker_party_name,
