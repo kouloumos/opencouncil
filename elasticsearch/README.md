@@ -860,18 +860,33 @@ A: PGSync's live sync receives WAL events with the base table's original column 
 This ensures bootstrap (reads from view) and live sync (reads from WAL) both work correctly.
 
 **Q: When do the discussion metrics refresh?**  
-A: PGSync rebuilds the whole document when it processes a change, so the metrics recompute on the next
-re-sync of the parent `Subject`. A change to a child table does not always trigger that re-sync (see
-[Testing Live Sync](#testing-live-sync-important)). The aggregates read `SpeakerContribution` and
-`Utterance`, which the view does not declare as base tables, so they refresh through the sibling nodes that
-do declare them (`speaker_contributions` and `speaker_segments`). Test both bootstrap and live sync after
-you change the aggregates in `SubjectSearchView`. Touch the parent `Subject` row if the numbers look stale.
+A: PGSync rebuilds the whole document when it re-syncs a `Subject`, and it re-syncs a `Subject` only when
+the `Subject` row itself changes. A change to a child table does not trigger it, whatever `base_tables`
+declares (see [Testing Live Sync](#testing-live-sync-important)) — the aggregate source rows carry their
+own primary keys, which cannot match a subject id.
+
+Both metrics therefore depend on their data committing together with a `Subject` write:
+
+- `contributor_count` — `saveSubjectsForMeeting` writes the subjects and their contributions in one
+  transaction, so the count is always current.
+- `discussion_speaking_seconds` — the summarize task's utterance discussion tags are applied inside that
+  same transaction for this reason. Written afterwards, they would never reach the index and every newly
+  summarized subject would report 0.
+
+So a writer that changes an utterance's discussion tag must do it alongside the subject write. Test both
+bootstrap and live sync after you change the aggregates in `SubjectSearchView`. Touch the parent `Subject`
+row if the numbers look stale.
 
 **Q: Why does an edit to an administrative body not appear in search?**  
-A: `MeetingAdministrativeBodyView` has the primary key `(id, cityId)` of `CouncilMeeting`. A WAL event from
-`AdministrativeBody` carries only that table's own `id`, which cannot match the key. A rename or a type change
-therefore reaches the index only after the meeting or the subject changes. Update the `Subject` row to force
-the re-sync.
+A: `MeetingAdministrativeBodyView` has the primary key `(id, cityId)` of `CouncilMeeting`, so only
+`CouncilMeeting` is declared as its base table. Moving a meeting to another body is a `CouncilMeeting`
+write and syncs on its own. Editing the body row is not, so a type change reaches the index only when the
+meeting or one of its subjects is next written.
+
+A rename needs no sync at all: the index stores `administrative_body_id` and `administrative_body_type`
+and no names, because search results hydrate the full body from PostgreSQL. Only a corrected `type` goes
+stale, and it self-heals on the next write to the meeting or the subject. Update the `Subject` row to
+force it sooner.
 
 **Q: How is the speaker segments text concatenated?**  
 A: The `SubjectSpeakerSegmentSearchView` view concatenates all utterance texts within each speaker segment using `string_agg()`, ordered by timestamp. PGSync reads from this view and indexes the concatenated text.
