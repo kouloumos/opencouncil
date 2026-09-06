@@ -1,4 +1,5 @@
 import type { Instrumentation } from 'next';
+import { isClientDisconnectError } from './lib/clientDisconnectGuard';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') {
@@ -17,6 +18,10 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context
 ) => {
+  // A client that hangs up mid-stream is not an error; see
+  // isClientDisconnectError for why Next reports it as one.
+  if (isClientDisconnectError(error)) return;
+
   // Log first so we get visibility even if Discord fails.
   console.error(
     `[onRequestError] ${context.routeType} ${context.routePath} (${request.method} ${request.path}):`,
