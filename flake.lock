@@ -35,10 +35,7 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
-        "nixpkgs-pinned": "nixpkgs-pinned",
-        "nixpkgs-unstable": [
-          "nixpkgs"
-        ]
+        "nixpkgs-pinned": "nixpkgs-pinned"
       }
     }
   },

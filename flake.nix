@@ -5,12 +5,6 @@
     # Version pinning is handled by flake.lock (single source of truth).
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-    # `nixpkgs-unstable` is kept as a name so the many call sites that take a
-    # third `pkgs-unstable` argument keep working. It resolves to the same
-    # node as `nixpkgs`; the only reason it stays a separate instantiation is
-    # the unfree predicate below.
-    nixpkgs-unstable.follows = "nixpkgs";
-
     # The previous nixos-24.11 pin, kept for the two things that must not move
     # with the channel. Dependabot must not advance it (see dependabot.yml):
     #
@@ -24,7 +18,7 @@
     nixpkgs-pinned.url = "github:NixOS/nixpkgs/50ab793786d9de88ee30ec4e4c24fb4236fc2674";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nixpkgs-pinned }:
+  outputs = { self, nixpkgs, nixpkgs-pinned }:
     let
       systems = [
         "x86_64-linux"
@@ -143,10 +137,13 @@
               inherit system;
               overlays = [ (prismaOverlay prismaPkgs) ];
             }))
-            (import nixpkgs-unstable {
+            # Same channel as `pkgs` above, instantiated a second time only to
+            # allow the one unfree package we use. Call sites still receive it
+            # as a third `pkgs-unstable` argument.
+            (import nixpkgs {
               inherit system;
               config.allowUnfreePredicate = pkg:
-                builtins.elem (nixpkgs-unstable.lib.getName pkg) [ "ngrok" ];
+                builtins.elem (nixpkgs.lib.getName pkg) [ "ngrok" ];
             }));
 
       # Shared PostGIS 3.3.5 builder - used by dev packages and preview module
