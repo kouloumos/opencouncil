@@ -29,12 +29,16 @@ Runs first in every mode, including dry-run — everything downstream reads `$RE
 ```bash
 # Use 'upstream' if it exists, otherwise 'origin' — varies by contributor setup
 git remote | grep -q upstream && REMOTE=upstream || REMOTE=origin
-echo "Using remote: $REMOTE"
+
+# Every gh call needs the repo named explicitly: a contributor has both a fork
+# (origin) and the upstream, and gh refuses to guess between them
+REPO=$(gh repo view "$(git remote get-url $REMOTE)" --json nameWithOwner -q .nameWithOwner)
+echo "Using remote: $REMOTE  ($REPO)"
 
 git fetch $REMOTE --tags
 ```
 
-Use `$REMOTE` throughout instead of hardcoding a remote name, and prefer `$REMOTE/<branch>` over local branch names: in a repo that does its work in worktrees, local `main` and `production` are routinely stale.
+Use `$REMOTE` and `$REPO` throughout instead of hardcoding a remote or a repository name, and prefer `$REMOTE/<branch>` over local branch names: in a repo that does its work in worktrees, local `main` and `production` are routinely stale.
 
 ## Argument Parsing
 
@@ -214,22 +218,41 @@ git diff $RANGE
 
 ### Collect contributors
 
-GitHub populates the release page's "Contributors" avatar list from the users @-mentioned in the release body — it does not derive it from the commits. Collect the GitHub username of everyone who authored code in the range so the release notes can credit them:
+GitHub builds the release page's "Contributors" list from the users @-mentioned in the body — not from the commits. Credit everyone who authored code in the range.
+
+**Never read contributors from PR numbers in commit subjects.** Only a squash merge writes `(#N)` into the subject. A rebase merge writes nothing, so a rebase-merged PR's author reads like a direct push and disappears. That is how the 2026.9.2 notes named one contributor of two. Ask GitHub instead, which resolves a login per commit whatever the merge method was:
 
 ```bash
-# PR authors — squash-merge subjects carry the PR number
-for pr in $(git log --format="%s" $RANGE | grep -oE '#[0-9]+' | tr -d '#' | sort -un); do
-  gh pr view $pr --json author -q .author.login
-done | sort -u
+HEAD_SHA=$(git rev-parse "${RANGE##*..}^{commit}")            # peel: compare 404s on a tag object
+case "$RANGE" in
+  *..*) BASE=$(git rev-parse "${RANGE%%..*}^{commit}") ;;
+  *)    BASE=$(git rev-list --max-parents=0 "$HEAD_SHA" | tail -1) ;;   # bare ref: no tag yet
+esac
+
+gh api "repos/$REPO/compare/$BASE...$HEAD_SHA" --paginate \
+  -q '.commits[] | "\(.author.login // .commit.author.email)/\(.author.type // "-")  <- \(.committer.login // .commit.committer.email)/\(.committer.type // "-")"' \
+  | sort | uniq -c | sort -rn
 ```
 
-For commits without a PR reference (e.g. direct pushes, hotfixes), list both identities:
+**Assert the count first:** the first column must sum to `git rev-list --count $RANGE` — one less on a bare ref, where the compare excludes the root commit. Without `--paginate` the API returns 250 commits of any longer range, and any `gh` failure pipes through as a clean empty list — both look like a valid answer.
 
-```bash
-git log --format='%h | A: %an <%ae> | C: %cn <%ce>' $RANGE
-```
+Then take each row in this order — the never-mention check comes first, because a bot can sit in either slot:
 
-Credit the author; a differing committer usually just rebased. The exception is a bot author — an agent-written commit that a person pushed carries `Claude <noreply@anthropic.com>` as the author and the real person as the committer, and the miscredit is silent because that address resolves to the `claude` account like any other login. Resolve a login from the commit, never from a display name: `gh api repos/<owner>/<repo>/commits/<sha> -q '.author.login, .committer.login'`. **Never @mention a bot**, and ask the user when a human stays unresolved — a wrong mention credits a stranger.
+1. **Never @mention a bot:** `/Bot` in the type field, plus `claude` and `web-flow` (a merge made in the web UI), which both report `/User`.
+2. **Bot author, human committer → credit the committer.** An agent-written commit that a person pushed carries `claude` as the author.
+3. **A never-mention identity on both sides credits nobody** — rule 1 decides that, so `claude <- claude` counts even though both report `/User`. Normal for an agent's direct push and for a Dependabot merge; do not ask the user about it. Confirm the work is not invisible instead — rule 5's command does not select these rows, they have a login. Run `gh api "repos/$REPO/commits/<sha>/pulls"` on the group's commits, which names the pull request author, who belongs in the list when no other row already credits them.
+4. **Otherwise credit the author**, a bot in the committer slot included. A differing committer usually only rebased or merged.
+5. **A bare email is unresolved** — that commit email is on no account. Ask the pull request it came from, once per distinct email:
+
+   ```bash
+   gh api "repos/$REPO/compare/$BASE...$HEAD_SHA" --paginate \
+     -q '.commits[] | select(.author.login == null) | "\(.commit.author.email)\t\(.sha)"' \
+     | sort -u -k1,1 | while IFS=$'\t' read -r email sha; do
+         printf '%s -> ' "$email"; gh api "repos/$REPO/commits/$sha/pulls" -q '.[0].user.login // "no PR"'
+       done
+   ```
+
+Ask the user only when a person is still unresolved after all five. Never guess a username from a display name.
 
 ## Step 3: Determine Version
 
@@ -306,10 +329,10 @@ After the user approves the outputs:
 
 4. **Create the GitHub release** using the approved release notes:
    ```bash
-   gh release create $NEXT_VERSION --repo <owner>/<repo> --target production \
+   gh release create $NEXT_VERSION --repo $REPO --target production \
      --title "$NEXT_VERSION" --notes-file <release-notes-file>
    ```
-   Pass `--repo` explicitly. Contributors commonly have both a fork (`origin`) and the upstream repo, and `gh` refuses to guess between them (`No default remote repository has been set`). Derive the value from `$REMOTE`: `git remote get-url $REMOTE`.
+   `$REPO` comes from Setup. Pass `--repo` explicitly: without it `gh` fails with `No default remote repository has been set`.
 
 5. Print the Discord announcement markdown for the user to copy.
 
@@ -318,7 +341,7 @@ After the user approves the outputs:
 **If a push or release command is blocked by the permission layer**, do not look for a way around it. Report exactly what is done so far and hand the user the remaining commands to run themselves, then verify the outcome:
 ```bash
 git fetch $REMOTE --tags && git log --oneline -1 $REMOTE/production
-gh release view $NEXT_VERSION --repo <owner>/<repo> --json tagName,isDraft,url
+gh release view $NEXT_VERSION --repo $REPO --json tagName,isDraft,url
 ```
 
 ## Notes
