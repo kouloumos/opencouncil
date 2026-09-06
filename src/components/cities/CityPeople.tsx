@@ -7,9 +7,8 @@ import List from '@/components/List';
 import PersonCard from '@/components/persons/PersonCard';
 import PersonForm from '@/components/persons/PersonForm';
 import { PersonWithRelations } from '@/lib/db/people';
-import { sortPeople } from '@/lib/sorting/people';
+import { sortBodyMembers, sortPeople } from '@/lib/sorting/people';
 import { PartyWithPersons } from '@/lib/db/parties';
-import { City } from '@prisma/client';
 import { getAdministrativeBodyTypesForPeople, filterPersonByAdminBodyTypes, getBodiesOfTypeFromPeople } from '@/lib/utils/administrativeBodies';
 import { BadgePicker } from '@/components/ui/badge-picker';
 import { updateBodyFilterURL, resolveBodyFromURL } from '@/lib/utils/filterURL';
@@ -22,7 +21,6 @@ type CityPeopleProps = {
     administrativeBodies: AdministrativeBody[],
     cityId: string,
     canEdit: boolean,
-    city: City | null
 };
 
 export default function CityPeople({
@@ -31,7 +29,6 @@ export default function CityPeople({
     administrativeBodies,
     cityId,
     canEdit,
-    city
 }: CityPeopleProps) {
     const t = useTranslations('Person');
     const tCommon = useTranslations('Common');
@@ -66,19 +63,10 @@ export default function CityPeople({
         [partiesWithPersons]
     );
 
-    const orderedPersons = useMemo(() => {
-        return sortPeople(allPeople, partiesWithPersons, city?.peopleOrdering);
-    }, [allPeople, partiesWithPersons, city?.peopleOrdering]);
-
     const typeOptions = useMemo(() =>
         getAdministrativeBodyTypesForPeople(allPeople, tCommon),
         [allPeople, tCommon]
     );
-
-    const defaultFilterValues = useMemo(() => {
-        const hasCouncil = typeOptions.some(o => o.value === 'council');
-        return hasCouncil ? ['council' as AdministrativeBodyType] : undefined;
-    }, [typeOptions]);
 
     // Pre-resolve body ID from URL once, instead of per-item in the filter callback
     const resolvedBodyId = useMemo(() => {
@@ -93,9 +81,19 @@ export default function CityPeople({
         return null;
     }, [searchParams, allPeople, typeOptions]);
 
+    // The order follows the selection the same way the filter reads it: one
+    // body picked under a type, that body's order; one type picked, the bodies
+    // of that type in turn; otherwise the city order.
+    const sortItems = useCallback((items: PersonWithRelations[], selectedValues: AdministrativeBodyType[]) => {
+        const selectedType = selectedValues.length === 1 ? selectedValues[0] : null;
+        if (selectedType && selectedType !== 'council' && resolvedBodyId) return sortBodyMembers(items, resolvedBodyId);
+        return sortPeople(items, selectedType ?? undefined);
+    }, [resolvedBodyId]);
+
     return (
         <List<PersonWithRelations, Record<string, never>, AdministrativeBodyType>
-            items={orderedPersons}
+            items={allPeople}
+            sortItems={sortItems}
             editable={canEdit}
             ItemComponent={PersonCard}
             FormComponent={PersonForm}
@@ -112,7 +110,6 @@ export default function CityPeople({
                 }
                 return true;
             }}
-            defaultFilterValues={defaultFilterValues}
             renderFilter={({ selectedValues, onChange }) => {
                 if (typeOptions.length <= 1) return null;
                 return (
