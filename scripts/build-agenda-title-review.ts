@@ -93,7 +93,7 @@ ${aligned.error ? `<p class="error">align error: ${esc(aligned.error)}</p>` : ""
     }
 
     const html = `<!doctype html><meta charset="utf-8"><title>Agenda titles · ${esc(exported.cityId)}</title>
-<style>body{font:14px/1.4 system-ui;margin:24px;max-width:1400px}table{border-collapse:collapse;width:100%;margin:8px 0 24px}td,th{border:1px solid #ddd;padding:4px 6px;vertical-align:top;text-align:left}th{background:#f4f4f4}tr.flag{background:#fff3cd}.desc{color:#555;max-width:320px}.id{font-family:monospace;font-size:11px;color:#888}.error{color:#b00}.pdf{font-size:12px;margin-left:8px}</style>
+<style>:root{color-scheme:light}body{font:14px/1.4 system-ui;margin:24px;max-width:1400px;background:#fff;color:#111}a{color:#0b57d0}h1,h2{color:#111}table{border-collapse:collapse;width:100%;margin:8px 0 24px}td,th{border:1px solid #ddd;padding:4px 6px;vertical-align:top;text-align:left;color:#111}th{background:#f4f4f4;color:#111}tr.flag{background:#fff3cd;color:#111}.desc{color:#555;max-width:320px}.id{font-family:monospace;font-size:11px;color:#888}.error{color:#b00}.pdf{font-size:12px;margin-left:8px}</style>
 <h1>Agenda item titles · ${esc(exported.cityName)} (${esc(exported.cityId)})</h1>
 <p>${exported.meetings.length} meetings exported · ${totalSubjects} subjects · ${totalTitled} titled · ${totalFlagged} flagged. Flagged rows are highlighted. Pass rejected meeting ids to <code>--skip-meetings</code> and rejected subject ids to <code>--skip-subjects</code> of the import script.</p>
 <table><thead><tr><th>meeting</th><th>date</th><th>subjects</th><th>titled</th><th>flagged</th><th>error</th></tr></thead><tbody>${summary.join("\n")}</tbody></table>
