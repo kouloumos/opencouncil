@@ -2,9 +2,10 @@
  * Write aligned agenda item titles onto Subject.agendaItemTitle. Step 4 of the one-time
  * backfill for #616.
  *
- * Dry run by default. --write applies, and needs --target <db host> equal to the host
- * that DATABASE_URL resolves to: the Nix shell exports DATABASE_URL from .env, so the
- * target is asserted, never assumed.
+ * Dry run by default. --write applies, and needs --target <database name> equal to the
+ * name that DATABASE_URL actually connects to (select current_database()). The Nix shell
+ * exports DATABASE_URL from .env, so the target is asserted, never assumed. The name is
+ * the discriminator: staging and production share one host.
  *
  * Provenance: one TaskStatus per meeting, type `importAgendaTitles`, whose requestBody
  * keeps each subject's previous value. --rollback <taskId,...> restores those values and
@@ -14,8 +15,8 @@
  * Usage:
  *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json
  *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --skip-meetings m1,m2 --skip-subjects s1
- *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --write --target localhost
- *   npx tsx scripts/import-agenda-titles.ts --rollback <taskId>[,<taskId>...] --write --target localhost
+ *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --write --target opencouncil
+ *   npx tsx scripts/import-agenda-titles.ts --rollback <taskId>[,<taskId>...] --write --target opencouncil
  */
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
@@ -43,10 +44,13 @@ async function assertTarget(write: boolean, target: string | undefined): Promise
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
     const host = new URL(url).hostname;
+    // The database name is the discriminator, not the host: staging and production
+    // share one DigitalOcean hostname and differ only by port and database name.
     const [{ db }] = await prisma.$queryRaw<[{ db: string }]>`select current_database() as db`;
     console.log(`database: ${db} @ ${host} ${write ? "(WRITE)" : "(dry run)"}`);
-    if (write && host !== target) {
-        throw new Error(`--target ${target ?? "<missing>"} does not match the resolved host ${host}; refusing to write`);
+    if (!write) return;
+    if (db !== target) {
+        throw new Error(`--target ${target ?? "<missing>"} does not match the connected database ${db} (host ${host}); refusing to write`);
     }
 }
 
@@ -72,7 +76,7 @@ async function rollback(taskIds: string[], write: boolean): Promise<void> {
             await tx.taskStatus.delete({ where: { id: t.id } });
         });
     }
-    console.log(write ? "Rolled back." : "Dry run; pass --write --target <host> to roll back.");
+    console.log(write ? "Rolled back." : "Dry run; pass --write --target <database name> to roll back.");
 }
 
 async function main() {
@@ -84,7 +88,7 @@ async function main() {
 
     const inputFile = process.argv[2];
     if (!inputFile || inputFile.startsWith("-")) {
-        console.error("Usage: npx tsx scripts/import-agenda-titles.ts <titles.json> [--skip-meetings a,b] [--skip-subjects x,y] [--overwrite] [--write --target <host>]");
+        console.error("Usage: npx tsx scripts/import-agenda-titles.ts <titles.json> [--skip-meetings a,b] [--skip-subjects x,y] [--overwrite] [--write --target <database name>]");
         process.exit(1);
     }
     const file = JSON.parse(fs.readFileSync(inputFile, "utf8")) as TitlesFile;
@@ -147,7 +151,7 @@ async function main() {
 
     console.log(write
         ? `Wrote ${written} title(s), ${skipped} skipped. Rollback handles: ${createdTaskIds.join(",") || "(none)"}`
-        : `Dry run: ${toWrite} title(s) would be written, ${skipped} skipped. Pass --write --target <host> to apply.`);
+        : `Dry run: ${toWrite} title(s) would be written, ${skipped} skipped. Pass --write --target <database name> to apply.`);
 }
 
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => prisma.$disconnect());
