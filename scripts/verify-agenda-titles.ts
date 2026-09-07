@@ -91,7 +91,10 @@ async function main() {
             if (t !== t.trim() || /\s{2,}/.test(t)) failures.push(`${where}: unnormalized whitespace`);
             if (/^\s*(\d+\s*[.)]|ΘΕΜΑ\s*\d|\d+\s*ο\s*ΘΕΜΑ)/i.test(fold(t))) failures.push(`${where}: keeps the agenda numbering prefix`);
             if (/ΕΙΣΗΓΗΤ|\{/.test(fold(t))) failures.push(`${where}: keeps a rapporteur marker`);
-            if (fold(t) === fold(r.name)) failures.push(`${where}: title equals the summary name`);
+            // A short agenda item and its 2-6 word summary can legitimately be the same
+            // words, so this reports rather than fails: no string test separates that
+            // from the model echoing `name` instead of reading the document.
+            if (fold(t) === fold(r.name)) notes.push(`${where}: title equals the summary name`);
             const greek = (t.match(/\p{Script=Greek}/gu) ?? []).length, latin = (t.match(/\p{Script=Latin}/gu) ?? []).length;
             if (greek + latin > 20 && latin > greek) notes.push(`${where}: title is mostly Latin script`);
 
