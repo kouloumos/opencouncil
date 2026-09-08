@@ -1,110 +1,57 @@
 /**
  * Discord Admin Alerts Integration
- * 
- * This module provides utilities to send admin alerts to a Discord channel
- * via webhook for important system events.
+ *
+ * Alerts about a specific council meeting. Each one links to the meeting on the
+ * domain of the realm that owns the city, which is why this module reads the
+ * database. The runtime-agnostic primitives live in `discord-core.ts`.
  */
 
+import type { Realm } from '@prisma/client';
 import { env } from '@/env.mjs';
 import { formatDate, formatDateTime, formatWeekday } from '@/lib/formatters/time';
 import { formatDurationMs } from '@/lib/formatters/time';
+import { getCityRealm } from '@/lib/db/cityRealm';
+import { realmBaseUrl } from '@/lib/utils/realmBaseUrl';
+import { sendAdminAlert, truncateField } from '@/lib/discord-core';
 import type { ReviewerInfo } from '@/lib/db/reviews';
 import type { PollDecisionsMeetingResult } from '@/lib/tasks/pollDecisions';
 
-interface DiscordEmbed {
-    title?: string;
-    description?: string;
-    color?: number;
-    fields?: Array<{
-        name: string;
-        value: string;
-        inline?: boolean;
-    }>;
-    timestamp?: string;
-    footer?: {
-        text: string;
-    };
-}
+/**
+ * The meeting an alert links to. Every alert payload that renders a link
+ * already carries these two fields, so it satisfies this structurally — no call
+ * site builds a separate object.
+ */
+type MeetingRef = { cityId: string; meetingId: string };
 
-interface DiscordWebhookPayload {
-    content?: string;
-    embeds?: DiscordEmbed[];
-}
+/** The page under a meeting that an alert links to. */
+type MeetingPath = '' | '/admin' | '/decisions';
 
 /**
- * Send a message to Discord via webhook
+ * The realm to build a city's links on, or null when it cannot be resolved.
+ *
+ * Never rejects. Alerting must not throw: most callers fire and forget without
+ * a `.catch()`, so an unhandled rejection here would turn a Discord message
+ * into a crash. A null falls back to the configured host, which is the
+ * behaviour every link had before realms.
  */
-async function sendDiscordMessage(payload: DiscordWebhookPayload): Promise<void> {
-    // Skip if webhook URL is not configured
-    if (!env.DISCORD_WEBHOOK_URL) {
-        console.log('Discord webhook URL not configured, skipping admin alert');
-        return;
-    }
-
-    try {
-        const response = await fetch(env.DISCORD_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            console.error('Failed to send Discord admin alert:', response.statusText);
-        }
-    } catch (error) {
-        console.error('Error sending Discord admin alert:', error);
-    }
-}
-
-/**
- * Identifies which deployment produced an alert: the preview PR (parsed from
- * NEXTAUTH_URL), the build commit, and the instance URL.
- */
-function buildIdentityFooter(): DiscordEmbed['footer'] {
-    const instance = env.NEXTAUTH_URL;
-    const pr = instance.match(/pr-(\d+)\./)?.[1];
-    const commit = env.NEXT_PUBLIC_BUILD_COMMIT_SHA;
-
-    const parts = [
-        pr ? `pr-${pr}` : undefined,
-        commit ? `commit ${commit.slice(0, 7)}` : undefined,
-        instance,
-    ].filter((part): part is string => Boolean(part));
-
-    return parts.length > 0 ? { text: parts.join(' · ') } : undefined;
-}
-
-/**
- * Thin wrapper around sendDiscordMessage that adds the embed boilerplate.
- */
-async function sendAdminAlert(embed: {
-    title: string;
-    description: string;
-    color: number;
-    fields: DiscordEmbed['fields'];
-    footer?: DiscordEmbed['footer'];
-}): Promise<void> {
-    await sendDiscordMessage({
-        embeds: [{
-            ...embed,
-            footer: embed.footer ?? buildIdentityFooter(),
-            timestamp: new Date().toISOString(),
-        }],
+async function cityRealm(cityId: string): Promise<Realm | null> {
+    return getCityRealm(cityId).catch((error) => {
+        console.error(`Failed to resolve the realm of ${cityId} for a Discord alert link:`, error);
+        return null;
     });
 }
 
-function meetingUrl(cityId: string, meetingId: string): string {
-    return `${env.NEXTAUTH_URL}/${cityId}/${meetingId}`;
-}
-
-function meetingAdminUrl(cityId: string, meetingId: string): string {
-    return `${env.NEXTAUTH_URL}/${cityId}/${meetingId}/admin`;
-}
-
-function meetingDecisionsUrl(cityId: string, meetingId: string): string {
-    return `${env.NEXTAUTH_URL}/${cityId}/${meetingId}/decisions`;
+/**
+ * Absolute URL of a meeting page, on the domain of the realm that owns the city.
+ *
+ * The realm is resolved here rather than passed in by every caller: it is a
+ * property of the city, and the alert already names one. Threading it through
+ * ~20 call sites instead would repeat the same derivation at each of them, and
+ * one omission produces a link that 404s — city pages are tenant-isolated, so
+ * an opencouncil.gr link to a French city is dead, not merely off-brand.
+ */
+async function meetingUrl(ref: MeetingRef, path: MeetingPath = ''): Promise<string> {
+    return `${realmBaseUrl(await cityRealm(ref.cityId))}/${ref.cityId}/${ref.meetingId}${path}`;
 }
 
 /**
@@ -117,6 +64,8 @@ export async function sendMeetingCreatedAdminAlert(data: {
     meetingId: string;
     cityId: string;
 }): Promise<void> {
+    const meetingPageUrl = await meetingUrl(data);
+
     await sendAdminAlert({
         title: `🆕 ${data.cityId}: ${data.meetingId}`,
         description: `Scheduled for ${formatWeekday(data.meetingDate)}, ${formatDateTime(data.meetingDate)}`,
@@ -139,7 +88,7 @@ export async function sendMeetingCreatedAdminAlert(data: {
             },
             {
                 name: 'View Meeting',
-                value: `[Open in OpenCouncil](${meetingUrl(data.cityId, data.meetingId)})`,
+                value: `[Open in OpenCouncil](${meetingPageUrl})`,
                 inline: false,
             },
         ],
@@ -166,6 +115,8 @@ export async function sendTaskAdminAlert(data: {
     error?: string;
 }): Promise<void> {
     const config = TASK_STATUS_CONFIG[data.status];
+
+    const meetingAdminUrl = await meetingUrl(data, '/admin');
 
     await sendAdminAlert({
         title: `${config.emoji} ${data.taskType} - ${data.cityId}`,
@@ -199,7 +150,7 @@ export async function sendTaskAdminAlert(data: {
             }] : []),
             {
                 name: 'Admin Panel',
-                value: `[Open Meeting Admin](${meetingAdminUrl(data.cityId, data.meetingId)})`,
+                value: `[Open Meeting Admin](${meetingAdminUrl})`,
                 inline: false,
             },
         ],
@@ -334,6 +285,8 @@ export async function sendNotificationsCreatedAdminAlert(data: {
 }): Promise<void> {
     const adminNotificationsUrl = `${env.NEXTAUTH_URL}/admin/notifications`;
 
+    const meetingPageUrl = await meetingUrl(data);
+
     await sendAdminAlert({
         title: `📬 Notifications Created - ${data.cityId}`,
         description: `${data.notificationsCreated} ${data.notificationType} notifications created for ${data.meetingId}`,
@@ -371,7 +324,7 @@ export async function sendNotificationsCreatedAdminAlert(data: {
             },
             {
                 name: 'Links',
-                value: `[View Meeting](${meetingUrl(data.cityId, data.meetingId)}) | [Manage Notifications](${adminNotificationsUrl})`,
+                value: `[View Meeting](${meetingPageUrl}) | [Manage Notifications](${adminNotificationsUrl})`,
                 inline: false,
             },
         ],
@@ -398,6 +351,8 @@ export async function sendNotificationsSentAdminAlert(data: {
 
     const adminNotificationsUrl = `${env.NEXTAUTH_URL}/admin/notifications`;
     const color = data.failed > 0 ? 0xe74c3c : 0x2ecc71; // Red if failures, green if all success
+
+    const meetingPageUrl = await meetingUrl(data);
 
     await sendAdminAlert({
         title: `📤 Notifications Sent - ${data.cityId}`,
@@ -431,7 +386,7 @@ export async function sendNotificationsSentAdminAlert(data: {
             },
             {
                 name: 'Links',
-                value: `[View Meeting](${meetingUrl(data.cityId, data.meetingId)}) | [Manage Notifications](${adminNotificationsUrl})`,
+                value: `[View Meeting](${meetingPageUrl}) | [Manage Notifications](${adminNotificationsUrl})`,
                 inline: false,
             },
         ],
@@ -459,6 +414,7 @@ export async function sendHumanReviewCompletedAdminAlert(data: {
     manualReviewTime?: string;
 }): Promise<void> {
     const adminReviewsUrl = `${env.NEXTAUTH_URL}/admin/reviews`;
+    const meetingPageUrl = await meetingUrl(data);
 
     const primaryReviewTime = formatDurationMs(data.estimatedReviewTimeMs);
     const totalReviewTime = formatDurationMs(data.totalReviewTimeMs);
@@ -555,7 +511,7 @@ export async function sendHumanReviewCompletedAdminAlert(data: {
         },
         {
             name: 'View Meeting',
-            value: `[Open Meeting](${meetingUrl(data.cityId, data.meetingId)})`,
+            value: `[Open Meeting](${meetingPageUrl})`,
             inline: true,
         },
         {
@@ -584,6 +540,8 @@ export async function sendTranscriptSentAdminAlert(data: {
     recipientEmails: string[];
     administrativeBodyName: string;
 }): Promise<void> {
+    const meetingPageUrl = await meetingUrl(data);
+
     await sendAdminAlert({
         title: `📧 Transcript Sent - ${data.cityId}`,
         description: `Transcript email sent for ${data.meetingId}`,
@@ -611,19 +569,11 @@ export async function sendTranscriptSentAdminAlert(data: {
             },
             {
                 name: 'View Meeting',
-                value: `[Open in OpenCouncil](${meetingUrl(data.cityId, data.meetingId)})`,
+                value: `[Open in OpenCouncil](${meetingPageUrl})`,
                 inline: false,
             },
         ],
     });
-}
-
-/** Discord embed field value limit. Truncates with an indicator when exceeded. */
-const DISCORD_FIELD_LIMIT = 1024;
-function truncateField(s: string, limit = DISCORD_FIELD_LIMIT): string {
-    if (s.length <= limit) return s;
-    const suffix = '\n… (truncated)';
-    return s.substring(0, limit - suffix.length) + suffix;
 }
 
 /**
@@ -780,14 +730,12 @@ export async function sendPollDecisionsBatchCompletedAlert(data: {
     // page, where task errors are handled.
     const actionable = data.meetingBreakdown.filter(m => m.matches > 0 || m.conflicts > 0 || m.unplaced > 0 || m.unmatchedSubjects > 0 || m.status === 'failed');
     if (actionable.length > 0) {
-        const links = actionable
-            .map(m => {
-                const url = m.status === 'failed'
-                    ? meetingAdminUrl(m.cityId, m.meetingId)
-                    : meetingDecisionsUrl(m.cityId, m.meetingId);
-                return `[${m.cityId}/${m.meetingId}](${url})`;
-            })
-            .join(' | ');
+        // Prisma batches same-tick findUnique calls by query shape, so these
+        // resolve in one round trip without a hand-rolled per-city cache.
+        const links = (await Promise.all(actionable.map(async m => {
+            const url = await meetingUrl(m, m.status === 'failed' ? '/admin' : '/decisions');
+            return `[${m.cityId}/${m.meetingId}](${url})`;
+        }))).join(' | ');
         fields.push({
             name: 'Review',
             value: truncateField(links),
@@ -811,6 +759,8 @@ export async function sendTranscriptSendFailedAdminAlert(data: {
     meetingId: string;
     error: string;
 }): Promise<void> {
+    const meetingPageUrl = await meetingUrl(data);
+
     await sendAdminAlert({
         title: `❌ Transcript Send Failed - ${data.cityId}`,
         description: `Failed to send transcript for ${data.meetingId}`,
@@ -828,7 +778,7 @@ export async function sendTranscriptSendFailedAdminAlert(data: {
             },
             {
                 name: 'View Meeting',
-                value: `[Open in OpenCouncil](${meetingUrl(data.cityId, data.meetingId)})`,
+                value: `[Open in OpenCouncil](${meetingPageUrl})`,
                 inline: false,
             },
         ],
@@ -849,6 +799,8 @@ export async function sendLivestreamMatchedAlert(data: {
     confidence: number;
     reasoning: string;
 }): Promise<void> {
+    const meetingAdminUrl = await meetingUrl(data, '/admin');
+
     await sendAdminAlert({
         title: `🎥 Livestream auto-matched - ${data.cityId}`,
         description: `Transcription triggered for ${data.meetingId}`,
@@ -881,7 +833,7 @@ export async function sendLivestreamMatchedAlert(data: {
             },
             {
                 name: 'Admin Panel',
-                value: `[Open Meeting Admin](${meetingAdminUrl(data.cityId, data.meetingId)})`,
+                value: `[Open Meeting Admin](${meetingAdminUrl})`,
                 inline: false,
             },
         ],
@@ -902,6 +854,8 @@ export async function sendLivestreamMultipleMeetingsAlert(data: {
     videoUrl?: string;
     reasoning: string;
 }): Promise<void> {
+    const meetingAdminUrl = await meetingUrl(data, '/admin');
+
     await sendAdminAlert({
         title: `⚠️ Livestream needs manual handling - ${data.cityId}`,
         description: `A candidate video appears to cover multiple meetings for ${data.meetingId}`,
@@ -934,36 +888,9 @@ export async function sendLivestreamMultipleMeetingsAlert(data: {
             },
             {
                 name: 'Admin Panel',
-                value: `[Open Meeting Admin](${meetingAdminUrl(data.cityId, data.meetingId)})`,
+                value: `[Open Meeting Admin](${meetingAdminUrl})`,
                 inline: false,
             },
         ],
-    });
-}
-
-/**
- * Generic error alert for unexpected failures anywhere in the app.
- * Context entries are rendered as inline fields for quick triage.
- */
-export async function sendErrorAdminAlert(data: {
-    source: string;
-    error: string;
-    context?: Record<string, string | undefined>;
-}): Promise<void> {
-    const contextFields = data.context
-        ? Object.entries(data.context)
-            .filter((entry): entry is [string, string] => entry[1] !== undefined)
-            .map(([name, value]) => ({
-                name,
-                value: truncateField(value),
-                inline: true,
-            }))
-        : [];
-
-    await sendAdminAlert({
-        title: `🚨 Error - ${data.source}`,
-        description: truncateField(data.error),
-        color: 0xff0000,
-        fields: contextFields,
     });
 }
