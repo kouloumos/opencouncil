@@ -4,6 +4,7 @@ import { Document, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, Packer, 
 import { getSpeakerDisplayInfo, simplifyRoleName, formatTimestamp } from '@/lib/utils';
 import { getShortName } from '@/lib/formatters/name';
 import { MeetingDataForExport } from '@/lib/export/meetings';
+import { getRealmDomain } from '@/lib/realm';
 
 const createTitlePage = ({ meeting, city }: Pick<MeetingDataForExport, 'meeting' | 'city'>) => {
     return [
@@ -59,11 +60,14 @@ const createTitlePage = ({ meeting, city }: Pick<MeetingDataForExport, 'meeting'
                 }),
                 new ExternalHyperlink({
                     children: [new TextRun({
-                        text: `opencouncil.gr/${meeting.cityId}/${meeting.id}`,
+                        // The city's realm owns the domain: city pages are
+                        // tenant-isolated, so a .gr link to a French meeting is
+                        // a 404 in a document we hand to the municipality.
+                        text: `${getRealmDomain(city.realm)}/${meeting.cityId}/${meeting.id}`,
                         style: 'Hyperlink',
                         size: 20 // 10pt
                     })],
-                    link: `https://opencouncil.gr/${meeting.cityId}/${meeting.id}`
+                    link: `https://${getRealmDomain(city.realm)}/${meeting.cityId}/${meeting.id}`
                 }),
             ],
         }),
