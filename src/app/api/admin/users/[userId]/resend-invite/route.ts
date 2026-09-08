@@ -12,14 +12,18 @@ export async function POST(request: Request, props: { params: Promise<{ userId: 
 
     try {
         const user = await prisma.user.findUnique({
-            where: { id: params.userId }
+            where: { id: params.userId },
+            include: { administers: { select: { cityId: true } } },
         })
 
         if (!user) {
             return new NextResponse("User not found", { status: 404 })
         }
 
-        const sent = await sendInviteEmail(user.email, user.name)
+        const sent = await sendInviteEmail(user.email, user.name, {
+            request,
+            cityIds: user.administers.map(a => a.cityId),
+        })
 
         if (!sent) {
             return new NextResponse("Failed to send invite email", { status: 500 })

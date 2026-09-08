@@ -37,7 +37,12 @@ export async function POST(request: Request) {
         const newUser = await createUser({ email, name, isSuperAdmin, administers })
 
         // Send invitation email
-        const inviteEmailSent = await sendInviteEmail(newUser.email, newUser.name ?? newUser.email)
+        // The invited city decides the domain, so the person signs in where
+        // their city lives; the admin's own host is only the fallback.
+        const inviteEmailSent = await sendInviteEmail(newUser.email, newUser.name ?? newUser.email, {
+            request,
+            cityIds: (administers ?? []).map(a => a.cityId),
+        })
 
         if (!inviteEmailSent) {
             console.error(`User ${newUser.id} created, but invite email failed to send`)
