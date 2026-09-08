@@ -13,6 +13,7 @@ import { createCache } from '../cache/index';
 // one) so it is never a directly-callable action. createCouncilMeeting wraps it
 // with the auth check.
 import { createCouncilMeetingDirect } from './meetingsCreate';
+import { getCityRealm } from "./cityRealm";
 
 const meetingWithAdminBodyInclude = {
     administrativeBody: true,
@@ -230,11 +231,11 @@ export async function toggleMeetingRelease(cityId: string, id: string, released:
         // TODO: utilize api/cities/[cityId]/meetings/[meetingId] to edit the meeting
         revalidateTag(`city:${cityId}:meetings`, 'max');
         revalidatePath(`/${cityId}`, "layout");
-        const city = await prisma.city.findUnique({ where: { id: cityId }, select: { realm: true } });
-        if (city) {
-            revalidateTag(landingSubjectsTag(city.realm), 'max');
+        const realm = await getCityRealm(cityId);
+        if (realm) {
+            revalidateTag(landingSubjectsTag(realm), 'max');
             // a newly (un)released meeting can enter/leave the landing's upcoming list
-            revalidateTag(upcomingMeetingsTag(city.realm), 'max');
+            revalidateTag(upcomingMeetingsTag(realm), 'max');
         }
         return updatedMeeting;
     } catch (error) {
