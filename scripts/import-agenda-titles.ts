@@ -15,8 +15,8 @@
  * Usage:
  *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json
  *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --skip-meetings m1,m2 --skip-subjects s1
- *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --write --target opencouncil
- *   npx tsx scripts/import-agenda-titles.ts --rollback <taskId>[,<taskId>...] --write --target opencouncil
+ *   npx tsx scripts/import-agenda-titles.ts zografou-agenda-titles.json --write --target production
+ *   npx tsx scripts/import-agenda-titles.ts --rollback <taskId>[,<taskId>...] --write --target production
  */
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
