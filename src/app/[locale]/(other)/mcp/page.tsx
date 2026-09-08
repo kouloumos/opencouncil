@@ -1,7 +1,8 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
-import { env } from "@/env.mjs";
+import { getRealm } from "@/lib/realm.server";
+import { realmBaseUrl } from "@/lib/utils/realmBaseUrl";
 import { getCurrentUser } from "@/lib/auth";
 import { listUserMcpTokens } from "@/lib/db/mcpTokens";
 import { CopyButton } from "@/components/mcp/CopyButton";
@@ -37,8 +38,16 @@ export async function generateMetadata(props: {
 // storage render it as a blank frame with no error the page can detect.
 const LOOM_VIDEO_URL = "https://www.loom.com/share/14194bb035464ce6abcd76b8b8faf873";
 
-function mcpBaseUrl(): string {
-    return `${env.NEXTAUTH_URL.replace(/\/$/, "")}/mcp`;
+/**
+ * The MCP address to show this visitor, on their own realm's domain.
+ *
+ * The server is already realm-aware — `/api/mcp` resolves the realm from the
+ * request Host — so the address a Cypriot visitor copies must say
+ * opencouncil.cy. `NEXTAUTH_URL` named one host for every realm, which scoped
+ * the reader's connector to Greece for good the moment they pasted it.
+ */
+async function mcpBaseUrl(): Promise<string> {
+    return `${realmBaseUrl(await getRealm())}/mcp`;
 }
 
 const EXAMPLES = ["example1", "example2", "example3", "example4"] as const;
@@ -48,7 +57,7 @@ export default async function McpPage(props: { params: Promise<{ locale: string 
     const t = await getTranslations({ locale, namespace: "mcp" });
     const user = await getCurrentUser();
     const tokens = user ? await listUserMcpTokens(user.id) : [];
-    const serverUrl = mcpBaseUrl();
+    const serverUrl = await mcpBaseUrl();
 
     return (
         <div className="mx-auto max-w-3xl px-4 pb-28 sm:px-6 lg:pb-20">
