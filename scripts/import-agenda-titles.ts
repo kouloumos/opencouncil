@@ -144,7 +144,10 @@ async function main() {
                 await tx.subject.update({ where: { id: r.subjectId }, data: { agendaItemTitle: r.next } });
             }
             return created;
-        });
+        // One meeting is one transaction, so a large agenda needs more than the 5 second
+        // default: the updates run one per row against a remote database. athens has
+        // meetings of 85 subjects.
+        }, { timeout: 120_000, maxWait: 30_000 });
         createdTaskIds.push(task.id);
         written += rows.length;
     }
