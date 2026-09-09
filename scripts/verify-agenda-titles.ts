@@ -89,8 +89,20 @@ async function main() {
             if (r.agendaItemIndex === null) failures.push(`${where}: non-agenda subject carries a title`);
             if (t.trim() === "") failures.push(`${where}: blank title`);
             if (t !== t.trim() || /\s{2,}/.test(t)) failures.push(`${where}: unnormalized whitespace`);
-            if (/^\s*(\d+\s*[.)]|ΘΕΜΑ\s*\d|\d+\s*ο\s*ΘΕΜΑ)/i.test(fold(t))) failures.push(`${where}: keeps the agenda numbering prefix`);
-            if (/ΕΙΣΗΓΗΤ|\{/.test(fold(t))) failures.push(`${where}: keeps a rapporteur marker`);
+            // A leading number is only the agenda prefix when it is this item's own number.
+            // An item that opens an internal enumeration starts at 1 whatever its index,
+            // as in «1. Ανάκληση…, 2. Συγκρότηση…» at agenda item 4.
+            const leadingNumber = /^\s*(\d+)\s*[.)]/.exec(t);
+            const keepsPrefix = (leadingNumber !== null && Number(leadingNumber[1]) === r.agendaItemIndex)
+                || /^\s*(ΘΕΜΑ\s*\d|\d+\s*ο\s*ΘΕΜΑ)/i.test(fold(t));
+            if (keepsPrefix) failures.push(`${where}: keeps the agenda numbering prefix`);
+            // Match an attribution, not the adjective «εισηγητική» that belongs to the item
+            // text, as in «σύνταξης της σχετικής εισηγητικής έκθεσης».
+            if (/ΕΙΣΗΓΗΤ(ΗΣ|ΡΙΑ|ΕΣ)\s*:/.test(fold(t))) failures.push(`${where}: keeps a rapporteur marker`);
+            // A brace pair is only leakage when it holds a bare placeholder. Greek council
+            // text nests quotes three deep, « » then [ ] then { }, so braces around prose
+            // are the document's own punctuation.
+            if (/\{\s*[a-zA-Z_][\w.]*\s*\}/.test(t)) failures.push(`${where}: keeps a template placeholder`);
             // A short agenda item and its 2-6 word summary can legitimately be the same
             // words, so this reports rather than fails: no string test separates that
             // from the model echoing `name` instead of reading the document.
