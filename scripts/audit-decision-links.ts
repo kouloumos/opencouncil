@@ -58,14 +58,20 @@ async function main() {
         },
     });
 
+    // A decision published without a title carries no evidence either way.
+    const titled = rows.filter((r): r is typeof r & { title: string } => typeof r.title === "string" && r.title.trim() !== "");
+    if (titled.length < rows.length) {
+        console.log(`skipping ${rows.length - titled.length} link(s) whose decision has no title`);
+    }
+
     // IDF over this city's decision titles, matching verify-agenda-titles.
     const df = new Map<string, number>();
-    for (const r of rows) for (const t of new Set(tokens(r.title))) df.set(t, (df.get(t) ?? 0) + 1);
-    const idf = new Map([...df].map(([t, n]) => [t, Math.log(rows.length / n)]));
+    for (const r of titled) for (const t of new Set(tokens(r.title))) df.set(t, (df.get(t) ?? 0) + 1);
+    const idf = new Map([...df].map(([t, n]) => [t, Math.log(titled.length / n)]));
 
     interface Row { body: string; meeting: string; idx: number | null; ada: string; byTitle: number; byName: number; title: string; decision: string }
     const scored: Row[] = [];
-    for (const r of rows) {
+    for (const r of titled) {
         const s = r.subject;
         if (!s?.agendaItemTitle) continue;
         const byTitle = coverage(s.agendaItemTitle, r.title, idf);
@@ -73,7 +79,7 @@ async function main() {
         if (byTitle === null) continue;
         scored.push({
             body: s.councilMeeting?.administrativeBody?.name ?? "(none)",
-            meeting: s.councilMeetingId, idx: s.agendaItemIndex, ada: r.ada,
+            meeting: s.councilMeetingId, idx: s.agendaItemIndex, ada: r.ada ?? "(no ada)",
             byTitle, byName: byName ?? 0, title: s.agendaItemTitle, decision: r.title,
         });
     }
