@@ -8,6 +8,13 @@
  * The official title is independent evidence, so a link whose decision title shares little
  * with it is a candidate to unlink and let a fresh poll decide.
  *
+ * Absolute coverage is a weak signal on its own: a body whose decision titles open with a
+ * session header carries distinctive terms no agenda title can recover, which depresses the
+ * score for correct links too. The sharper test is relative. Decisions of one meeting are a
+ * closed pool and the usual error is a permutation inside it, so a link is reported as
+ * misplaced when another titled subject of the same meeting recovers that decision's terms
+ * clearly better than the subject holding it.
+ *
  * Read-only. It proposes; scripts/unlink-decisions.ts would act.
  *
  * Usage:
@@ -97,11 +104,45 @@ async function main() {
         console.log(`${body.padEnd(24)}${String(rs.length).padStart(6)}${String(suspect).padStart(9)}${mean.toFixed(2).padStart(10)}`);
     }
     const suspects = scored.filter(r => r.byTitle < threshold).sort((a, b) => a.byTitle - b.byTitle);
-    console.log(`\nsuspect links below ${threshold}: ${suspects.length} of ${scored.length}`);
-    for (const r of suspects.slice(0, 12)) {
-        console.log(`\n  ${r.body} ${r.meeting} #${r.idx}  cov ${r.byTitle.toFixed(2)} (name ${r.byName.toFixed(2)})  ${r.ada}`);
-        console.log(`     agenda  : ${r.title.slice(0, 110)}`);
-        console.log(`     decision: ${r.decision.slice(0, 110)}`);
+    console.log(`\nlow absolute coverage (below ${threshold}): ${suspects.length} of ${scored.length}`);
+
+    // A better fit inside the same meeting is what makes a link misplaced.
+    const titlesByMeeting = new Map<string, { idx: number | null; title: string }[]>();
+    for (const r of rows) {
+        const s = r.subject;
+        if (!s?.agendaItemTitle) continue;
+        if (!titlesByMeeting.has(s.councilMeetingId)) titlesByMeeting.set(s.councilMeetingId, []);
+        titlesByMeeting.get(s.councilMeetingId)!.push({ idx: s.agendaItemIndex, title: s.agendaItemTitle });
+    }
+    const MARGIN = 0.20;
+    const misplaced = scored.map(r => {
+        let best = r.byTitle, bestIdx = r.idx;
+        for (const other of titlesByMeeting.get(r.meeting) ?? []) {
+            if (other.idx === r.idx) continue;
+            const c = coverage(other.title, r.decision, idf);
+            if (c !== null && c > best) { best = c; bestIdx = other.idx; }
+        }
+        return { ...r, best, bestIdx };
+    }).filter(r => r.best > r.byTitle + MARGIN).sort((a, b) => (b.best - b.byTitle) - (a.best - a.byTitle));
+
+    // A targeted unlink only works when the better-fitting subject is free to receive the
+    // decision. If it already holds one, the pair must be freed together.
+    const linkedSubjectIdx = new Map<string, Set<number | null>>();
+    for (const r of rows) {
+        const s2 = r.subject;
+        if (!s2) continue;
+        if (!linkedSubjectIdx.has(s2.councilMeetingId)) linkedSubjectIdx.set(s2.councilMeetingId, new Set());
+        linkedSubjectIdx.get(s2.councilMeetingId)!.add(s2.agendaItemIndex);
+    }
+    const freeTarget = misplaced.filter(r => !linkedSubjectIdx.get(r.meeting)?.has(r.bestIdx)).length;
+    console.log(`misplaced — another subject of the same meeting fits better by more than ${MARGIN}: ${misplaced.length}`);
+    console.log(`  of those, the better-fitting subject is currently unlinked: ${freeTarget}`);
+    const meetings = [...new Set(misplaced.map(r => r.meeting))];
+    if (meetings.length) console.log(`  meetings affected: ${meetings.join(", ")}`);
+    for (const r of misplaced.slice(0, 15)) {
+        console.log(`\n  ${r.body} ${r.meeting} #${r.idx} -> better fits #${r.bestIdx}  ${r.byTitle.toFixed(2)} vs ${r.best.toFixed(2)}  ${r.ada}`);
+        console.log(`     holder  : ${r.title.slice(0, 100)}`);
+        console.log(`     decision: ${r.decision.slice(0, 100)}`);
     }
 }
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(() => prisma.$disconnect());
