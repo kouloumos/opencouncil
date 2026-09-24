@@ -274,6 +274,7 @@ export async function getMeetingDataForOG(cityId: string, meetingId: string) {
             select: {
                 name: true,
                 name_en: true,
+                kind: true,
                 dateTime: true,
                 subjects: {
                     select: {
