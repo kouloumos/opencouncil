@@ -24,6 +24,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 // @ts-ignore
 import { toPhoneticLatin as toGreeklish } from 'greek-utils'
 import InputWithDerivatives from '@/components/InputWithDerivatives'
+import DecisionConventionsFields from './DecisionConventionsFields'
+import { decisionConventionsSchema, isDecisionConventions, type DecisionConventions } from '@/lib/decisionConventions'
 
 const formSchema = z.object({
     name: z.string().min(2, {
@@ -52,6 +54,10 @@ const formSchema = z.object({
     notificationBehavior: z.enum(['NOTIFICATIONS_DISABLED', 'NOTIFICATIONS_AUTO', 'NOTIFICATIONS_APPROVAL']),
     showUnreviewedTranscript: z.boolean(),
     diavgeiaUnitIds: z.string().optional().transform(val => val === '' ? undefined : val),
+    // Edited through its own fields and written by its own Confirm button, not
+    // by this form's submit. Held as the parsed record, so the fields below and
+    // the Confirm handler take a typed value rather than an unchecked one.
+    decisionConventions: decisionConventionsSchema.nullable(),
 })
 
 interface AdministrativeBody {
@@ -64,6 +70,12 @@ interface AdministrativeBody {
     notificationBehavior?: NotificationBehavior | null;
     showUnreviewedTranscript?: boolean;
     diavgeiaUnitIds?: string[];
+    decisionConventions?: unknown;
+}
+
+/** The stored column, as the form holds it: a record that parses, or nothing. */
+function storedConventions(value: unknown): DecisionConventions | null {
+    return isDecisionConventions(value) ? value : null;
 }
 
 interface AdministrativeBodiesListProps {
@@ -83,11 +95,13 @@ function getFormDefaults(body?: AdministrativeBody | null): z.infer<typeof formS
         notificationBehavior: body?.notificationBehavior || "NOTIFICATIONS_APPROVAL",
         showUnreviewedTranscript: body?.showUnreviewedTranscript ?? true,
         diavgeiaUnitIds: body?.diavgeiaUnitIds?.join(', ') || "",
+        decisionConventions: storedConventions(body?.decisionConventions),
     };
 }
 
 export default function AdministrativeBodiesList({ cityId, bodies, onUpdate }: AdministrativeBodiesListProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isConfirmingConventions, setIsConfirmingConventions] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
     const [editingBody, setEditingBody] = useState<AdministrativeBody | null>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -128,6 +142,8 @@ export default function AdministrativeBodiesList({ cityId, bodies, onUpdate }: A
                     contactEmailPrimary: undefined,
                     contactEmailsCC: undefined,
                     contactEmails: contactEmailsArray,
+                    // The conventions are written by their own Confirm button.
+                    decisionConventions: undefined,
                 }),
             })
 
@@ -145,6 +161,33 @@ export default function AdministrativeBodiesList({ cityId, bodies, onUpdate }: A
             setFormError(error instanceof Error ? error.message : t('unexpectedError'))
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    /** Confirming stamps who confirmed and stops derivation flagging the body. */
+    const handleConfirmConventions = async (conventions: DecisionConventions) => {
+        if (!editingBody) return
+        setIsConfirmingConventions(true)
+        setFormError(null)
+        try {
+            const response = await fetch(`/api/cities/${cityId}/administrative-bodies/${editingBody.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirmConventions: true, decisionConventions: conventions }),
+            })
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || t('failedToSave'))
+            }
+            const updated = await response.json()
+            form.setValue('decisionConventions', storedConventions(updated.decisionConventions))
+            setEditingBody({ ...editingBody, decisionConventions: updated.decisionConventions })
+            onUpdate()
+        } catch (error) {
+            console.error(t('failedToSave'), error)
+            setFormError(error instanceof Error ? error.message : t('unexpectedError'))
+        } finally {
+            setIsConfirmingConventions(false)
         }
     }
 
@@ -356,6 +399,23 @@ export default function AdministrativeBodiesList({ cityId, bodies, onUpdate }: A
                                     </FormItem>
                                 )}
                             />
+                            {editingBody && (
+                                <FormField
+                                    control={form.control}
+                                    name="decisionConventions"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <DecisionConventionsFields
+                                                key={editingBody.id}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                onConfirm={handleConfirmConventions}
+                                                confirming={isConfirmingConventions}
+                                            />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting ? (
                                     <>
