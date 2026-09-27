@@ -331,8 +331,16 @@ const COMPUTED_GROUPS: { group: string; members?: MemberSource; why?: string }[]
         why: "keyed by the sheet's inline 'view' | 'reassign' prop, joined to a suffix (`${action}Title`): the group also holds the buttons",
     },
     {
+        group: 'admin.decisionsPage.issues.codes.',
+        members: { file: 'src/lib/derivation/types.ts', constArray: 'ISSUE_CODES' },
+    },
+    {
         group: 'admin.decisionsPage.issues.messages.',
         members: { file: 'src/lib/derivation/types.ts', constArray: 'ISSUE_CODES' },
+    },
+    {
+        group: 'admin.decisionsPage.issues.severity.',
+        members: { file: 'src/lib/derivation/issueCatalogue.ts', type: 'IssueSeverity' },
     },
     {
         group: 'admin.decisionsPage.issues.person.',
@@ -340,6 +348,17 @@ const COMPUTED_GROUPS: { group: string; members?: MemberSource; why?: string }[]
     },
     {
         group: 'admin.decisionsPage.issues.raisedIn.',
+        members: { file: 'src/lib/derivation/issueCatalogue.ts', constArray: 'DERIVATION_STAGES' },
+    },
+    {
+        group: 'admin.decisionsPage.derivation.stages.',
+        members: { file: 'src/lib/derivation/issueCatalogue.ts', constArray: 'DERIVATION_STAGES' },
+    },
+    {
+        // The leaf below the stage is the code, and which codes a stage lists
+        // is ISSUE_STAGES' business — `DerivationDialog.test.tsx` renders the
+        // dialog against the catalogue and fails on a code with no entry.
+        group: 'admin.decisionsPage.derivation.why.',
         members: { file: 'src/lib/derivation/issueCatalogue.ts', constArray: 'DERIVATION_STAGES' },
     },
     {
