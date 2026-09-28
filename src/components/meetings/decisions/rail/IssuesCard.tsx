@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/routing';
 import { ExplainDerivationLink, SeverityChip, SeverityDot } from '@/components/meetings/decisions/auditGlossary';
 import { RailCard } from '@/components/ui/rail-card';
 import { ISSUE_SEVERITY, compareCodeSeverity } from '@/lib/derivation/issueCatalogue';
@@ -39,7 +40,7 @@ export function groupIssuesByCode(issues: Issue[]): CodeGroup[] {
  * belong to the code, not to any one row; the messages sit in it because they
  * are parameterised per row.
  */
-export function IssuesCard({ issues, subjectName, personName = () => undefined, onExplainDerivation }: {
+export function IssuesCard({ issues, subjectName, personName = () => undefined, onExplainDerivation, recordingHref }: {
     issues: Issue[];
     /** Names the subject an issue belongs to; the meeting-wide ones have none. */
     subjectName?: (subjectId: string) => string | undefined;
@@ -47,6 +48,9 @@ export function IssuesCard({ issues, subjectName, personName = () => undefined, 
     personName?: (personId: string) => string | undefined;
     /** Opens the page's account of the whole derivation. The link is offered only when there is one. */
     onExplainDerivation?: () => void;
+    /** Where the utterance an issue cites can be heard. Undefined, or returning
+     * undefined, when the page cannot place it: the id is then printed as text. */
+    recordingHref?: (utteranceId: string) => string | undefined;
 }) {
     const tPage = useTranslations('admin.decisionsPage');
     const [openCode, setOpenCode] = useState<string | null>(null);
@@ -86,6 +90,9 @@ export function IssuesCard({ issues, subjectName, personName = () => undefined, 
                                     <ul className="mt-1.5 space-y-1.5 border-l-2 border-foreground/10 pl-2 text-muted-foreground">
                                         {group.issues.map((issue, i) => {
                                             const person = issuePerson(issue, personName);
+                                            const utteranceId = issue.evidence?.utteranceId;
+                                            const line = issue.evidence?.line;
+                                            const href = utteranceId ? recordingHref?.(utteranceId) : undefined;
                                             return (
                                                 <li key={`${issue.subjectId ?? ''}-${issue.personId ?? ''}-${i}`}>
                                                     {issue.subjectId && (
@@ -102,6 +109,21 @@ export function IssuesCard({ issues, subjectName, personName = () => undefined, 
                                                         be reachable only by hovering the row. */}
                                                     {issue.rawText && (
                                                         <span className="block text-muted-foreground/70">{`«${issue.rawText}»`}</span>
+                                                    )}
+                                                    {/* Where the statement can be checked: the utterance of the
+                                                        transcript, or the line of the sheet. */}
+                                                    {(utteranceId || line !== undefined) && (
+                                                        <span className="block text-[11px] text-muted-foreground/80">
+                                                            {utteranceId && (href ? (
+                                                                <Link href={href} className="underline decoration-dotted underline-offset-2 hover:text-foreground">
+                                                                    {tPage('issues.evidence.openRecording')}
+                                                                </Link>
+                                                            ) : (
+                                                                <span>{tPage('issues.evidence.utterance', { id: utteranceId })}</span>
+                                                            ))}
+                                                            {utteranceId && line !== undefined && ' · '}
+                                                            {line !== undefined && tPage('issues.evidence.sheetLine', { line })}
+                                                        </span>
                                                     )}
                                                 </li>
                                             );

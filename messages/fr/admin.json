@@ -296,6 +296,14 @@
         "rejected": "Rejetée",
         "none": "—",
         "noVote": "—"
+      },
+      "resultFrom": {
+        "sheet": "The vote comes from the attendance sheet; no document is linked yet",
+        "transcript": "The vote comes from the transcript; no document is linked yet"
+      },
+      "sourceShort": {
+        "sheet": "sheet",
+        "transcript": "transcript"
       }
     },
     "panel": {
@@ -477,6 +485,80 @@
       "conventionsEdit": "Modifier les règles de l'organe",
       "conventionsNone": "Aucune règle n'est enregistrée pour cet organe. Ses pages de décision ne sont pas lues tant qu'une personne ne les a pas enregistrées ; les faits affichés ont été déduits avec les valeurs par défaut."
     },
+    "sources": {
+      "title": "Sources",
+      "loadFailed": "The sources did not load.",
+      "actionFailed": "The action failed",
+      "warnings": "Reader warnings",
+      "unmatchedNames": "Names not matched: {names}",
+      "sheet": {
+        "label": "Attendance sheet",
+        "none": "No sheet uploaded. Upload a photo or a PDF of the back office's sheet.",
+        "upload": "Upload the sheet",
+        "uploaded": "Uploaded; the reader has not returned.",
+        "reading": "Reading {file}…",
+        "read": "Read. The reading awaits your confirmation.",
+        "confirmed": "Confirmed on {date}.",
+        "review": "Review",
+        "reread": "Read again",
+        "remove": "Remove",
+        "removeConfirm": "Remove the sheet, its reading and everything derived from it?"
+      },
+      "transcript": {
+        "label": "Transcript",
+        "none": "Not read yet.",
+        "reading": "Reading…",
+        "read": "Read on {date}.",
+        "counts": "{entries, plural, one {# roll-call entry} other {# roll-call entries}} · {changes, plural, one {# change} other {# changes}} · {votes, plural, one {# vote statement} other {# vote statements}}",
+        "readButton": "Read the transcript",
+        "reread": "Read again"
+      },
+      "review": {
+        "title": "Review the attendance sheet",
+        "description": "Correct what the reader read, then confirm. Nothing from the sheet counts before you do.",
+        "fileTitle": "Attendance sheet",
+        "rollCall": "Roll call",
+        "rollCallEmpty": "The reader found no roll call.",
+        "colName": "Name as read",
+        "colPerson": "Person",
+        "colStatus": "Status",
+        "colJustified": "Justified",
+        "colType": "Type",
+        "nobody": "— nobody —",
+        "present": "Present",
+        "absent": "Absent",
+        "changes": "Arrivals and departures",
+        "changesEmpty": "None stated.",
+        "type": {
+          "arrival": "Arrival",
+          "departure": "Departure",
+          "absent_for_vote": "Absent for the vote"
+        },
+        "agendaItem": "Item no.",
+        "timing": "Timing",
+        "timingNone": "—",
+        "timingValue": {
+          "before": "Before",
+          "during": "During",
+          "after": "After"
+        },
+        "rawText": "As written",
+        "removeChange": "Remove",
+        "votes": "Vote statements",
+        "votesEmpty": "None stated.",
+        "outcome": {
+          "unanimous": "Unanimous",
+          "majority": "By majority",
+          "rejected": "Rejected",
+          "none": "No outcome"
+        },
+        "line": "line {line}",
+        "save": "Save",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "saveFailed": "The reading was not saved: {error}"
+      }
+    },
     "presenceHeadline": "{present} présents sur {total}",
     "presenceAbsentInline": "{n} absents :",
     "presencePresentList": "Présents ({n})",
@@ -576,6 +658,11 @@
       "howDerived": "How the facts are derived",
       "person": {
         "member": "Member: {name}"
+      },
+      "evidence": {
+        "openRecording": "Open the recording",
+        "utterance": "Utterance {id}",
+        "sheetLine": "Sheet line {line}"
       }
     },
     "rederive": "Re-derive",

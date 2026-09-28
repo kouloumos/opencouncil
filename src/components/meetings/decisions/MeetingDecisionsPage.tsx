@@ -46,6 +46,9 @@ import { MinutesPreviewDialog } from '@/components/meetings/decisions/MinutesPre
 import { DerivationDialog } from '@/components/meetings/decisions/DerivationDialog';
 import { DecisionsRail } from '@/components/meetings/decisions/rail/DecisionsRail';
 import type { ConventionsPanel } from '@/components/meetings/decisions/rail/ConventionsSection';
+import type { SourcesPanel } from '@/components/meetings/decisions/rail/SourcesCard';
+import { SheetReviewSheet } from '@/components/meetings/decisions/SheetReviewSheet';
+import { useMeetingFactSources } from '@/components/meetings/decisions/useMeetingFactSources';
 import type { DerivationOutput } from '@/lib/derivation/types';
 
 /** MeetingCandidate as it arrives over JSON — dates serialized to strings. */
@@ -152,7 +155,7 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
     const [auditModePreference, setAuditMode] = useAuditMode();
     const auditMode = isSuperAdmin && auditModePreference;
     const { toast } = useToast();
-    const { subjects, meeting, city, getPerson } = useCouncilMeetingData();
+    const { subjects, meeting, city, getPerson, people, transcript } = useCouncilMeetingData();
     const t = useTranslations('admin.adminActions');
     const tPage = useTranslations('admin.decisionsPage');
     const tSubject = useTranslations('Subject');
@@ -277,6 +280,44 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
         fetchDecisions();
         refreshPollingStatus();
     }, [fetchDecisions, refreshPollingStatus]);
+
+    /** Both at once: the derived rows are what the minutes read. */
+    const refetchFacts = useCallback(async () => {
+        await Promise.all([fetchDecisions(), fetchMinutes()]);
+    }, [fetchDecisions, fetchMinutes]);
+
+    // The attendance sheet and the transcript as sources (issue #807). The
+    // route is superadmin-only, so the hook loads nothing for anyone else.
+    const factSources = useMeetingFactSources({ cityId: meeting.cityId, meetingId: meeting.id, enabled: isSuperAdmin, onFactsChanged: refetchFacts });
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const sheetSource = useMemo(() => factSources.sources?.find(s => s.source === 'sheet') ?? null, [factSources.sources]);
+    const sourcesPanel: SourcesPanel | undefined = isSuperAdmin ? {
+        sources: factSources.sources,
+        loadFailed: factSources.loadFailed,
+        busy: factSources.busy,
+        isReading: factSources.isReading,
+        timezone: city.timezone,
+        onUpload: (file: File) => { void factSources.upload(file); },
+        onReview: () => setReviewOpen(true),
+        onReread: () => { void factSources.reread(); },
+        onRemove: () => { void factSources.remove(); },
+        onReadTranscript: () => { void factSources.readTranscript(); },
+    } : undefined;
+
+    // An issue that cites an utterance links to the recording at its second,
+    // the way a share link does; the transcript the page already holds says
+    // which second. Hidden or absent, the transcript places nothing.
+    const utteranceSeconds = useMemo(() => {
+        const seconds = new Map<string, number>();
+        for (const segment of transcript ?? []) {
+            for (const utterance of segment.utterances) seconds.set(utterance.id, Math.floor(utterance.startTimestamp));
+        }
+        return seconds;
+    }, [transcript]);
+    const recordingHref = useCallback((utteranceId: string) => {
+        const second = utteranceSeconds.get(utteranceId);
+        return second === undefined ? undefined : `/${city.id}/${meeting.id}?t=${second}`;
+    }, [utteranceSeconds, city.id, meeting.id]);
 
     useEffect(() => { fetchMinutes(); }, [fetchMinutes]);
 
@@ -414,6 +455,12 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
         const decision = decisions[subject.id];
         const votes = extractedData[subject.id]?.votes ?? [];
         const result = resultKey({ withdrawn: subject.withdrawn, hasDecision: Boolean(decision), votes });
+        // A vote the sheet or the transcript states, before a document is linked,
+        // says so beside the word: only when every row of the subject comes from
+        // that one source, so a person's manual row never lends its label to the rest.
+        const voteSources = new Set(votes.map(v => v.source));
+        const only = voteSources.size === 1 ? [...voteSources][0] : null;
+        const statedElsewhere = only === 'sheet' || only === 'transcript' ? only : null;
         const proposal = decision ? undefined : routed.proposalBySubject.get(subject.id);
         return {
             subject: {
@@ -433,8 +480,11 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
             // A dash means two different things and only one of them explains
             // itself: a linked decision whose document records no vote. A row
             // with nothing linked yet has nothing to explain.
-            resultHint: result === 'noVote' ? tPage('table.noVoteHint') : null,
-            voteCounts: hasRecordedVote(result) ? voteCountsPhrase(tPage, calculateVoteResult(votes)) : null,
+            resultHint: result === 'noVote' ? tPage('table.noVoteHint')
+                : statedElsewhere && hasRecordedVote(result) ? tPage(`table.resultFrom.${statedElsewhere}`) : null,
+            voteCounts: hasRecordedVote(result)
+                ? voteCountsPhrase(tPage, calculateVoteResult(votes)) + (statedElsewhere ? ` · ${tPage(`table.sourceShort.${statedElsewhere}`)}` : '')
+                : null,
             proposal: proposal
                 ? {
                     candidateId: proposal.id,
@@ -1387,6 +1437,18 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
                     {isSuperAdmin && (
                         <DerivationDialog open={derivationOpen} onOpenChange={setDerivationOpen} />
                     )}
+
+                    {isSuperAdmin && sheetSource && (
+                        <SheetReviewSheet
+                            open={reviewOpen}
+                            onOpenChange={setReviewOpen}
+                            cityId={meeting.cityId}
+                            meetingId={meeting.id}
+                            source={sheetSource}
+                            people={people}
+                            onSaved={(row, confirmed) => { void factSources.afterReview(row, confirmed); }}
+                        />
+                    )}
                 </div>
                 <aside className="min-w-0">
                     <DecisionsRail
@@ -1413,6 +1475,8 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
                         auditMode={auditMode}
                         onAuditModeChange={setAuditMode}
                         conventions={conventionsPanel}
+                        factSources={sourcesPanel}
+                        recordingHref={recordingHref}
                     />
                 </aside>
             </div>

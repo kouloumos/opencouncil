@@ -2,6 +2,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { IssuesCard, groupIssuesByCode } from '../IssuesCard';
 import type { Issue } from '@/lib/derivation/types';
 
+jest.mock('@/i18n/routing', () => ({
+    Link: ({ children, prefetch, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+        <a {...props}>{children}</a>
+    ),
+}));
+
 jest.mock('next-intl', () => ({
     useTranslations: () => (key: string, params?: Record<string, unknown>) =>
         params ? `${key}${JSON.stringify(params)}` : key,
@@ -76,6 +82,27 @@ describe('IssuesCard', () => {
         fireEvent.click(screen.getByText('issues.codes.NO_ROLL_CALL'));
         expect(screen.getByText('issues.severity.error')).toBeInTheDocument();
         expect(screen.getByText(/issues\.raisedIn\.presence .* issues\.raisedIn\.write/)).toBeInTheDocument();
+    });
+
+    it('links an utterance the page can place to the recording, and prints one it cannot', () => {
+        render(
+            <IssuesCard
+                issues={[
+                    issue({ code: 'UNPLACEABLE_VOTE', source: 'transcript', params: {}, evidence: { utteranceId: 'u1' } }),
+                    issue({ code: 'UNPLACEABLE_VOTE', source: 'transcript', params: {}, evidence: { utteranceId: 'u2' } }),
+                ]}
+                recordingHref={id => (id === 'u1' ? '/athens/m1?t=90' : undefined)}
+            />,
+        );
+        fireEvent.click(screen.getByText('issues.codes.UNPLACEABLE_VOTE'));
+        expect(screen.getByText('issues.evidence.openRecording').closest('a')).toHaveAttribute('href', '/athens/m1?t=90');
+        expect(screen.getByText('issues.evidence.utterance{"id":"u2"}')).toBeInTheDocument();
+    });
+
+    it('names the sheet line an issue was read from', () => {
+        render(<IssuesCard issues={[issue({ source: 'sheet', evidence: { line: 7 } })]} />);
+        fireEvent.click(screen.getByText('issues.codes.UNMATCHED_NAME'));
+        expect(screen.getByText('issues.evidence.sheetLine{"line":7}')).toBeInTheDocument();
     });
 
     it('offers the derivation only when the page passed a way to open it', () => {

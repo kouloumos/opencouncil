@@ -12,6 +12,7 @@ import { minutesReadiness, type Timeline } from '@/components/meetings/decisions
 import type { MinutesData } from '@/lib/minutes/types';
 import { IssuesCard } from '@/components/meetings/decisions/rail/IssuesCard';
 import { ConventionsSection, type ConventionsPanel } from '@/components/meetings/decisions/rail/ConventionsSection';
+import { SourcesCard, type SourcesPanel } from '@/components/meetings/decisions/rail/SourcesCard';
 import type { Issue } from '@/lib/derivation/types';
 
 /**
@@ -26,8 +27,10 @@ import type { Issue } from '@/lib/derivation/types';
  * the export at the bottom of a very long page.
  *
  * The staff block holds the audit-mode switch, the rules the derivation read
- * this body's documents by, and the two controls nobody else may run: a poll
- * that bypasses the task server's extraction cache, and the destructive
+ * this body's documents by, the meeting's sources beside the decision
+ * documents (the attendance sheet and the transcript), and the two controls
+ * nobody else may run: a poll that bypasses the task server's extraction
+ * cache, and the destructive
  * extraction reset. The ordinary Diavgeia re-check belongs to every admin and
  * lives on the questions card, so it is not repeated here. Where the decisions
  * come from is on the page's status line, where a city admin can read it too.
@@ -56,6 +59,8 @@ export function DecisionsRail({
     onRederive,
     isRederiving,
     onExplainDerivation,
+    factSources,
+    recordingHref,
 }: {
     /** Null while the minutes have not loaded (or failed to): the presence,
      * attendance-changes and discussion-order cards render nothing then. */
@@ -88,6 +93,12 @@ export function DecisionsRail({
     /** Opens the page's derivation glossary from the issues card. Superadmin-only,
      * so the page passes it to one and withholds it from everyone else. */
     onExplainDerivation?: () => void;
+    /** The attendance sheet and the transcript as sources, with the page's
+     * actions on them. Superadmin-only, so the page passes it to one and
+     * withholds it from everyone else. */
+    factSources?: SourcesPanel;
+    /** Where an issue's utterance can be heard; undefined for one the page cannot place. */
+    recordingHref?: (utteranceId: string) => string | undefined;
 }) {
     const tPage = useTranslations('admin.decisionsPage');
     const tCommon = useTranslations('Common');
@@ -116,7 +127,7 @@ export function DecisionsRail({
                     <div className="space-y-3 px-1 pb-1">
                         {/* The issues read against audit mode below, which only a
                             superadmin has, so they sit in the same frame. */}
-                        <IssuesCard issues={issues} subjectName={subjectName} personName={personName} onExplainDerivation={onExplainDerivation} />
+                        <IssuesCard issues={issues} subjectName={subjectName} personName={personName} onExplainDerivation={onExplainDerivation} recordingHref={recordingHref} />
                         <div className="rounded-lg border bg-background p-2.5">
                             <label className="flex items-center justify-between gap-3">
                                 <span className="text-xs font-medium">{tPage('auditMode')}</span>
@@ -125,6 +136,7 @@ export function DecisionsRail({
                             <p className="mt-1 text-[11px] text-muted-foreground">{tPage('auditModeHint')}</p>
                         </div>
                         {conventions && <ConventionsSection panel={conventions} />}
+                        {factSources && <SourcesCard {...factSources} />}
                         {/* The controls' own surface. Their 11px hints used to be
                             printed straight onto the stripes, where the pattern
                             runs through every letter of the text you have to read
