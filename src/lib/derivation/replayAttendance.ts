@@ -1,8 +1,8 @@
-import type { AttendanceStatus } from '@prisma/client';
+import type { AttendanceStatus, DataSource } from '@prisma/client';
 import type { DecisionConventions } from '@/lib/decisionConventions';
 import { outForOwnVote, rangeCoversDecision } from './anchors';
 import { placeEvents, type PlacedEvent } from './placeEvents';
-import { sourceRank } from './types';
+import { DERIVED_SOURCES, sourceRank } from './types';
 import type { DerivedAttendanceRow, DocumentFacts, EventRow, Issue, IssueParams, OrderedSubject, RollCallRow } from './types';
 
 export interface ReplayInput {
@@ -20,6 +20,12 @@ export interface ReplayInput {
     secretaryPersonId?: string | null;
     /** Why the pages resolved no roll call (resolveSession); `NO_ROLL_CALL` carries it. */
     rollCallMissing?: IssueParams['NO_ROLL_CALL']['reason'] | null;
+    /**
+     * The source a row takes when a `manual` statement decided its state. A row
+     * of source `manual` is a stated fact the write never replaces, so the
+     * derivation must not create one: the meeting's reference source stands in.
+     */
+    rowSourceForManual?: DataSource;
 }
 
 export interface ReplayResult {
@@ -43,9 +49,10 @@ export function rankRollCall(rollCall: RollCallRow[]): { rows: Map<string, RollC
     for (const r of rollCall) {
         const prev = rows.get(r.personId);
         if (!prev) { rows.set(r.personId, r); continue; }
-        if (prev.status === r.status) continue;
         const [win, lose] = sourceRank(r.source) < sourceRank(prev.source) ? [r, prev] : [prev, r];
-        issues.push({ code: 'SOURCES_DISAGREE', personId: r.personId, source: win.source,
+        // Two sources that agree are one fact; the row is labelled with the one that outranks.
+        if (prev.status === r.status) { rows.set(r.personId, win); continue; }
+        issues.push({ code: 'SOURCES_DISAGREE', personId: r.personId, source: win.source, rawText: lose.rawText, evidence: lose.evidence,
             params: { kind: 'rollCall', winSource: win.source, winStatus: win.status, loseSource: lose.source, loseStatus: lose.status } });
         rows.set(r.personId, win);
     }
@@ -153,6 +160,9 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
     const ranked = rankRollCall(rollCall);
     issues.push(...ranked.issues);
     const state = new Map<string, AttendanceStatus>([...ranked.rows].map(([personId, r]) => [personId, r.status]));
+    // The source whose statement last set each person's state, for the rows.
+    const stateSource = new Map<string, DataSource>([...ranked.rows].map(([personId, r]) => [personId, r.source]));
+    const set = (personId: string, status: AttendanceStatus, source: DataSource) => { state.set(personId, status); stateSource.set(personId, source); };
 
     // Someone the roll call never named still needs a row for every subject: their
     // first placed event says which side of it they were on before it fired.
@@ -163,19 +173,24 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
     }
     for (const [personId, p] of firstEvent) {
         if (state.has(personId)) continue;
-        state.set(personId, p.event.kind === 'ARRIVAL' ? 'ABSENT' : 'PRESENT');
+        set(personId, p.event.kind === 'ARRIVAL' ? 'ABSENT' : 'PRESENT', p.event.source);
     }
 
     // A cumulative present list already contains the late arrivals, so a roll-call
     // PRESENT for someone who also has an ARRIVAL means "present by the end", not
     // "present from subject 0"; their arrival event is what puts them in the room.
-    if (meaning === 'cumulative') for (const p of placed) if (p.event.kind === 'ARRIVAL') state.set(p.event.personId, 'ABSENT');
+    if (meaning === 'cumulative') for (const p of placed) if (p.event.kind === 'ARRIVAL') set(p.event.personId, 'ABSENT', p.event.source);
 
+    const fallbackSource = input.rowSourceForManual ?? 'decision';
+    const rowSource = (personId: string): DataSource => {
+        const s = stateSource.get(personId) ?? 'decision';
+        return DERIVED_SOURCES.includes(s) ? s : fallbackSource;
+    };
     const emit = (subjectId: string, origin: DerivedAttendanceRow['origin']) => {
         const present = new Set<string>(), absent = new Set<string>();
         for (const [personId, status] of state) {
             if (personId === mayorPersonId) continue;
-            attendance.push({ subjectId, personId, status, origin });
+            attendance.push({ subjectId, personId, status, origin, source: rowSource(personId) });
             (status === 'PRESENT' ? present : absent).add(personId);
         }
         presentBySubject.set(subjectId, present);
@@ -219,7 +234,7 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
 
     subjects.forEach((s, i) => {
         const eventsHere = settleEventsAt(i, s.id);
-        for (const e of eventsHere) state.set(e.personId, e.kind === 'ARRIVAL' ? 'PRESENT' : 'ABSENT');
+        for (const e of eventsHere) set(e.personId, e.kind === 'ARRIVAL' ? 'PRESENT' : 'ABSENT', e.source);
         const doc = docBySubject.get(s.id);
         // A per-decision roll call is this document's own statement of who was in
         // the room for its item — Argos ΔΣ prints Μπουλούκος under ΑΠΟΝΤΕΣ on items
@@ -241,7 +256,7 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
             const outForThisVote = outForOwnVote(doc, s.decisionNumber);
             for (const personId of new Set([...doc.rollCallPresentIds ?? [], ...doc.rollCallAbsentIds ?? []])) {
                 if (personId === mayorPersonId) continue;
-                if (outForThisVote.has(personId)) { state.set(personId, 'ABSENT'); continue; }
+                if (outForThisVote.has(personId)) { set(personId, 'ABSENT', 'decision'); continue; }
                 const status: AttendanceStatus = perDecisionRollCall.has(personId) ? 'PRESENT' : 'ABSENT';
                 const contradicted = eventHere.get(personId);
                 const rangeSentence = outByRange.get(s.id)?.get(personId);
@@ -262,7 +277,7 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
                     issues.push({ code: 'SOURCES_DISAGREE', subjectId: s.id, personId, decisionId: doc.decisionId, source: 'decision',
                         rawText: contradicted.rawText, params: { kind: 'statedList', status, eventKind: contradicted.kind, rawText: contradicted.rawText } });
                 }
-                state.set(personId, status);
+                set(personId, status, 'decision');
             }
         }
         if (statesPerDecision && doc?.presentIds?.length) {
@@ -308,7 +323,7 @@ export function replayAttendance(input: ReplayInput): ReplayResult {
                     else issues.push({ code: 'IMPLIED_CHANGE', subjectId: s.id, personId, decisionId: doc.decisionId, source: 'decision',
                         params: { status } });
                 }
-                state.set(personId, status);
+                set(personId, status, 'decision');
             }
             emit(s.id, 'stated');
         } else if (meaning !== 'unknown' || assumeOpening) {

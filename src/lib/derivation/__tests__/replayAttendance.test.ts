@@ -23,7 +23,7 @@ describe('replayAttendance', () => {
             events: [ev({ personId: 'p1', anchorAgendaItemIndex: 2 }), ev({ personId: 'p3', kind: 'ARRIVAL', anchorAgendaItemIndex: 2, timing: 'AFTER' })] });
         expect(present(r, 's1')).toEqual(['p1', 'p2']); expect(present(r, 's2')).toEqual(['p2']); expect(present(r, 's3')).toEqual(['p2', 'p3']);
         expect(r.attendance.filter(a => a.subjectId === 's2')).toEqual(expect.arrayContaining([
-            { subjectId: 's2', personId: 'p1', status: 'ABSENT', origin: 'derived' }, { subjectId: 's2', personId: 'p2', status: 'PRESENT', origin: 'derived' }]));
+            { subjectId: 's2', personId: 'p1', status: 'ABSENT', origin: 'derived', source: 'decision' }, { subjectId: 's2', personId: 'p2', status: 'PRESENT', origin: 'derived', source: 'decision' }]));
         expect(r.issues).toEqual([]);
     });
     it('a per-vote absence pair removes the member for one subject only', () => {
@@ -81,7 +81,7 @@ describe('replayAttendance', () => {
             documents: [doc('s1', { rollCallPresentIds: ['a', 'b'], rollCallAbsentIds: [] }), doc('s2', { rollCallPresentIds: ['a', 'b'], rollCallAbsentIds: ['b'] })] });
         expect(present(r, 's1')).toEqual(['a', 'b']);
         expect(present(r, 's2')).toEqual(['a']);
-        expect(r.attendance.filter(x => x.subjectId === 's2' && x.personId === 'b')).toEqual([{ subjectId: 's2', personId: 'b', status: 'ABSENT', origin: 'derived' }]);
+        expect(r.attendance.filter(x => x.subjectId === 's2' && x.personId === 'b')).toEqual([{ subjectId: 's2', personId: 'b', status: 'ABSENT', origin: 'derived', source: 'decision' }]);
     });
     it('a subject without a document keeps the state of the last one read, under a per-decision roll call', () => {
         const r = replayAttendance({ subjects, rollCall: [rc('p1'), rc('p2')], conventions: conv({ presentListMeaning: 'per_decision' }), mayorPersonId: null, events: [],

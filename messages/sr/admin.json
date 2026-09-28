@@ -541,7 +541,10 @@
                 "NAME_MATCHED_TWICE": "One name, two people",
                 "OUT_OF_AGENDA_PLACED_FIRST": "Out-of-agenda change placed first",
                 "VOTE_BY_ABSENT_MEMBER": "Vote by an absent member",
-                "NO_VOTE_RESULT": "No vote result"
+                "NO_VOTE_RESULT": "No vote result",
+                "UNPLACEABLE_VOTE": "Vote names no item",
+                "SHEET_UNCONFIRMED": "Sheet awaits confirmation",
+                "PARTY_VOTE_UNRESOLVED": "Party vote unresolved"
             },
             "messages": {
                 "NO_ROLL_CALL": "{reason, select, noMajority {The pages print different roll calls and no one of them is on more than half of the pages, so presence cannot be replayed. The stored rows were left as they are.} other {No document yielded a roll call, so presence cannot be replayed. The stored rows were left as they are.}}",
@@ -553,7 +556,7 @@
                 "TALLY_MISMATCH": "The printed tally disagrees with the derived votes ({diffs}).",
                 "INCOMPLETE_READ": "The extractor did not reach ΑΠΟΦΑΣΙΖΕΙ; the decision text and the vote may be missing.",
                 "PRESIDING_DISAGREES": "Documents of this meeting name different presiding members ({names}).",
-                "SOURCES_DISAGREE": "{kind, select, rollCall {The roll call from {winSource, select, decision {the document} transcript {the transcript} manual {manual entry} other {{winSource}}} says the member is {winStatus, select, PRESENT {present} other {absent}} and the one from {loseSource, select, decision {the document} transcript {the transcript} manual {manual entry} other {{loseSource}}} says {loseStatus, select, PRESENT {present} other {absent}}; the first wins.} event {An arrival and a departure are stated at the same point («{winRawText}» from {winSource, select, decision {the document} transcript {the transcript} manual {manual entry} other {{winSource}}}, «{loseRawText}» from {loseSource, select, decision {the document} transcript {the transcript} manual {manual entry} other {{loseSource}}}); the {winKind, select, ARRIVAL {arrival} other {departure}} wins.} statedList {The document's own list says this member is {status, select, PRESENT {present} other {absent}} here, contradicting the stated {eventKind, select, ARRIVAL {arrival} other {departure}} («{rawText}»); the list wins.} doubleVote {The document names this member twice with different votes ({firstVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{firstVote}}} and {secondVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{secondVote}}}); the first is kept.} other {Two sources state different things; the source of higher precedence wins.}}",
+                "SOURCES_DISAGREE": "{kind, select, rollCall {The roll call from {winSource, select, decision {the document} transcript {the transcript} sheet {the sheet} manual {manual entry} other {{winSource}}} says the member is {winStatus, select, PRESENT {present} other {absent}} and the one from {loseSource, select, decision {the document} transcript {the transcript} sheet {the sheet} manual {manual entry} other {{loseSource}}} says {loseStatus, select, PRESENT {present} other {absent}}; the first wins.} event {An arrival and a departure are stated at the same point («{winRawText}» from {winSource, select, decision {the document} transcript {the transcript} sheet {the sheet} manual {manual entry} other {{winSource}}}, «{loseRawText}» from {loseSource, select, decision {the document} transcript {the transcript} sheet {the sheet} manual {manual entry} other {{loseSource}}}); the {winKind, select, ARRIVAL {arrival} other {departure}} wins.} statedList {The document's own list says this member is {status, select, PRESENT {present} other {absent}} here, contradicting the stated {eventKind, select, ARRIVAL {arrival} other {departure}} («{rawText}»); the list wins.} doubleVote {The document names this member twice with different votes ({firstVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{firstVote}}} and {secondVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{secondVote}}}); the first is kept.} eventPosition {Two sources state the same change for this member at different points («{winRawText}» from {winSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{winSource}}}, «{loseRawText}» from {loseSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{loseSource}}}); the first wins and the second is not applied.} outcome {The outcome of the vote differs: {winSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{winSource}}} states {winOutcome, select, unanimous {unanimous} majority {by majority} rejected {rejected} other {{winOutcome}}}, {loseSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{loseSource}}} states {loseOutcome, select, unanimous {unanimous} majority {by majority} rejected {rejected} other {{loseOutcome}}}; the first wins.} vote {This member's vote differs: {winSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{winSource}}} states {winVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{winVote}}}, {loseSource, select, decision {the document} sheet {the sheet} transcript {the transcript} manual {manual entry} other {{loseSource}}} states {loseVote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{loseVote}}}; the first wins.} other {Two sources state different things; the source of higher precedence wins.}}",
                 "NO_STORED_FACTS": "{missing} of {total} documents were read before facts were stored; re-poll the meeting to derive attendance and votes. The stored rows were left as they are.",
                 "LAYOUT_DISAGREES": "The body's conventions say the roll call is printed as «{expected, select, composition_and_absent {Composition and absent} present_and_absent {Present and absent} present_only {Present only} mixed {Mixed} other {{expected}}}», but this document printed it as «{found, select, composition_and_absent {Composition and absent} present_and_absent {Present and absent} present_only {Present only} mixed {Mixed} other {{found}}}».",
                 "ITEM_NUMBER_DISAGREES": "The document states it decided agenda item {declared} but is linked to item {linked}; if the link is wrong, every fact the document carries sits on the wrong subject.",
@@ -568,7 +571,10 @@
                 "NAME_MATCHED_TWICE": "«{name}» was matched to different people on different pages of this meeting. Check which one it is and correct the roster.",
                 "OUT_OF_AGENDA_PLACED_FIRST": "{kind, select, ARRIVAL {The arrival} other {The departure}} is stated during the out-of-agenda items, but this meeting has no out-of-agenda subject. The out-of-agenda items come before the agenda, so the change takes effect before the first subject. Check the page if the member's first items look wrong.",
                 "VOTE_BY_ABSENT_MEMBER": "The page names this member's vote ({vote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{vote}}}), but the member counts as absent on this subject. The vote row stays. Either the vote or the absence is wrong: check the page and the stated arrivals and departures.",
-                "NO_VOTE_RESULT": "The page states ΑΠΟΦΑΣΙΖΕΙ, but the read holds no vote result: no phrase, no named voter and no count. The subject has no votes. Check the page against its PDF."
+                "NO_VOTE_RESULT": "The page states ΑΠΟΦΑΣΙΖΕΙ, but the read holds no vote result: no phrase, no named voter and no count. The subject has no votes. Check the page against its PDF.",
+                "UNPLACEABLE_VOTE": "The source states a vote that names no item of this meeting, or an item the meeting does not have. The statement is not applied; check it where it was read.",
+                "SHEET_UNCONFIRMED": "An attendance sheet was read, and nobody has confirmed the reading yet. The minutes print nothing from it until someone does.",
+                "PARTY_VOTE_UNRESOLVED": "A party answered {vote, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{vote}}} for its members, and the party or its members present at this item could not be resolved. No vote is derived from it."
             },
             "tallyDiff": "{type, select, FOR {FOR} AGAINST {AGAINST} ABSTAIN {BLANK} PRESENT {PRESENT} DID_NOT_VOTE {DID NOT VOTE} other {{type}}}: printed {printed}, derived {derived}"
         },
@@ -656,14 +662,18 @@
                     "PRESIDING_DISAGREES": "Documents of the same sitting state a different presiding member.",
                     "CONVENTIONS_UNCONFIRMED": "The body's rules came out of a sample of documents and no human has confirmed them.",
                     "NAMED_VOTERS_UNEXPECTED": "A page that names voters unlike the rest of its body is either a misread or a sign that the body's rule is wrong.",
-                    "NO_VOTE_RESULT": "A page that states ΑΠΟΦΑΣΙΖΕΙ records a vote. A read with no vote result lost it, so the subject has no votes."
+                    "NO_VOTE_RESULT": "A page that states ΑΠΟΦΑΣΙΖΕΙ records a vote. A read with no vote result lost it, so the subject has no votes.",
+                    "UNPLACEABLE_VOTE": "The sheet or the transcript states a vote that names no item of this meeting, or an item the meeting does not have. The statement is not applied.",
+                    "SHEET_UNCONFIRMED": "An attendance sheet was read and nobody has confirmed the reading. Nothing derives from it until someone does."
                 },
                 "resolve": {
                     "PERSON_IN_BOTH_LISTS": "A page contradicts itself about one member. Where its roll call sets presence, the member counts as absent.",
                     "CHANGE_NOT_CORROBORATED": "This body prints the session's changes on every page, so a change that most pages leave out is probably a misread.",
                     "LATE_ARRIVAL_IN_OPENING_LIST": "In a body whose present list is the opening roll call, a member who arrived later cannot be in it.",
                     "NAMES_SHARE_ID": "The roll call and the changes are combined by person; a wrong match merges two members.",
-                    "NAME_MATCHED_TWICE": "Pages read in different polls are matched separately, so one spelling can end on two people."
+                    "NAME_MATCHED_TWICE": "Pages read in different polls are matched separately, so one spelling can end on two people.",
+                    "SOURCES_DISAGREE": "Two sources state the same kind of change for one member at different points of the order. The change of the higher-precedence source stands; the other is reported rather than erased.",
+                    "UNPLACEABLE_ANCHOR": "A range of decisions a page names covers no subject of the meeting yet, so its departure and arrival cannot be placed until the decisions are linked."
                 },
                 "place": {
                     "UNPLACEABLE_ANCHOR": "The point the document states corresponds to nothing. The change becomes a signal rather than being applied at the wrong position.",
@@ -680,11 +690,13 @@
                 "votes": {
                     "TALLY_MISMATCH": "The printed tally does not agree with the rows that came out. Usually it means a presence change is missing.",
                     "SOURCES_DISAGREE": "Two sources give a different vote for the same person.",
-                    "VOTE_BY_ABSENT_MEMBER": "A page names a vote for a member who counts as absent on that subject. One of the two is wrong: the vote was misread, or an arrival or a departure is missing or placed wrong."
+                    "VOTE_BY_ABSENT_MEMBER": "A page names a vote for a member who counts as absent on that subject. One of the two is wrong: the vote was misread, or an arrival or a departure is missing or placed wrong.",
+                    "PARTY_VOTE_UNRESOLVED": "A party answered for its members, and the party or its members present at the item could not be resolved. No vote is derived from the answer."
                 },
                 "write": {
                     "NO_STORED_FACTS": "One document read before we started storing facts is enough. If it were written now, only its own subject would be built and every older one would be emptied. Re-reading the sitting fills in the rest.",
-                    "NO_ROLL_CALL": "The presences are a replay of the roll call. With an empty roll call nobody would come out present anywhere — that would not be a correction of the rows but their deletion."
+                    "NO_ROLL_CALL": "The presences are a replay of the roll call. With an empty roll call nobody would come out present anywhere — that would not be a correction of the rows but their deletion.",
+                    "SHEET_UNCONFIRMED": "The write refused for lack of a roll call, and an attendance sheet that states one waits for a person's confirmation."
                 }
             }
         }
