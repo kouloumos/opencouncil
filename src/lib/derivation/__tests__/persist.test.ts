@@ -175,7 +175,7 @@ describe('deriveAndPersist', () => {
         expect(subjectIds).toEqual(['s1', 's2']);
         expect(attendance.length).toBeGreaterThan(0);
         expect(votes.length).toBeGreaterThan(0);
-        expect(rollCall).toEqual([{ personId: 'p1', status: 'PRESENT' }]);
+        expect(rollCall).toEqual([{ personId: 'p1', status: 'PRESENT', source: 'decision' }]);
         expect(events).toEqual([]);
         expect(taskId).toBe('task-1');
     });
