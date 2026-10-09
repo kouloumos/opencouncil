@@ -134,6 +134,18 @@ describe('meeting lifecycle module', () => {
             expect(ruleCode(error)).toBe('postponementCycle')
         })
 
+        test('a postponed meeting takes one new meeting only', async () => {
+            await createMeeting(CITY, { id: 'a', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', scheduleStatus: 'postponed' })
+            await createMeetingRecord({ cityId: CITY, id: 'b', dateTime: MARCH(19), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a' })
+            const second = await createMeetingRecord({ cityId: CITY, id: 'b2', dateTime: MARCH(20), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a' }).catch((e) => e)
+            expect(ruleCode(second)).toBe('postponedFromTaken')
+            await createMeeting(CITY, { id: 'c', dateTime: MARCH(21), administrativeBodyId: councilId, kind: 'regular' })
+            const relink = await updateMeetingRecord(CITY, 'c', { postponedFromId: 'a' }).catch((e) => e)
+            expect(ruleCode(relink)).toBe('postponedFromTaken')
+            // The new meeting itself can save again with its own link.
+            await expect(updateMeetingRecord(CITY, 'b', { sessionNumber: 4 })).resolves.toBeDefined()
+        })
+
         test('refuses a link to a meeting that is not postponed, or of another body', async () => {
             await createMeeting(CITY, { id: 'a', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular' })
             const notPostponed = await createMeetingRecord({ cityId: CITY, id: 'b', dateTime: MARCH(19), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a' }).catch((e) => e)

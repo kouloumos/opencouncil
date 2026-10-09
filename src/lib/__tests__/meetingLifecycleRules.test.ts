@@ -28,6 +28,7 @@ function context(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
     return {
         body: { type: 'council' },
         postponedFrom: null,
+        postponedFromTaken: false,
         postponedTo: null,
         chainReachesSelf: false,
         continuationOf: null,
@@ -84,6 +85,10 @@ describe('validateMeetingRecord', () => {
             // And moving the postponed meeting breaks the link of its new meeting.
             expect(codes(state({ scheduleStatus: 'postponed', administrativeBodyId: 'committee' }), context({ body: { type: 'committee' }, postponedTo: { administrativeBodyId: 'council' } })))
                 .toEqual(['postponedToOtherBody']);
+        });
+
+        it('refuses a second new meeting for one postponed meeting', () => {
+            expect(codes(state({ postponedFromId: 'a' }), context({ postponedFrom: postponedA, postponedFromTaken: true }))).toEqual(['postponedFromTaken']);
         });
 
         it('refuses a cycle', () => {

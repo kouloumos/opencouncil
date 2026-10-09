@@ -22,6 +22,8 @@ export interface MeetingRecordState {
 export interface LifecycleContext {
     body: { type: AdministrativeBodyType } | null;
     postponedFrom: { administrativeBodyId: string | null; scheduleStatus: MeetingScheduleStatus } | 'missing' | null;
+    /** Another meeting is already the new meeting of the postponed meeting. */
+    postponedFromTaken: boolean;
     postponedTo: { administrativeBodyId: string | null } | null;
     /** The walk along postponedFromId, from the new predecessor, reaches this meeting. */
     chainReachesSelf: boolean;
@@ -34,6 +36,7 @@ export type LifecycleRuleCode =
     | 'councilOnlyFormat'
     | 'postponedFromMissing'
     | 'postponedFromNotPostponed'
+    | 'postponedFromTaken'
     | 'postponedFromOtherBody'
     | 'postponedToOtherBody'
     | 'postponementCycle'
@@ -93,6 +96,9 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
             }
             if (ctx.postponedFrom.administrativeBodyId !== next.administrativeBodyId) {
                 fail('postponedFromOtherBody', 'The postponed meeting and its new meeting must belong to the same body.');
+            }
+            if (ctx.postponedFromTaken) {
+                fail('postponedFromTaken', 'The postponed meeting already has a new meeting. Remove that link first.');
             }
             if (ctx.chainReachesSelf) {
                 fail('postponementCycle', 'This link would make the postponements a cycle.');

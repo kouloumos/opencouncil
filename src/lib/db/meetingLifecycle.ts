@@ -89,12 +89,15 @@ async function showPredecessor(tx: Prisma.TransactionClient, cityId: string, pre
 }
 
 async function loadContext(client: Client, cityId: string, next: MeetingRecordState): Promise<LifecycleContext> {
-    const [body, postponedFrom, postponedTo, continuationOf, continuations] = await Promise.all([
+    const [body, postponedFrom, postponedFromTaken, postponedTo, continuationOf, continuations] = await Promise.all([
         next.administrativeBodyId
             ? client.administrativeBody.findFirst({ where: { id: next.administrativeBodyId, cityId }, select: { type: true } })
             : null,
         next.postponedFromId
             ? client.councilMeeting.findUnique({ where: { cityId_id: { cityId, id: next.postponedFromId } }, select: chainSelect })
+            : null,
+        next.postponedFromId
+            ? client.councilMeeting.findFirst({ where: { cityId, postponedFromId: next.postponedFromId, id: { not: next.id } }, select: { id: true } })
             : null,
         client.councilMeeting.findFirst({ where: { cityId, postponedFromId: next.id }, select: { administrativeBodyId: true } }),
         next.continuationOfId
@@ -113,6 +116,7 @@ async function loadContext(client: Client, cityId: string, next: MeetingRecordSt
     return {
         body,
         postponedFrom: next.postponedFromId ? (postponedFrom ?? 'missing') : null,
+        postponedFromTaken: postponedFromTaken !== null,
         postponedTo,
         chainReachesSelf,
         continuationOf: next.continuationOfId ? (continuationOf ?? 'missing') : null,
