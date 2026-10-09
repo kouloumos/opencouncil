@@ -111,13 +111,17 @@ export const MEETING_FORMATS = {
 }>;
 
 export const MEETING_KINDS = {
-    regular: { councilOnly: false },
-    urgent: { councilOnly: false },
-    accountability: { councilOnly: true },
-    annualReport: { councilOnly: true },
-    budget: { councilOnly: true },
-    presidencyElection: { councilOnly: true },
-} as const satisfies Record<MeetingKind, { councilOnly: boolean }>;
+    regular: { councilOnly: false, takesDecisions: true },
+    urgent: { councilOnly: false, takesDecisions: true },
+    accountability: { councilOnly: true, takesDecisions: false },
+    annualReport: { councilOnly: true, takesDecisions: false },
+    budget: { councilOnly: true, takesDecisions: true },
+    presidencyElection: { councilOnly: true, takesDecisions: true },
+} as const satisfies Record<MeetingKind, {
+    councilOnly: boolean;
+    /** The meeting votes decisions that Diavgeia publishes (150 §6 and circular 50602 say λογοδοσία and απολογισμός do not). */
+    takesDecisions: boolean;
+}>;
 
 function keysWhere<K extends string, V>(table: Record<K, V>, test: (value: V) => boolean): K[] {
     return (Object.keys(table) as K[]).filter((key) => test(table[key]));
@@ -126,6 +130,7 @@ function keysWhere<K extends string, V>(table: Record<K, V>, test: (value: V) =>
 export const TAKES_PLACE_STATUSES = keysWhere(SCHEDULE_STATUSES, (status) => status.takesPlace);
 export const OFFERED_FORMATS = keysWhere(MEETING_FORMATS, (format) => format.offeredInForm);
 export const COUNCIL_ONLY_KINDS: ReadonlySet<MeetingKind> = new Set(keysWhere(MEETING_KINDS, (kind) => kind.councilOnly));
+export const NO_DECISION_KINDS = keysWhere(MEETING_KINDS, (kind) => !kind.takesDecisions);
 export const COUNCIL_ONLY_FORMATS: ReadonlySet<MeetingFormat> = new Set(keysWhere(MEETING_FORMATS, (format) => format.councilOnly));
 
 /** The meeting takes place on its date: it is neither postponed nor cancelled. */

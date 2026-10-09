@@ -1,7 +1,7 @@
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
 import { localCalendarDate } from '../formatters/time';
-import { isLogodosiaMeeting } from '../tasks/pollDecisionsBackoff';
+import { takesNoDecisions } from '@/lib/tasks/pollDecisionsBackoff';
 import { DECISION_ELIGIBLE_SUBJECT_WHERE } from './decisionEligibility';
 import { CUSTOMER_CITY_WHERE } from '../cityStatus';
 import { getConflictingCandidates } from './decisionCandidates';
@@ -75,6 +75,7 @@ type BodyFacts = CityFacts['administrativeBodies'][number];
 
 const meetingFactsSelect = {
     id: true, cityId: true, administrativeBodyId: true, name: true, name_en: true, kind: true, sessionNumber: true, dateTime: true,
+    continuationOf: { select: { kind: true } },
     administrativeBody: { select: { name: true, name_en: true } },
     subjects: {
         where: DECISION_ELIGIBLE_SUBJECT_WHERE,
@@ -167,7 +168,7 @@ export async function fetchDecisionFacts(cityId?: string): Promise<DecisionFacts
         .filter(m => tzByCity.has(m.cityId))
         .map(m => ({
             id: m.id, cityId: m.cityId, administrativeBodyId: m.administrativeBodyId,
-            name: meetingLabel(m, 'el', tzByCity.get(m.cityId)!), kind: m.kind, dateTime: m.dateTime,
+            name: meetingLabel(m, 'el', tzByCity.get(m.cityId)!), kind: m.kind, continuationOf: m.continuationOf, dateTime: m.dateTime,
             localDate: localCalendarDate(m.dateTime, tzByCity.get(m.cityId)!),
             subjects: m.subjects.map(s => ({ id: s.id, name: s.name, linked: s.decision !== null })),
         }));
@@ -338,7 +339,7 @@ export async function getDecisionHealth(cityId?: string, sinceDays?: number): Pr
     // Coverage, link quality and the taxonomy — the windowed measurements,
     // measured once per meeting and folded into the city and its body.
     for (const m of facts.meetings) {
-        if (isLogodosiaMeeting(m)) continue;
+        if (takesNoDecisions(m)) continue;
         if (!isInMeasurementWindow(m.dateTime, sinceDays ?? null, now)) continue;
         if (m.subjects.length === 0) continue;
         const measured = measureMeeting(facts, stats, m);

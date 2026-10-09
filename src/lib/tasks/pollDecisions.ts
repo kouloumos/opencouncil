@@ -22,7 +22,7 @@ import { deriveWindowDays } from "./decisionWindow";
 import { localCalendarDate } from "@/lib/formatters/time";
 import { applyCandidateConflictResolution, getUnresolvedCandidatesForMeeting } from "@/lib/db/decisionCandidates";
 import { isRoleActiveAt, isMayorRole } from "@/lib/utils/roles";
-import { shouldSkipPolling, getBackoffState, getPollableMeetingDateRange, isLogodosiaMeeting, NOT_LOGODOSIA_MEETING_WHERE, pendingPollTaskId, type BackoffTier } from "./pollDecisionsBackoff";
+import { shouldSkipPolling, getBackoffState, getPollableMeetingDateRange, takesNoDecisions, TAKES_DECISIONS_WHERE, pendingPollTaskId, type BackoffTier } from "./pollDecisionsBackoff";
 import { orderForPolling } from "./pollableMeetings";
 import { sendPollDecisionsBatchStartedAlert, sendPollDecisionsBatchCompletedAlert } from "@/lib/discord";
 import { agendaItemTitleOrName, isRecordSubject } from "@/lib/utils/subjects";
@@ -89,6 +89,7 @@ export async function pollDecisionsForMeeting(
                     timezone: true,
                 },
             },
+            continuationOf: { select: { kind: true } },
             administrativeBody: {
                 select: {
                     id: true,
@@ -115,6 +116,10 @@ export async function pollDecisionsForMeeting(
 
     if (!councilMeeting) {
         throw new Error("Council meeting not found");
+    }
+
+    if (takesNoDecisions(councilMeeting)) {
+        throw new Error("This meeting takes no decisions (λογοδοσία or απολογισμός)");
     }
 
     if (!councilMeeting.city.diavgeiaUid) {
@@ -243,11 +248,11 @@ export async function pollDecisionsForMeeting(
 }
 
 // A meeting still waiting on decisions: a decision-eligible subject without
-// one, and not a Λογοδοσία session (see isLogodosiaMeeting). What the cron and
+// one, and not a meeting that takes no decisions (see takesNoDecisions). What the cron and
 // follow-up polls both require before polling a meeting. A postponed or
 // cancelled meeting took no decisions on its date.
 const AWAITING_DECISIONS_MEETING_WHERE = {
-    AND: [NOT_LOGODOSIA_MEETING_WHERE],
+    ...TAKES_DECISIONS_WHERE,
     ...TAKES_PLACE_WHERE,
     subjects: { some: { ...DECISION_ELIGIBLE_SUBJECT_WHERE, decision: null } },
 } satisfies Prisma.CouncilMeetingWhereInput;
@@ -258,7 +263,7 @@ const AWAITING_DECISIONS_MEETING_WHERE = {
  * subject that has no decision yet.
  */
 export async function findDecisionPollCandidates() {
-    // Λογοδοσία meetings are excluded — see isLogodosiaMeeting().
+    // Meetings that take no decisions are excluded — see takesNoDecisions().
     return prisma.councilMeeting.findMany({
         where: {
             ...AWAITING_DECISIONS_MEETING_WHERE,
@@ -968,12 +973,14 @@ export async function handlePollDecisionsResult(taskId: string, result: PollDeci
             // calendar date — the timezone conversion is load-bearing: without
             // it, midnight-stored meetings would shift a day.
             const cityMeetings = polledMeeting ? (await tx.councilMeeting.findMany({
-                // A decision never belongs to a meeting that did not take place.
-                where: { cityId: task.cityId, ...TAKES_PLACE_WHERE },
-                select: { id: true, kind: true, dateTime: true, administrativeBodyId: true },
+                // A decision never belongs to a meeting that did not take place,
+                // or to one that takes no decisions. Such a meeting must neither
+                // receive a decision nor block an otherwise unambiguous heal.
+                where: { cityId: task.cityId, ...TAKES_PLACE_WHERE, ...TAKES_DECISIONS_WHERE },
+                select: { id: true, dateTime: true, administrativeBodyId: true },
                 orderBy: { dateTime: 'asc' },
             })).map(m => ({
-                id: m.id, kind: m.kind, administrativeBodyId: m.administrativeBodyId,
+                id: m.id, administrativeBodyId: m.administrativeBodyId,
                 localDate: localCalendarDate(m.dateTime, polledMeeting.city.timezone),
             })) : [];
             for (const d of result.decisions) {
@@ -1000,11 +1007,7 @@ export async function handlePollDecisionsResult(taskId: string, result: PollDeci
                     const declared = d.meetingDate?.slice(0, 10)
                         ?? (stored.meetingDate ? stored.meetingDate.toISOString().slice(0, 10) : null);
                     if (declared) {
-                        // Λογοδοσία sessions are excluded everywhere in the
-                        // pipeline; they must neither receive a heal nor block
-                        // an otherwise unambiguous one.
-                        const sameDay = cityMeetings.filter(m =>
-                            !isLogodosiaMeeting(m) && m.localDate === declared);
+                        const sameDay = cityMeetings.filter(m => m.localDate === declared);
                         if (sameDay.length === 1) healedMeetingId = sameDay[0].id;
                     }
                 }

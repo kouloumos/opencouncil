@@ -40,6 +40,26 @@ describe('findDecisionPollCandidates', () => {
         expect(ids).toEqual(['combined', 'regular', 'unknown'])
     })
 
+    test('skips every meeting that takes no decisions, and its later parts', async () => {
+        await createCity({ id: 'c1', diavgeiaUid: 'DIAV-1' })
+        const council = await createAdministrativeBody('c1', { type: 'council' })
+        const administrativeBodyId = council.id
+        const { gte } = getPollableMeetingDateRange()
+        const day = 24 * 60 * 60 * 1000
+
+        await pollableMeeting('apologismos', { name: null, kind: 'annualReport', administrativeBodyId })
+        await pollableMeeting('budget', { name: null, kind: 'budget', administrativeBodyId })
+        const first = await createMeeting('c1', { id: 'logodosia-1', dateTime: new Date(gte.getTime() + day), kind: 'accountability', administrativeBodyId })
+        const part = await createMeeting('c1', { id: 'logodosia-2', dateTime: new Date(gte.getTime() + 2 * day), kind: null, continuationOfId: first.id, administrativeBodyId })
+        await createSubject(part.id, 'c1', { agendaItemIndex: 1 })
+        const regular = await createMeeting('c1', { id: 'regular-1', dateTime: new Date(gte.getTime() + day), kind: 'regular', administrativeBodyId })
+        const regularPart = await createMeeting('c1', { id: 'regular-2', dateTime: new Date(gte.getTime() + 2 * day), kind: null, continuationOfId: regular.id, administrativeBodyId })
+        await createSubject(regularPart.id, 'c1', { agendaItemIndex: 1 })
+
+        const ids = (await findDecisionPollCandidates()).map((m) => m.id).sort()
+        expect(ids).toEqual(['budget', 'regular-2'])
+    })
+
     test('keeps a meeting whose name is null', async () => {
         await createCity({ id: 'c1', diavgeiaUid: 'DIAV-1' })
         const council = await createAdministrativeBody('c1', { type: 'council' })

@@ -1,4 +1,4 @@
-import { shouldSkipPolling, getBackoffState, getPollableMeetingDateRange, pollCadence, BACKOFF_SCHEDULE, MAX_POLLING_DAYS, MEETING_POLL_DELAY_DAYS, isLogodosiaMeeting } from '../pollDecisionsBackoff';
+import { shouldSkipPolling, getBackoffState, getPollableMeetingDateRange, pollCadence, BACKOFF_SCHEDULE, MAX_POLLING_DAYS, MEETING_POLL_DELAY_DAYS, takesNoDecisions } from '../pollDecisionsBackoff';
 
 // Helper: create a Date that is `daysAgo` days before now
 const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -199,15 +199,23 @@ describe('getBackoffState', () => {
     });
 });
 
-describe('isLogodosiaMeeting', () => {
+describe('takesNoDecisions', () => {
     it('reads the kind, not the name', () => {
-        expect(isLogodosiaMeeting({ kind: 'accountability' })).toBe(true);
-        expect(isLogodosiaMeeting({ kind: 'regular' })).toBe(false);
-        expect(isLogodosiaMeeting({ kind: 'annualReport' })).toBe(false);
+        expect(takesNoDecisions({ kind: 'accountability' })).toBe(true);
+        expect(takesNoDecisions({ kind: 'annualReport' })).toBe(true);
+        expect(takesNoDecisions({ kind: 'regular' })).toBe(false);
+        expect(takesNoDecisions({ kind: 'budget' })).toBe(false);
     });
 
     it('polls a meeting of unknown kind: a combined record has no kind of its own', () => {
-        expect(isLogodosiaMeeting({ kind: null })).toBe(false);
+        expect(takesNoDecisions({ kind: null })).toBe(false);
+        expect(takesNoDecisions({ kind: null, continuationOf: null })).toBe(false);
+    });
+
+    it('reads the kind of the first part for a later part', () => {
+        expect(takesNoDecisions({ kind: null, continuationOf: { kind: 'annualReport' } })).toBe(true);
+        expect(takesNoDecisions({ kind: null, continuationOf: { kind: 'regular' } })).toBe(false);
+        expect(takesNoDecisions({ kind: null, continuationOf: { kind: null } })).toBe(false);
     });
 });
 

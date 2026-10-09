@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import type { MeetingKind } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -19,7 +20,7 @@ import { Gavel, ExternalLink } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { CouncilMeetingWithAdminBodyAndSubjects } from '@/lib/db/meetings';
 import { MeetingDecisionCounts } from '@/lib/db/decisions';
-import { partitionMeetingsForPolling, MeetingPollEligibility, type PollSkipReason } from '@/lib/tasks/pollableMeetings';
+import { firstPartOf, partitionMeetingsForPolling, MeetingPollEligibility, type PollSkipReason } from '@/lib/tasks/pollableMeetings';
 import { requestPollDecisions } from '@/lib/tasks/pollDecisions';
 import { useSequentialDispatch } from '@/hooks/useSequentialDispatch';
 import { BatchProgressView } from '@/components/admin/BatchProgressView';
@@ -28,13 +29,15 @@ import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 const SKIP_REASON_LABELS = {
     notTakingPlace: 'postponed or cancelled',
-    logodosia: 'Λογοδοσία',
+    noDecisions: 'takes no decisions',
     noEligibleSubjects: 'no eligible subjects',
 } as const satisfies Record<PollSkipReason, string>;
 
 interface BulkPollDecisionsActionProps {
     selectedMeetingIds: Set<string>;
     meetings: CouncilMeetingWithAdminBodyAndSubjects[];
+    /** The kind of every meeting of the city (see kindsById): a later part takes the kind of its first part. */
+    kinds: ReadonlyMap<string, MeetingKind | null>;
     decisionCounts: MeetingDecisionCounts;
     selectedCityId: string;
     cityHasDiavgeiaUid: boolean;
@@ -43,6 +46,7 @@ interface BulkPollDecisionsActionProps {
 export function BulkPollDecisionsAction({
     selectedMeetingIds,
     meetings,
+    kinds,
     decisionCounts,
     selectedCityId,
     cityHasDiavgeiaUid,
@@ -53,9 +57,12 @@ export function BulkPollDecisionsAction({
     const partition = useMemo(() => {
         const selected = meetings
             .filter(m => selectedMeetingIds.has(m.id))
-            .map(m => ({ id: m.id, name: meetingLabel(m, 'el', DEFAULT_TIMEZONE), kind: m.kind, scheduleStatus: m.scheduleStatus }));
+            .map(m => ({
+                id: m.id, name: meetingLabel(m, 'el', DEFAULT_TIMEZONE), kind: m.kind,
+                continuationOf: firstPartOf(m, kinds), scheduleStatus: m.scheduleStatus,
+            }));
         return partitionMeetingsForPolling(selected, decisionCounts);
-    }, [meetings, selectedMeetingIds, decisionCounts]);
+    }, [meetings, kinds, selectedMeetingIds, decisionCounts]);
 
     const dispatchPoll = useCallback(async (meeting: MeetingPollEligibility) => {
         // A meeting whose poll is already running comes back as alreadyRunning, not as a failure.

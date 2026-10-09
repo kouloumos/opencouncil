@@ -4,27 +4,36 @@
 // here, with the error pointing at that page instead of this file.
 
 import type { MeetingKind, Prisma } from "@prisma/client";
+import { MEETING_KINDS, NO_DECISION_KINDS } from "@/lib/meetingLifecycleRules";
 
-// ─── Λογοδοσία meeting detection ─────────────────────────────────────
+// ─── Meetings that take no decisions ─────────────────────────────────
 
 /**
- * Returns true for a Λογοδοσία (accountability) meeting. Used to skip
- * automated decision polling — these meetings don't produce decisions on
- * Diavgeia. A record that also holds a regular meeting (e.g. "Λογοδοσία και
- * Δημοτικό Συμβούλιο") has no kind of its own and is polled: its regular
- * part produces decisions.
+ * Returns true for a meeting that takes no decisions: a λογοδοσία or an
+ * απολογισμός. Used to skip automated decision polling. A later part has no
+ * kind of its own, so the kind of its first part counts. A record that also
+ * holds a regular meeting (e.g. "Λογοδοσία και Δημοτικό Συμβούλιο") has no
+ * kind and is polled: its regular part produces decisions.
  */
-export function isLogodosiaMeeting(meeting: { kind: MeetingKind | null }): boolean {
-    return meeting.kind === "accountability";
+export function takesNoDecisions(meeting: { kind: MeetingKind | null; continuationOf?: { kind: MeetingKind | null } | null }): boolean {
+    const kind = meeting.kind ?? meeting.continuationOf?.kind ?? null;
+    return kind !== null && !MEETING_KINDS[kind].takesDecisions;
 }
 
 /**
- * The database form of `!isLogodosiaMeeting`. `kind` is nullable, and in SQL
- * `NOT (kind = 'accountability')` is not true for a null kind, so a bare
- * `NOT` would drop every meeting of unknown kind. The null case is explicit.
+ * The database form of `!takesNoDecisions`. `kind` is nullable, and in SQL
+ * `kind NOT IN (…)` is not true for a null kind, so a bare `notIn` would drop
+ * every meeting of unknown kind. The null case is explicit.
  */
-export const NOT_LOGODOSIA_MEETING_WHERE = {
-    OR: [{ kind: null }, { kind: { not: "accountability" } }],
+const KIND_TAKES_DECISIONS_WHERE = {
+    OR: [{ kind: null }, { kind: { notIn: NO_DECISION_KINDS } }],
+} satisfies Prisma.CouncilMeetingWhereInput;
+
+export const TAKES_DECISIONS_WHERE = {
+    AND: [
+        KIND_TAKES_DECISIONS_WHERE,
+        { OR: [{ continuationOfId: null }, { continuationOf: KIND_TAKES_DECISIONS_WHERE }] },
+    ],
 } satisfies Prisma.CouncilMeetingWhereInput;
 
 // ─── Backoff configuration ───────────────────────────────────────────

@@ -13,7 +13,7 @@ import { hideBin } from 'yargs/helpers';
 import prisma from '@/lib/db/prisma';
 import { readingStatesFacts } from '@/lib/derivation';
 import { DECISION_ELIGIBLE_SUBJECT_WHERE } from '@/lib/db/decisions';
-import { getPollableMeetingDateRange, NOT_LOGODOSIA_MEETING_WHERE } from '@/lib/tasks/pollDecisionsBackoff';
+import { getPollableMeetingDateRange, TAKES_DECISIONS_WHERE } from '@/lib/tasks/pollDecisionsBackoff';
 import { summarizeReread, type RereadMeeting } from './lib/rereadCount';
 
 function write(file: string, text: string) {
@@ -53,7 +53,7 @@ async function rereadCount(report?: string) {
     const where = {
         dateTime: getPollableMeetingDateRange(),
         city: { diavgeiaUid: { not: null } },
-        AND: [NOT_LOGODOSIA_MEETING_WHERE],
+        ...TAKES_DECISIONS_WHERE,
         subjects: { some: { ...DECISION_ELIGIBLE_SUBJECT_WHERE, decision: null } },
     };
     let meetings: RereadMeeting[];
