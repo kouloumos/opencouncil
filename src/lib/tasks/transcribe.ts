@@ -10,6 +10,7 @@ import { requestFixTranscriptInternal } from "./fixTranscriptInternal";
 import { autoTriggerTask } from "./autoTrigger";
 import { meetingLabelInCity } from '@/lib/meetingName';
 import { ConflictError, NotFoundError } from '@/lib/api/errors';
+import { PipelineBusyError, TaskAlreadyExistsError } from './types';
 
 // Full-precision doubles are near-incompressible and inflate the meeting page
 // payload; 4 significant figures is far finer than the ASR signal warrants.
@@ -30,7 +31,12 @@ export async function requestTranscribe(youtubeUrl: string, councilMeetingId: st
         await requestTranscribeInternal(youtubeUrl, councilMeetingId, cityId, options);
         return { ok: true };
     } catch (error) {
-        if (error instanceof ConflictError || error instanceof NotFoundError) return { ok: false, message: error.message };
+        // Every refusal that an admin can act on comes back as a value:
+        // production Next hides the message of an error that a Server Action throws.
+        if (error instanceof ConflictError || error instanceof NotFoundError
+            || error instanceof PipelineBusyError || error instanceof TaskAlreadyExistsError) {
+            return { ok: false, message: error.message };
+        }
         throw error;
     }
 }
