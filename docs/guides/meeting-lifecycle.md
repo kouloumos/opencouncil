@@ -96,12 +96,9 @@ The stages above describe the processing pipeline. The meeting record also holds
 * **Calendar**: `syncMeetingToCalendar` patches the event of a postponed or cancelled meeting to `status: 'cancelled'`. A past meeting emails nobody.
 * **Decision polling** skips λογοδοσία by `kind`, not by the name. The migration set the kind of the existing λογοδοσία meetings.
 
-### Backfill of the archive
+### The archive
 
-1. Run `npx tsx scripts/meeting-lifecycle-report.ts --out reports/meeting-lifecycle.csv` (add `--agendas` to read the agenda PDFs). The script writes nothing to the database.
-2. Review the CSV. Write `yes` in the `apply` column of each row to apply.
-3. Run `npx tsx --require ./scripts/lib/allow-server-only.cjs scripts/meeting-lifecycle-apply.ts --csv reports/meeting-lifecycle.csv` for a dry run.
-4. Run the same command with `--apply`. The script skips a row that changed since the report, and it writes an audit file.
+The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
 
 ## Sequence Diagram
 
