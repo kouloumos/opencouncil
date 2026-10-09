@@ -13,7 +13,7 @@ import { sendMeetingCreatedAdminAlert } from '@/lib/discord';
 import { syncMeetingToCalendar } from '@/lib/google-calendar';
 import { requestProcessAgendaInternal } from '@/lib/tasks/processAgendaInternal';
 import { revalidateAfterResponse } from '@/lib/cache/afterResponse';
-import { meetingLabel } from '@/lib/meetingName';
+import { isDerivedName, meetingLabel } from '@/lib/meetingName';
 import { pickRecordInput, takesPlace, type MeetingRecordInput } from '@/lib/meetingLifecycleRules';
 
 export type NewMeetingInput = {
@@ -118,6 +118,28 @@ export async function createMeetingWithEffects(
 export type MeetingDetailsEdit = Partial<MeetingRecordFields>;
 
 /**
+ * A name in the edit that the platform derives for the meeting as it is now
+ * clears the override instead. REST and MCP return the label in `name`, so a
+ * client that sends back what it read must not store it.
+ */
+async function withoutDerivedNames(
+    cityId: string,
+    current: CouncilMeetingWithAdminBody,
+    data: MeetingDetailsEdit,
+): Promise<MeetingDetailsEdit> {
+    if (typeof data.name !== 'string' && typeof data.name_en !== 'string') return data;
+    const timezone = (await getCityNameEnAndTimezone(cityId))?.timezone;
+    if (!timezone) return data;
+    const derived = (name: string | null | undefined, locale: string) =>
+        typeof name === 'string' && isDerivedName(name, current, locale, timezone);
+    return {
+        ...data,
+        ...(derived(data.name, 'el') && { name: null }),
+        ...(derived(data.name_en, 'en') && { name_en: null }),
+    };
+}
+
+/**
  * Edit the details of a meeting through the lifecycle rules, then invalidate
  * the caches and update the calendar event. An absent field stays as it is.
  */
@@ -127,7 +149,7 @@ export async function updateMeetingWithEffects(
     data: MeetingDetailsEdit
 ): Promise<CouncilMeetingWithAdminBody> {
     const before = await getCouncilMeetingDirect(cityId, meetingId);
-    const meeting = await updateMeetingRecord(cityId, meetingId, data);
+    const meeting = await updateMeetingRecord(cityId, meetingId, before ? await withoutDerivedNames(cityId, before, data) : data);
 
     // The landing lists the upcoming meetings that take place, so a change of
     // status, date or body can move a meeting in or out of that list.
@@ -141,7 +163,7 @@ export async function updateMeetingWithEffects(
     });
 
     // Propagate date, administrative body, agenda and schedule status changes
-    // to the Google Calendar event. The meeting name is not on the event.
+    // to the Google Calendar event, whose title is the label.
     // A meeting that was created postponed or cancelled has no event yet;
     // when it becomes scheduled, it gets one (a future meeting only).
     const rescheduled = !!before && !takesPlace(before) && takesPlace(meeting);

@@ -114,8 +114,12 @@ function registerMeetingAdminTools(server: McpServer) {
             inputSchema: z.object({
                 cityId: z.string().min(1),
                 meetingId: z.string().min(1),
-                name: z.string().min(2).nullable().optional(),
-                name_en: z.string().min(2).nullable().optional(),
+                name: z.string().min(2).nullable().optional()
+                    .describe('A special name that replaces the derived title, in the language of the city. '
+                        + 'Omit it to keep the name as it is. Never send back the name that get_meeting returns: '
+                        + 'that is the derived label, and the site ignores it here'),
+                name_en: z.string().min(2).nullable().optional()
+                    .describe('The English form of a special name. Omit it, as name'),
                 dateTime: isoDateTime.optional(),
                 youtubeUrl: z.url().nullable().optional(),
                 agendaUrl: z.url().nullable().optional(),

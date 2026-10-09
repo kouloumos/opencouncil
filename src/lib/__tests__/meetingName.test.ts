@@ -1,5 +1,5 @@
 import { MeetingKind } from '@prisma/client';
-import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '../meetingName';
+import { isDerivedName, meetingDisplayName, meetingLabel, type MeetingNameFields } from '../meetingName';
 
 const ATHENS = 'Europe/Athens';
 const council = { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' };
@@ -104,5 +104,23 @@ describe('meetingLabel', () => {
 
     it('keeps an override as the admin wrote it', () => {
         expect(meetingLabel(meeting({ name: '[Διεκόπη] Δημοτικό Συμβούλιο 20/04/26' }), 'el', ATHENS)).toBe('[Διεκόπη] Δημοτικό Συμβούλιο 20/04/26');
+    });
+});
+
+describe('isDerivedName', () => {
+    const regular = meeting({ kind: 'regular', sessionNumber: 3 });
+
+    it('recognises the label and the title of the meeting as it is', () => {
+        expect(isDerivedName('Δημοτικό Συμβούλιο · 3η Τακτική · 12/03/2026', regular, 'el', ATHENS)).toBe(true);
+        expect(isDerivedName('Δημοτικό Συμβούλιο · 3η Τακτική', regular, 'el', ATHENS)).toBe(true);
+        expect(isDerivedName(' 3η Τακτική ', regular, 'el', ATHENS)).toBe(true);
+        expect(isDerivedName('Municipal Council · 3rd Regular · 12/03/2026', regular, 'en', ATHENS)).toBe(true);
+    });
+
+    it('ignores the override that the meeting holds, and keeps a special name', () => {
+        const named = { ...regular, name: 'Ειδική για το Λιμάνι' };
+        expect(isDerivedName('3η Τακτική', named, 'el', ATHENS)).toBe(true);
+        expect(isDerivedName('Ειδική για το Λιμάνι', named, 'el', ATHENS)).toBe(false);
+        expect(isDerivedName('Δημοτικό Συμβούλιο · 3η Τακτική · 19/03/2026', regular, 'el', ATHENS)).toBe(false);
     });
 });

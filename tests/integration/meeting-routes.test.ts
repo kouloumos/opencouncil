@@ -77,6 +77,29 @@ describe('meeting API routes', () => {
         expect(await prisma.councilMeeting.count({ where: { cityId: CITY } })).toBe(0)
     })
 
+    test('PUT stores no override when the name is the label or the title that it read', async () => {
+        await createMeeting(CITY, {
+            id: 'm', dateTime: new Date('2026-03-12T16:00:00Z'), administrativeBodyId: councilId,
+            kind: 'regular', sessionNumber: 3, name: null, name_en: null,
+        })
+        for (const [name, name_en] of [
+            ['Δημοτικό Συμβούλιο · 3η Τακτική · 12/03/2026', 'Municipal Council · 3rd Regular · 12/03/2026'],
+            ['3η Τακτική', '3rd Regular'],
+        ]) {
+            const put = await PUT(request(`/api/cities/${CITY}/meetings/m`, {
+                date: '2026-03-12T16:00:00.000Z', administrativeBodyId: councilId, name, name_en,
+            }), meetingParams('m'))
+            expect(put.status).toBe(200)
+            expect(await prisma.councilMeeting.findUniqueOrThrow({ where: { cityId_id: { cityId: CITY, id: 'm' } }, select: { name: true, name_en: true } }))
+                .toEqual({ name: null, name_en: null })
+        }
+        const special = await PUT(request(`/api/cities/${CITY}/meetings/m`, {
+            date: '2026-03-12T16:00:00.000Z', administrativeBodyId: councilId, name: 'Ειδική Συνεδρίαση για το Λιμάνι',
+        }), meetingParams('m'))
+        expect(special.status).toBe(200)
+        expect((await prisma.councilMeeting.findUniqueOrThrow({ where: { cityId_id: { cityId: CITY, id: 'm' } } })).name).toBe('Ειδική Συνεδρίαση για το Λιμάνι')
+    })
+
     test('PUT keeps the fields that the request leaves out', async () => {
         await createMeeting(CITY, {
             id: 'm', dateTime: new Date('2026-03-12T16:00:00Z'), administrativeBodyId: councilId,

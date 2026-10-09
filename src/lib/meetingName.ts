@@ -132,3 +132,19 @@ export function meetingLabelInCity(
 ): string {
     return meetingLabel(meeting, locale, meeting.city.timezone, options);
 }
+
+/**
+ * Whether a name is one that the platform derives for this meeting: its
+ * label or its title, with or without the date. Such a name is no override.
+ * The API returns the label in `name`, so a client that writes back the name
+ * it read would otherwise freeze the body and the date of today.
+ */
+export function isDerivedName(name: string, meeting: MeetingNameFields, locale: string, timezone: string): boolean {
+    const derived = { ...meeting, name: null, name_en: null };
+    const forms = [
+        meetingDisplayName(derived, locale, timezone),
+        meetingLabel(derived, locale, timezone),
+        meetingLabel(derived, locale, timezone, { date: false }),
+    ];
+    return forms.includes(name.trim());
+}
