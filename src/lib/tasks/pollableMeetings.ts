@@ -1,7 +1,9 @@
-import { isLogodosiaMeeting, pollDueAt } from "./pollDecisionsBackoff";
+import type { MeetingKind, MeetingScheduleStatus } from "@prisma/client";
+import { takesPlace } from "@/lib/meetingLifecycleRules";
+import { takesNoDecisions, pollDueAt } from "./pollDecisionsBackoff";
 import { MeetingDecisionCounts } from "../db/decisions";
 
-export type PollSkipReason = "logodosia" | "noEligibleSubjects";
+export type PollSkipReason = "notTakingPlace" | "noDecisions" | "noEligibleSubjects";
 
 export interface MeetingPollEligibility {
     meetingId: string;
@@ -11,6 +13,22 @@ export interface MeetingPollEligibility {
     pollable: boolean;
     alreadyComplete: boolean;
     skipReason: PollSkipReason | null;
+}
+
+/**
+ * The kind of every meeting of the city, by id. A later part reads the kind
+ * of its first part from it, even when a filter hides the first part.
+ */
+export function kindsById(meetings: { id: string; kind: MeetingKind | null }[]): ReadonlyMap<string, MeetingKind | null> {
+    return new Map(meetings.map((m) => [m.id, m.kind]));
+}
+
+/** The first part of a later part, as `takesNoDecisions` reads it. */
+export function firstPartOf(
+    meeting: { continuationOfId: string | null },
+    kinds: ReadonlyMap<string, MeetingKind | null>,
+): { kind: MeetingKind | null } | null {
+    return meeting.continuationOfId ? { kind: kinds.get(meeting.continuationOfId) ?? null } : null;
 }
 
 export interface PollPartition {
@@ -25,13 +43,15 @@ export interface PollPartition {
  * Per-meeting gates only — the city-level `diavgeiaUid` requirement is checked
  * separately by the caller (the action is disabled when the city has none).
  *
- * - `skipped`: Λογοδοσία meetings, or meetings with no decision-eligible subjects.
+ * - `skipped`: postponed or cancelled meetings, meetings that take no decisions
+ *   (λογοδοσία, απολογισμός), or meetings
+ *   with no decision-eligible subjects.
  * - `pollable`: everything else. `alreadyComplete` is true when every eligible
  *   subject already has a linked decision (still pollable for a deliberate
  *   re-poll, but surfaced so the admin knows).
  */
 export function partitionMeetingsForPolling(
-    meetings: { id: string; name: string }[],
+    meetings: { id: string; name: string; kind: MeetingKind | null; continuationOf?: { kind: MeetingKind | null } | null; scheduleStatus: MeetingScheduleStatus }[],
     decisionCounts: MeetingDecisionCounts,
 ): PollPartition {
     const pollable: MeetingPollEligibility[] = [];
@@ -47,8 +67,10 @@ export function partitionMeetingsForPolling(
         };
 
         let skipReason: PollSkipReason | null = null;
-        if (isLogodosiaMeeting(meeting.name)) {
-            skipReason = "logodosia";
+        if (!takesPlace(meeting)) {
+            skipReason = "notTakingPlace";
+        } else if (takesNoDecisions(meeting)) {
+            skipReason = "noDecisions";
         } else if (counts.eligible === 0) {
             skipReason = "noEligibleSubjects";
         }

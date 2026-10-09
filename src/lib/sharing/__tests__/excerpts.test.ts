@@ -14,7 +14,7 @@ const unassigned = { ...source, discussionStatus: 'OTHER', discussionSubject: nu
 describe('bounded public excerpt reconstruction', () => {
     beforeEach(async () => {
         jest.clearAllMocks();
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', cityId: 'city', taskStatuses: [{ id: 'review' }] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', cityId: 'city', format: null, closedToPublic: false, taskStatuses: [{ id: 'review' }] });
         (transcriptIsPublic as jest.Mock).mockReturnValue(true);
         (prisma.subject.findMany as jest.Mock).mockResolvedValue([]);
         query.mockResolvedValue([source]);
@@ -71,12 +71,12 @@ describe('bounded public excerpt reconstruction', () => {
         expect(result.excerpt.subject).toBeNull();
     });
     it('updates the review notice without changing the quote or invalidating its digest', async () => {
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', taskStatuses: [] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', format: null, closedToPublic: false, taskStatuses: [] });
         const unreviewed = await getPublicExcerpt(selector, 'greece');
         expect(unreviewed.status).toBe('ok');
         if (unreviewed.status !== 'ok') throw new Error('Expected publicly eligible excerpt');
         expect(unreviewed.excerpt.isReviewed).toBe(false);
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', taskStatuses: [{ id: 'review' }] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', format: null, closedToPublic: false, taskStatuses: [{ id: 'review' }] });
         const reviewed = await getPublicExcerpt(selector, 'greece');
         expect(reviewed.status).toBe('ok');
         if (reviewed.status !== 'ok') throw new Error('Expected reviewed excerpt');

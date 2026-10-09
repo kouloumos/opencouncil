@@ -13,7 +13,10 @@ import { BadgePicker, BadgePickerOption } from "@/components/ui/badge-picker";
 import { ExpandableMeetingRow } from "./ExpandableMeetingRow";
 import { BulkExportActions } from "./BulkExportActions";
 import { BulkPollDecisionsAction } from "./BulkPollDecisionsAction";
+import { kindsById } from "@/lib/tasks/pollableMeetings";
 import { StatsCard, StatsCardItem } from "@/components/ui/stats-card";
+import { meetingLabel } from '@/lib/meetingName';
+import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 interface MeetingsProps {
     meetings: CouncilMeetingWithAdminBodyAndSubjects[];
@@ -53,13 +56,15 @@ export default function Meetings({ meetings, currentCityName, selectedCityId, de
     }, [meetings]);
 
     // Filter meetings based on search and administrative body
+    const kinds = useMemo(() => kindsById(meetings), [meetings]);
+
     const filteredMeetings = useMemo(() => {
         let filtered = meetings;
 
         // Filter by search query
         if (searchQuery) {
             filtered = filtered.filter(meeting =>
-                meeting.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                meetingLabel(meeting, 'el', DEFAULT_TIMEZONE).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 meeting.administrativeBody?.name.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
@@ -164,6 +169,7 @@ export default function Meetings({ meetings, currentCityName, selectedCityId, de
                             <BulkPollDecisionsAction
                                 selectedMeetingIds={selectedMeetingIds}
                                 meetings={filteredMeetings}
+                                kinds={kinds}
                                 decisionCounts={decisionCounts}
                                 selectedCityId={selectedCityId}
                                 cityHasDiavgeiaUid={cityHasDiavgeiaUid}

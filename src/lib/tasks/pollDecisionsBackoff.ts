@@ -3,21 +3,38 @@
 // (Prisma, `server-only`, ...) — one would break the client build from
 // here, with the error pointing at that page instead of this file.
 
-// ─── Λογοδοσία meeting detection ─────────────────────────────────────
-// Stem used to identify Λογοδοσία (accountability) meetings by name.
-// Covers both "Λογοδοσία" and "Λογοδοσίας" (genitive).
-// TODO: Replace with proper meeting tags once available.
-export const LOGODOSIA_NAME_PATTERN = "Λογοδοσί";
+import type { MeetingKind, Prisma } from "@prisma/client";
+import { MEETING_KINDS, NO_DECISION_KINDS } from "@/lib/meetingLifecycleRules";
+
+// ─── Meetings that take no decisions ─────────────────────────────────
 
 /**
- * Returns true if the meeting name indicates a Λογοδοσία session.
- * Used to skip automated decision polling — these meetings don't produce
- * decisions on Diavgeia. Combined meetings (e.g. "Λογοδοσία και Δημοτικό
- * Συμβούλιο") are also matched; they can still be polled manually.
+ * Returns true for a meeting that takes no decisions: a λογοδοσία or an
+ * απολογισμός. Used to skip automated decision polling. A later part has no
+ * kind of its own, so the kind of its first part counts. A record that also
+ * holds a regular meeting (e.g. "Λογοδοσία και Δημοτικό Συμβούλιο") has no
+ * kind and is polled: its regular part produces decisions.
  */
-export function isLogodosiaMeeting(name: string): boolean {
-    return name.includes(LOGODOSIA_NAME_PATTERN);
+export function takesNoDecisions(meeting: { kind: MeetingKind | null; continuationOf?: { kind: MeetingKind | null } | null }): boolean {
+    const kind = meeting.kind ?? meeting.continuationOf?.kind ?? null;
+    return kind !== null && !MEETING_KINDS[kind].takesDecisions;
 }
+
+/**
+ * The database form of `!takesNoDecisions`. `kind` is nullable, and in SQL
+ * `kind NOT IN (…)` is not true for a null kind, so a bare `notIn` would drop
+ * every meeting of unknown kind. The null case is explicit.
+ */
+const KIND_TAKES_DECISIONS_WHERE = {
+    OR: [{ kind: null }, { kind: { notIn: NO_DECISION_KINDS } }],
+} satisfies Prisma.CouncilMeetingWhereInput;
+
+export const TAKES_DECISIONS_WHERE = {
+    AND: [
+        KIND_TAKES_DECISIONS_WHERE,
+        { OR: [{ continuationOfId: null }, { continuationOf: KIND_TAKES_DECISIONS_WHERE }] },
+    ],
+} satisfies Prisma.CouncilMeetingWhereInput;
 
 // ─── Backoff configuration ───────────────────────────────────────────
 // Controls how often each meeting becomes due for a cron poll — a floor,

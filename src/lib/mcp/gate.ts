@@ -1,8 +1,10 @@
 import prisma from '@/lib/db/prisma';
-import { NotFoundError } from '@/lib/api/errors';
+import { ForbiddenError, NotFoundError } from '@/lib/api/errors';
 import { canUserEditCity } from '@/lib/db/highlights-core';
 import { isSuperIdentity, type McpIdentity } from './auth';
 import { currentRealm } from './realm-context';
+import { meetingLabelInCity } from '@/lib/meetingName';
+import { transcriptGateSelect, transcriptIsPublic } from '@/lib/db/sharing/publicContent';
 
 /**
  * Whether the identity may see a city's unreleased (draft) meetings: service
@@ -35,6 +37,8 @@ export async function requireVisibleMeeting(
     name: string;
     videoUrl: string | null;
     administrativeBody: { name: string } | null;
+    /** Readers may read the transcript (see transcriptIsPublic). */
+    publicTranscript: boolean;
     /**
      * Whether the identity edits the city, when the gate had to find out. A
      * released meeting needs no answer, and a caller that needs one then
@@ -55,8 +59,15 @@ export async function requireVisibleMeeting(
             released: true,
             dateTime: true,
             name: true,
+            name_en: true,
+            kind: true,
+            sessionNumber: true,
             videoUrl: true,
-            administrativeBody: { select: { name: true } },
+            format: true,
+            closedToPublic: true,
+            administrativeBody: { select: { name: true, name_en: true, showUnreviewedTranscript: true } },
+            taskStatuses: transcriptGateSelect.taskStatuses,
+            city: { select: { timezone: true } },
         },
     });
 
@@ -65,5 +76,28 @@ export async function requireVisibleMeeting(
     const editor = meeting.released ? null : await canSeeUnreleased(identity, cityId);
     if (editor === false) throw new NotFoundError('Meeting not found');
 
-    return { ...meeting, editor };
+    return {
+        released: meeting.released,
+        dateTime: meeting.dateTime,
+        name: meetingLabelInCity(meeting, 'el'),
+        videoUrl: meeting.videoUrl,
+        administrativeBody: meeting.administrativeBody && { name: meeting.administrativeBody.name },
+        publicTranscript: transcriptIsPublic(meeting),
+        editor,
+    };
+}
+
+/**
+ * Readers get the transcript that the site shows them (transcriptIsPublic):
+ * none for a meeting with no public recording, and none before the human
+ * review where the body hides unreviewed transcripts. An editor of the city
+ * still reads it.
+ */
+export async function requirePublicTranscript(
+    meeting: { publicTranscript: boolean },
+    cityId: string,
+    identity: McpIdentity,
+): Promise<void> {
+    if (meeting.publicTranscript || await canSeeUnreleased(identity, cityId)) return;
+    throw new ForbiddenError('This meeting has no public transcript: it was closed to the public, held by circulation, or its transcript awaits review.');
 }
