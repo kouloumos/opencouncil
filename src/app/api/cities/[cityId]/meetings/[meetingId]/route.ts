@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMeetingDataCore } from '@/lib/getMeetingData';
 import { toPublicApiMeeting, withoutMedia } from '@/lib/meetingPublic';
-import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
+import { hasPublicRecording, pickRecordInput } from '@/lib/meetingLifecycleRules';
 import { handleApiError } from '@/lib/api/errors';
 import { isUserAuthorizedToEdit, withUserAuthorizedToEdit } from '@/lib/auth';
 import { meetingSchema } from '@/lib/zod-schemas/meeting';
@@ -58,17 +58,18 @@ export async function PUT(
     try {
         await withUserAuthorizedToEdit({ cityId: params.cityId });
         const body = await request.json();
-        // The URL names the meeting, and an edit queues no agenda task. Every
-        // other field of the schema is a field of the record, so a field that
-        // the schema gains reaches the update without a list here.
-        const {
-            meetingId: _meetingId, processAgenda: _processAgenda,
-            date, youtubeUrl, agendaUrl, administrativeBodyId, ...record
-        } = meetingSchema.parse(body);
+        // The URL names the meeting, and an edit queues no agenda task. The
+        // facts of the record come from MEETING_RECORD_INPUT_KEYS, as on create.
+        const input = meetingSchema.parse(body);
+        const { date, youtubeUrl, agendaUrl, administrativeBodyId, name, name_en, postponedFromId, continuationOfId } = input;
 
         // A field that the request leaves out keeps its value.
         const meeting = await updateMeetingWithEffects(params.cityId, params.meetingId, {
-            ...record,
+            ...pickRecordInput(input),
+            name,
+            name_en,
+            postponedFromId,
+            continuationOfId,
             dateTime: date,
             youtubeUrl: emptyToNull(youtubeUrl),
             agendaUrl: emptyToNull(agendaUrl),

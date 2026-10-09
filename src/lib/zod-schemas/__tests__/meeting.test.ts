@@ -1,4 +1,5 @@
 import { meetingSchema } from '../meeting';
+import { MEETING_RECORD_INPUT_KEYS } from '@/lib/meetingLifecycleRules';
 
 const validBase = {
   name: 'Δημοτικό Συμβούλιο',
@@ -53,4 +54,18 @@ describe('meetingSchema', () => {
     expect(meetingSchema.parse({ ...validBase, name: '', name_en: '  ' })).toMatchObject({ name: null, name_en: null });
     expect(meetingSchema.parse({ ...validBase, name: null })).toMatchObject({ name: null });
   });
+});
+
+describe('the fields of meetingSchema', () => {
+    // Create and update both take the facts of the record through
+    // MEETING_RECORD_INPUT_KEYS. A field that the schema gains must be one of
+    // them, or one of the other fields that both routes pass on by name.
+    const OTHER_FIELDS = [
+        'name', 'name_en', 'date', 'youtubeUrl', 'agendaUrl', 'meetingId', 'administrativeBodyId',
+        'processAgenda', 'postponedFromId', 'continuationOfId',
+    ];
+
+    it('are the record facts and the fields that the routes pass on by name', () => {
+        expect(Object.keys(meetingSchema.shape).sort()).toEqual([...MEETING_RECORD_INPUT_KEYS, ...OTHER_FIELDS].sort());
+    });
 });
