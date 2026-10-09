@@ -201,9 +201,9 @@ export async function toggleMeetingRelease(cityId: string, id: string, released:
         }
         return updatedMeeting;
     } catch (error) {
-        console.error('Error toggling council meeting release:', error);
-        // A lifecycle rule explains itself to the admin.
+        // A lifecycle rule explains itself to the admin (lib/actions/meetings.ts).
         if (error instanceof LifecycleRuleError) throw error;
+        console.error('Error toggling council meeting release:', error);
         throw new Error('Failed to toggle council meeting release');
     }
 }
