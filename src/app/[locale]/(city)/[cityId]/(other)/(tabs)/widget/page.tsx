@@ -4,7 +4,7 @@ import { getCityCached, getAdministrativeBodiesWithPublicMeetingsCached, getCoun
 import { EmbedConfigurator, type EmbedBodyGroup, type EmbedRecentMeeting } from '@/components/embed/EmbedConfigurator';
 import { Metadata } from 'next';
 import { ADMIN_BODY_TYPE_ORDER } from '@/lib/utils/administrativeBodies';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 // Embed configurator for city admins — nothing to index.
@@ -45,8 +45,8 @@ export default async function WidgetPage(
 
     const recentMeetings: EmbedRecentMeeting[] = pastMeetings.map(meeting => ({
         id: meeting.id,
-        name: meetingDisplayName(meeting, 'el', city?.timezone ?? DEFAULT_TIMEZONE),
-        name_en: meetingDisplayName(meeting, 'en', city?.timezone ?? DEFAULT_TIMEZONE),
+        name: meetingLabel(meeting, 'el', city?.timezone ?? DEFAULT_TIMEZONE),
+        name_en: meetingLabel(meeting, 'en', city?.timezone ?? DEFAULT_TIMEZONE),
         dateTime: new Date(meeting.dateTime).toISOString(),
     }));
 

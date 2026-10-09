@@ -13,7 +13,7 @@ import { getRealm } from '@/lib/realm.server';
 import { Realm, SpeakerTag } from '@prisma/client';
 import { Party } from '@prisma/client';
 import { originalScheduledDate } from '@/lib/db/meetingLifecycle';
-import { hidePostponedFrom } from '@/lib/meetingPublic';
+import { hideLinks } from '@/lib/meetingPublic';
 
 const EMPTY_STATISTICS: Statistics = {
     speakingSeconds: 0,
@@ -163,7 +163,7 @@ async function fetchMeetingDataCore(cityId: string, meetingId: string, realm: Re
         : null;
 
     return {
-        meeting: { ...hidePostponedFrom(meeting), postponedFromDate },
+        meeting: { ...hideLinks(meeting), postponedFromDate },
         transcript,
         city,
         people,

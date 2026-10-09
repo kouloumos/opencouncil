@@ -25,6 +25,7 @@ export interface HotCardMeeting {
     name: string | null;
     name_en: string | null;
     kind: MeetingKind | null;
+    sessionNumber: number | null;
     /** Always a Date. A cache hit hands back an ISO string, which getHotSubjectCardsCached
      *  restores before it returns — so a reader can call Date methods on this. */
     dateTime: Date;
@@ -105,6 +106,7 @@ async function buildCards(top: HotSubject[], withSpeakers: boolean): Promise<Hot
                 name: meeting.name,
                 name_en: meeting.name_en,
                 kind: meeting.kind,
+                sessionNumber: meeting.sessionNumber,
                 dateTime: meeting.dateTime,
                 administrativeBody: meeting.administrativeBody,
             },

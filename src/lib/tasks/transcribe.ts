@@ -8,7 +8,7 @@ import { buildUnknownSpeakerLabel } from "../utils";
 import { requestTranscribeInternal, deleteExistingSpeakerData } from "./transcribeInternal";
 import { requestFixTranscriptInternal } from "./fixTranscriptInternal";
 import { autoTriggerTask } from "./autoTrigger";
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 import { ConflictError, NotFoundError } from '@/lib/api/errors';
 
 // Full-precision doubles are near-incompressible and inflate the meeting page
@@ -266,7 +266,7 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
             cityId: task.cityId,
             meetingId: task.councilMeetingId,
             cityName: task.councilMeeting.city.name_en,
-            meetingName: meetingNameInCity(task.councilMeeting, 'en'),
+            meetingName: meetingLabelInCity(task.councilMeeting, 'en'),
             source: { taskType: 'transcribe', taskId },
         },
         () => requestFixTranscriptInternal(task.councilMeetingId, task.cityId, { force: true })

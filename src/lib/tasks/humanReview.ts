@@ -10,7 +10,7 @@ import { sendHumanReviewCompletedAdminAlert } from '@/lib/discord';
 import { sendTranscriptToMunicipality } from './sendTranscript';
 import { requestSummarize } from './summarize';
 import { autoTriggerTask, type AutoTriggerOutcome } from './autoTrigger';
-import { meetingNameInCity, type MeetingNameFields } from '@/lib/meetingName';
+import { meetingLabelInCity, type MeetingNameFields } from '@/lib/meetingName';
 
 /**
  * Whether the summarize task can start for a meeting.
@@ -197,7 +197,7 @@ async function createHumanReviewRecord(
             cityId,
             cityName: meeting.city.name_en,
             meetingId,
-            meetingName: meetingNameInCity(meeting, 'el'),
+            meetingName: meetingLabelInCity(meeting, 'el'),
             primaryReviewer: stats.primaryReviewer,
             secondaryReviewers: stats.secondaryReviewers,
             editCount: stats.editCount,
@@ -237,7 +237,7 @@ async function runReviewFollowUps(
                     cityId,
                     meetingId,
                     cityName: meeting.city.name_en,
-                    meetingName: meetingNameInCity(meeting, 'en'),
+                    meetingName: meetingLabelInCity(meeting, 'en'),
                     source: { taskType: 'humanReview', taskId: reviewTaskId },
                 },
                 () => requestSummarize(cityId, meetingId)

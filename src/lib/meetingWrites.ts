@@ -13,11 +13,11 @@ import { sendMeetingCreatedAdminAlert } from '@/lib/discord';
 import { syncMeetingToCalendar } from '@/lib/google-calendar';
 import { requestProcessAgendaInternal } from '@/lib/tasks/processAgendaInternal';
 import { revalidateAfterResponse } from '@/lib/cache/afterResponse';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 import { pickRecordInput, takesPlace, type MeetingRecordInput } from '@/lib/meetingLifecycleRules';
 
 export type NewMeetingInput = {
-    /** A name override. Omit or null to derive the name (see meetingDisplayName). */
+    /** A name override. Omit or null to derive the name (see meetingName.ts). */
     name?: string | null;
     name_en?: string | null;
     date: Date;
@@ -92,7 +92,7 @@ export async function createMeetingWithEffects(
     } else {
         sendMeetingCreatedAdminAlert({
             cityName: city.name_en,
-            meetingName: meetingDisplayName(meeting, 'en', city.timezone),
+            meetingName: meetingLabel(meeting, 'en', city.timezone),
             meetingDate: date,
             meetingId: meetingId,
             cityId: cityId,

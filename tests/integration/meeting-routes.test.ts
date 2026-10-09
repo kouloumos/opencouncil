@@ -118,8 +118,9 @@ describe('meeting API routes', () => {
             expect(JSON.parse(text)).toEqual([
                 expect.objectContaining({
                     id: 'mar19_2026',
-                    name: 'Δημοτικό Συμβούλιο 19/03/2026',
-                    name_en: 'Municipal Council 19/03/2026',
+                    name: 'Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 19/03/2026',
+                    name_en: 'Municipal Council · Regular Meeting · 19/03/2026',
+                    title: 'Τακτική Συνεδρίαση',
                     postponedFromDate: '2026-03-12T16:00:00.000Z',
                 }),
             ])

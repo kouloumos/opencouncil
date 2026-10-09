@@ -1,18 +1,23 @@
 /** @jest-environment node */
 import fs from 'fs'
 import path from 'path'
-import type { MeetingKind } from '@prisma/client'
+import { CityLanguage, MeetingKind } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { meetingDisplayName } from '@/lib/meetingName'
 import { splitSqlStatements } from '../helpers/sql'
 
+// The test database comes from `prisma db push`, which creates no function,
+// so the test installs the one that the latest migration defines.
 const MIGRATION = path.join(
     __dirname,
-    '../../prisma/migrations/20261006130000_meeting_lifecycle/migration.sql',
+    '../../prisma/migrations/20261009120000_meeting_title/migration.sql',
 )
 
-const KINDS: Array<MeetingKind | null> = [null, 'regular', 'urgent', 'accountability', 'annualReport', 'budget', 'presidencyElection']
-const BODIES = [{ name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' }, null]
+const KINDS: Array<MeetingKind | null> = [null, ...Object.values(MeetingKind)]
+// Every city language, and English, which has kind words too.
+const LANGUAGES = [...Object.values(CityLanguage), 'en']
+const NUMBERS = [null, 1, 2, 3, 11, 12, 13, 21, 22, 23, 101]
+const TIMEZONES: Record<string, string> = { el: 'Europe/Athens', en: 'Europe/Athens', fr: 'Europe/Paris', sr: 'Europe/Belgrade' }
 const DATES = [
     new Date('2026-03-12T16:00:00Z'),
     // Before midnight UTC, after midnight in Athens (summer time).
@@ -22,7 +27,7 @@ const DATES = [
 ]
 
 /** The SQL function, which the Notis view calls, and the TypeScript function
- *  must print the same Greek name. Both carry the kind labels by hand. */
+ *  must print the same title. Both carry the kind words by hand. */
 describe('council_meeting_display_name', () => {
     beforeAll(async () => {
         const [fn] = splitSqlStatements(fs.readFileSync(MIGRATION, 'utf8'))
@@ -30,7 +35,10 @@ describe('council_meeting_display_name', () => {
         await prisma.$executeRawUnsafe(fn)
     })
 
-    async function sqlName(kind: MeetingKind | null, bodyName: string | null, dateTime: Date, override: string | null = null, sessionZone = 'UTC') {
+    async function sqlName(
+        { kind, sessionNumber = null, dateTime, override = null, lang = 'el', sessionZone = 'UTC' }:
+        { kind: MeetingKind | null; sessionNumber?: number | null; dateTime: Date; override?: string | null; lang?: string; sessionZone?: string },
+    ) {
         // The column is a timestamp without zone that holds UTC, which is how
         // Prisma writes it. Pass the same value. The session zone must not
         // change the result, so the test sets one in the same transaction.
@@ -38,31 +46,34 @@ describe('council_meeting_display_name', () => {
         return prisma.$transaction(async (tx) => {
             await tx.$executeRawUnsafe(`SET LOCAL TIME ZONE '${sessionZone}'`)
             const [row] = await tx.$queryRawUnsafe<Array<{ name: string }>>(
-                `SELECT council_meeting_display_name($1, $2::"MeetingKind", $3, $4::timestamp, 'Europe/Athens', 'el') AS name`,
-                override, kind, bodyName, utc,
+                `SELECT council_meeting_display_name($1, $2::"MeetingKind", $3::integer, $4::timestamp, $5, $6) AS name`,
+                override, kind, sessionNumber, utc, TIMEZONES[lang], lang,
             )
             return row.name
         })
     }
 
-    test.each(['UTC', 'America/New_York'])('equals meetingDisplayName for every kind, body and date (session zone %s)', async (zone) => {
-        for (const kind of KINDS) {
-            for (const body of BODIES) {
-                for (const dateTime of DATES) {
-                    const expected = meetingDisplayName(
-                        { name: null, name_en: null, kind, dateTime, administrativeBody: body },
-                        'el',
-                        'Europe/Athens',
-                    )
-                    expect(await sqlName(kind, body?.name ?? null, dateTime, null, zone)).toBe(expected)
+    test.each(['UTC', 'America/New_York'])('equals meetingDisplayName for every kind, number, language and date (session zone %s)', async (sessionZone) => {
+        for (const lang of LANGUAGES) {
+            for (const kind of KINDS) {
+                for (const sessionNumber of NUMBERS) {
+                    for (const dateTime of DATES) {
+                        const expected = meetingDisplayName(
+                            { name: null, name_en: null, kind, sessionNumber, dateTime, administrativeBody: null },
+                            lang,
+                            TIMEZONES[lang],
+                        )
+                        expect(await sqlName({ kind, sessionNumber, dateTime, lang, sessionZone })).toBe(expected)
+                    }
                 }
             }
         }
     })
 
     test('returns the override as it is, and reads an empty override as none', async () => {
-        expect(await sqlName('accountability', 'Δημοτικό Συμβούλιο', DATES[0], 'Κοινή Συνεδρίαση')).toBe('Κοινή Συνεδρίαση')
-        const empty = { name: '', name_en: null, kind: 'accountability' as const, dateTime: DATES[0], administrativeBody: BODIES[0] }
-        expect(await sqlName('accountability', 'Δημοτικό Συμβούλιο', DATES[0], '')).toBe(meetingDisplayName(empty, 'el', 'Europe/Athens'))
+        expect(await sqlName({ kind: 'accountability', dateTime: DATES[0], override: 'Κοινή Συνεδρίαση' })).toBe('Κοινή Συνεδρίαση')
+        const empty = { name: '', name_en: null, kind: 'accountability' as const, sessionNumber: 4, dateTime: DATES[0], administrativeBody: null }
+        expect(await sqlName({ kind: 'accountability', sessionNumber: 4, dateTime: DATES[0], override: '' }))
+            .toBe(meetingDisplayName(empty, 'el', 'Europe/Athens'))
     })
 })

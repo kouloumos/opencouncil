@@ -61,8 +61,7 @@
         }
     },
     "facts": {
-        "postponedFrom": "Reportée · prévue d’abord le {date}",
-        "sessionNumber": "Séance {kind, select, regular {ordinaire} urgent {extraordinaire} other {spéciale}} n° {number}",
+        "postponedFrom": "Après un report · prévue d’abord le {date}",
         "format": {
             "teleconference": "Visioconférence",
             "mixed": "Mixte : en présentiel et en visioconférence"

@@ -30,7 +30,7 @@ import { SubjectEmbedDialog } from '@/components/embed/SubjectEmbedDialog';
 import { EXCERPT_SELECTOR_KEYS, parseExcerptSelector, validSourceId } from '@/lib/sharing/excerptSelector';
 import { useCouncilMeetingData } from './CouncilMeetingDataContext';
 import { SubjectShareDialog } from '@/components/sharing/SubjectShareDialog';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 
 interface ShareDropdownProps {
@@ -98,7 +98,7 @@ export default function ShareDropdown({ meetingId, cityId, className }: ShareDro
     const effectiveTime = targetTimestamp ?? (currentTime > 0 ? currentTime : null);
     const sharedTime = includeTimestamp && effectiveTime !== null ? effectiveTime : null;
     const shareableUrl = buildShareUrl(url, sharedTime, subjectPage);
-    const shareTitle = subject ? localizeText(subject.name, locale) : meetingDisplayName(meeting, locale, city.timezone);
+    const shareTitle = subject ? localizeText(subject.name, locale) : meetingLabel(meeting, locale, city.timezone);
     const actionDisabled = !shareableUrl || pending !== null;
     const operationRef = useRef(0);
     const track = useSharingTracker({ content_type: subject ? 'subject' : 'meeting', surface: subjectPage ? 'subject_menu' : pathname.includes('/transcript') ? 'transcript_menu' : 'meeting_menu', city_id: cityId, meeting_id: meetingId, subject_id: subject?.id, locale });

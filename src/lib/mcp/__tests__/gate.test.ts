@@ -38,7 +38,7 @@ function payload(released: boolean, editor: boolean | null) {
     return {
         released,
         dateTime: new Date('2026-05-12T18:00:00Z'),
-        name: 'Δημοτικό Συμβούλιο 12/05/2026',
+        name: 'Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 12/05/2026',
         videoUrl: null,
         administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
         editor,

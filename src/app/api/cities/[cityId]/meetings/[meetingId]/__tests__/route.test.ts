@@ -40,8 +40,9 @@ describe('GET /api/cities/[cityId]/meetings/[meetingId]', () => {
         expect(text).not.toContain('postponedFromId');
         expect(text).not.toContain('mar12_2026');
         expect(JSON.parse(text).meeting).toMatchObject({
-            name: 'Δημοτικό Συμβούλιο 19/03/2026',
-            name_en: 'Municipal Council 19/03/2026',
+            name: 'Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 19/03/2026',
+            title: 'Τακτική Συνεδρίαση',
+            name_en: 'Municipal Council · Regular Meeting · 19/03/2026',
             postponedFromDate: '2026-03-12T16:00:00.000Z',
         });
     });

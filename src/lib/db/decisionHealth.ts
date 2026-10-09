@@ -14,7 +14,7 @@ import {
     type CoverageMeasures, type MeasuredMeeting, type MeasuredSubject, type MeetingCandidateStats, type MeetingQueues,
     type UnmatchedCause,
 } from './decisionHealthDerive';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 export { cityState, type CityState, type MissingSessionGroup } from './decisionHealthState';
 
 /**
@@ -74,7 +74,7 @@ type CityFacts = Prisma.CityGetPayload<{ select: typeof cityFactsSelect }>;
 type BodyFacts = CityFacts['administrativeBodies'][number];
 
 const meetingFactsSelect = {
-    id: true, cityId: true, administrativeBodyId: true, name: true, name_en: true, kind: true, dateTime: true,
+    id: true, cityId: true, administrativeBodyId: true, name: true, name_en: true, kind: true, sessionNumber: true, dateTime: true,
     administrativeBody: { select: { name: true, name_en: true } },
     subjects: {
         where: DECISION_ELIGIBLE_SUBJECT_WHERE,
@@ -83,7 +83,7 @@ const meetingFactsSelect = {
 } satisfies Prisma.CouncilMeetingSelect;
 type MeetingRow = Prisma.CouncilMeetingGetPayload<{ select: typeof meetingFactsSelect }>;
 
-export type MeetingFacts = Omit<MeetingRow, 'subjects' | 'name' | 'name_en' | 'administrativeBody'> & {
+export type MeetingFacts = Omit<MeetingRow, 'subjects' | 'name' | 'name_en' | 'sessionNumber' | 'administrativeBody'> & {
     /** The display name (lib/meetingName.ts). */
     name: string;
     /** City-local calendar date, computed once with the city's timezone. */
@@ -167,7 +167,7 @@ export async function fetchDecisionFacts(cityId?: string): Promise<DecisionFacts
         .filter(m => tzByCity.has(m.cityId))
         .map(m => ({
             id: m.id, cityId: m.cityId, administrativeBodyId: m.administrativeBodyId,
-            name: meetingDisplayName(m, 'el', tzByCity.get(m.cityId)!), kind: m.kind, dateTime: m.dateTime,
+            name: meetingLabel(m, 'el', tzByCity.get(m.cityId)!), kind: m.kind, dateTime: m.dateTime,
             localDate: localCalendarDate(m.dateTime, tzByCity.get(m.cityId)!),
             subjects: m.subjects.map(s => ({ id: s.id, name: s.name, linked: s.decision !== null })),
         }));

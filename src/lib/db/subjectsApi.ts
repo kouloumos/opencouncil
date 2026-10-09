@@ -7,7 +7,7 @@ import { Prisma, NonAgendaReason, LocationType, Realm } from '@prisma/client';
 import prisma from '@/lib/db/prisma';
 import { PUBLIC_CITY_WHERE } from '@/lib/cityStatus';
 import { DEFAULT_SUBJECT_LIMIT, MAX_SUBJECT_LIMIT } from '@/lib/zod-schemas/subject';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 import { meetingNameSelect } from '@/lib/db/types';
 
 /**
@@ -167,8 +167,8 @@ function toApiSubject(
         description: row.description,
         cityId: row.cityId,
         meetingId: row.councilMeetingId,
-        meetingName: meetingNameInCity(row.councilMeeting, 'el'),
-        meetingNameEn: meetingNameInCity(row.councilMeeting, 'en'),
+        meetingName: meetingLabelInCity(row.councilMeeting, 'el'),
+        meetingNameEn: meetingLabelInCity(row.councilMeeting, 'en'),
         meetingDate: row.councilMeeting.dateTime.toISOString(),
         agendaItemIndex: row.agendaItemIndex,
         agendaItemTitle: row.agendaItemTitle,

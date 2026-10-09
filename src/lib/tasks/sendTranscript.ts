@@ -11,7 +11,7 @@ import { formatDate } from '@/lib/formatters/time';
 import { revalidateTag } from 'next/cache';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
 import { checkTaskIdempotency } from './tasks';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 export interface SendTranscriptResult {
     success: boolean;
@@ -139,7 +139,7 @@ export async function sendTranscriptToMunicipality(
             cityId,
             cityName: meeting.city.name_en,
             meetingId,
-            meetingName: meetingNameInCity(meeting, 'el'),
+            meetingName: meetingLabelInCity(meeting, 'el'),
             recipientEmails: contactEmails,
             administrativeBodyName,
         });

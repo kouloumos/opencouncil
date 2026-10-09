@@ -4,7 +4,7 @@ import prisma from '@/lib/db/prisma';
 import { calculateMeetingDurationMs } from '@/lib/db/utils/meetingDuration';
 import { renderReportDocx, ReportMeeting } from '@/lib/export/report-docx';
 import { getReportContract } from '@/lib/offers/state';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 export async function POST(request: NextRequest) {
     await withUserAuthorizedToEdit({});
@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
         return {
             id: m.id,
             cityId: m.cityId,
-            name: meetingDisplayName(m, 'el', city.timezone),
+            // The report prints the date in its own column.
+            name: meetingLabel(m, 'el', city.timezone, { date: false }),
             dateTime: m.dateTime,
             durationMs,
             operatorName: m.meetingOperator?.user.name || null,

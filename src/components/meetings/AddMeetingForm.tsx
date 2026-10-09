@@ -29,7 +29,7 @@ import { LinkOrDrop } from "../ui/link-or-drop"
 import { YouTubePreview } from "./YouTubePreview"
 import { CouncilMeeting, MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client'
 import { COUNCIL_ONLY_FORMATS, COUNCIL_ONLY_KINDS, OFFERED_FORMATS, SCHEDULE_STATUS_REASON_MAX_LENGTH, takesPlace } from '@/lib/meetingLifecycleRules'
-import { meetingDisplayName } from '@/lib/meetingName'
+import { meetingLabel } from '@/lib/meetingName'
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time'
 import { Textarea } from '../ui/textarea'
 import { formatDateAsMeetingId } from '@/lib/utils/meetingId'
@@ -87,6 +87,7 @@ interface PostponementCandidate {
     name: string | null;
     name_en: string | null;
     kind: MeetingKind | null;
+    sessionNumber: number | null;
     dateTime: string;
     scheduleStatus: MeetingScheduleStatus;
     administrativeBodyId: string | null;
@@ -383,7 +384,7 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
                                         <SelectItem value="none">{t('postponedFromNone')}</SelectItem>
                                         {postponementCandidates.map(candidate => (
                                             <SelectItem key={candidate.id} value={candidate.id}>
-                                                {meetingDisplayName(candidate, 'el', DEFAULT_TIMEZONE)}
+                                                {meetingLabel(candidate, 'el', DEFAULT_TIMEZONE)}
                                             </SelectItem>
                                         ))}
                                         {/* The current link stays selectable when its meeting is outside the window. */}

@@ -3,7 +3,7 @@ import { getCurrentUser, withUserAuthorizedToEdit } from '@/lib/auth';
 import { releaseNotifications } from '@/lib/notifications/deliver';
 import { sendNotificationsSentAdminAlert } from '@/lib/discord';
 import prisma from '@/lib/db/prisma';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 export async function POST(request: NextRequest) {
     await withUserAuthorizedToEdit({});
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             cityId: notification.cityId,
             meetingId: notification.meetingId,
             cityName: notification.city.name_en,
-            meetingName: meetingDisplayName(notification.meeting, 'el', notification.city.timezone),
+            meetingName: meetingLabel(notification.meeting, 'el', notification.city.timezone),
             notificationCount: notificationIds.length,
             emailsSent: result.emailsSent,
             failed: result.failed,

@@ -238,7 +238,8 @@ describe('MCP meeting tools report the record of a meeting - integration', () =>
         const { meetings } = await asRequest(() => mcpListMeetings('athens', page, ANON))
         expect(meetings.map((m) => m.id)).toEqual(['mar26_2026', 'mar19_2026'])
         expect(meetings[0]).toMatchObject({
-            name: 'Δημοτικό Συμβούλιο — Έκτακτη Συνεδρίαση 26/03/2026',
+            name: 'Δημοτικό Συμβούλιο · Έκτακτη Συνεδρίαση · 26/03/2026',
+            title: 'Έκτακτη Συνεδρίαση',
             scheduleStatus: 'cancelled', scheduleStatusReason: 'Λόγω απεργίας', kind: 'urgent', format: 'inPerson',
         })
         expect(meetings[1]).toMatchObject({

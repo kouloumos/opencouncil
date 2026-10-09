@@ -62,7 +62,6 @@
     },
     "facts": {
         "postponedFrom": "Από αναβολή · αρχικά {date}",
-        "sessionNumber": "{number}η {kind, select, regular {Τακτική Συνεδρίαση} urgent {Έκτακτη Συνεδρίαση} other {Ειδική Συνεδρίαση}}",
         "format": {
             "teleconference": "Τηλεδιάσκεψη",
             "mixed": "Μεικτή: δια ζώσης και με τηλεδιάσκεψη"

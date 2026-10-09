@@ -4,7 +4,7 @@ import prisma from './prisma';
 import { buildDateFilter } from './reviews/dateFilters';
 import { CUSTOMER_CITY_WHERE } from '../cityStatus';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 // ============================================================================
 // SHARED PRISMA PATTERNS
@@ -998,7 +998,7 @@ export async function getMeetingsNeedingReview(filters: ReviewFilterOptions = {}
       cityId: m.cityId,
       cityName: m.city.name,
       administrativeBodyName: m.administrativeBody?.name ?? null,
-      meetingName: meetingDisplayName(m, 'el', m.city.timezone),
+      meetingName: meetingLabel(m, 'el', m.city.timezone),
       meetingDate: m.dateTime,
       status,
       ...stats,
@@ -1140,7 +1140,7 @@ export async function getReviewProgressForMeeting(
     cityId: meetingRecord.cityId,
     cityName: meetingRecord.city.name,
     administrativeBodyName: meetingRecord.administrativeBody?.name ?? null,
-    meetingName: meetingDisplayName(meetingRecord, 'el', meetingRecord.city.timezone),
+    meetingName: meetingLabel(meetingRecord, 'el', meetingRecord.city.timezone),
     meetingDate: meetingRecord.dateTime,
     status,
     // Aggregated stats (all ReviewListItem fields)

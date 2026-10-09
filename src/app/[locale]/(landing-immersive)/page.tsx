@@ -10,7 +10,7 @@ import { getMapSubjectsCached, getGeneralSubjectsCached, getHotSubjectsCached, g
 import { getListedCitiesCached, getMapCitiesCached, getPetitionedMapCitiesCached } from '@/lib/db/cities';
 import { getUpcomingMeetingsCached } from '@/lib/db/meetings';
 import { DEFAULT_RANGE, HOT_SUBJECTS_LIMIT, HOT_SUBJECTS_MONTHS, rangeToSubjectFilters } from '@/lib/landing/landingCore';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 export async function generateMetadata(props: {
     params: Promise<{ locale: string }>;
@@ -100,7 +100,7 @@ export default async function HomePage() {
                 upcoming: upcoming.map((m) => ({
                     id: m.id,
                     cityId: m.cityId,
-                    name: meetingDisplayName(m, locale, m.city.timezone),
+                    name: meetingLabel(m, locale, m.city.timezone),
                     dateTime: new Date(m.dateTime).toISOString(),
                     city: {
                         id: m.city.id,

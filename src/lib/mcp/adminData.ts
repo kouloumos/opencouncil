@@ -19,7 +19,7 @@ import { requireVisibleMeeting } from './gate';
 import { mcpTaskSummary } from './taskSummary';
 import { requireCityBodies, requireRealmCity } from './realmGuards';
 import { currentBaseUrl, currentRealm } from './realm-context';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingDisplayName, meetingLabel } from '@/lib/meetingName';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 /**
@@ -71,10 +71,13 @@ export async function mcpCreateMeeting(
         ...pickRecordInput(args),
     });
 
+    const timezone = await cityTimezone(meeting.cityId);
+
     return {
         id: meeting.id,
         cityId: meeting.cityId,
-        name: meetingDisplayName(meeting, 'el', await cityTimezone(meeting.cityId)),
+        name: meetingLabel(meeting, 'el', timezone),
+        title: meetingDisplayName(meeting, 'el', timezone),
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
         released: meeting.released,
@@ -127,8 +130,9 @@ export async function mcpUpdateMeeting(
     return {
         id: meeting.id,
         cityId: meeting.cityId,
-        name: meetingDisplayName(meeting, 'el', timezone),
-        name_en: meetingDisplayName(meeting, 'en', timezone),
+        name: meetingLabel(meeting, 'el', timezone),
+        title: meetingDisplayName(meeting, 'el', timezone),
+        name_en: meetingLabel(meeting, 'en', timezone),
         dateTime: meeting.dateTime.toISOString(),
         youtubeUrl: meeting.youtubeUrl,
         agendaUrl: meeting.agendaUrl,

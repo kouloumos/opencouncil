@@ -34,10 +34,10 @@ import {
 } from './render';
 import { isSuperIdentity, type McpIdentity } from './auth';
 import { isCustomer } from "@/lib/cityStatus";
-import { meetingDisplayName, meetingNameInCity } from '@/lib/meetingName';
+import { meetingDisplayName, meetingLabel, meetingLabelInCity } from '@/lib/meetingName';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 import { originalScheduledDate, originalScheduledDates } from '@/lib/db/meetingLifecycle';
-import { effectivePlace } from '@/lib/meetingPublic';
+import { publicRecordFields } from '@/lib/meetingPublic';
 
 /** Built per request: the hint must point at the host the caller is using. */
 function authHint(): string {
@@ -154,29 +154,6 @@ export async function mcpListCities() {
             },
             url: urls.city(city.id),
         })),
-    };
-}
-
-/**
- * The record fields of a meeting that an assistant needs to read it right:
- * whether it took place, what kind of meeting it was, its number and its
- * format. Never the id of the meeting that it replaced, which is not public.
- */
-function meetingRecordFields(
-    meeting: Pick<CouncilMeeting, 'scheduleStatus' | 'scheduleStatusReason' | 'kind' | 'sessionNumber' | 'format' | 'closedToPublic' | 'place' | 'continuationOfId'>
-        & { administrativeBody: { place: string | null } | null },
-    postponedFromDate: Date | null,
-) {
-    return {
-        scheduleStatus: meeting.scheduleStatus,
-        scheduleStatusReason: meeting.scheduleStatusReason,
-        kind: meeting.kind,
-        sessionNumber: meeting.sessionNumber,
-        format: meeting.format,
-        closedToPublic: meeting.closedToPublic,
-        place: effectivePlace(meeting),
-        postponedFromDate: postponedFromDate?.toISOString() ?? null,
-        continuationOfId: meeting.continuationOfId,
     };
 }
 
@@ -348,10 +325,11 @@ export async function mcpListMeetings(
     return {
         meetings: meetings.map(meeting => ({
             id: meeting.id,
-            name: meetingDisplayName(meeting, 'el', timezone),
+            name: meetingLabel(meeting, 'el', timezone),
+            title: meetingDisplayName(meeting, 'el', timezone),
             dateTime: meeting.dateTime.toISOString(),
             administrativeBody: meeting.administrativeBody?.name ?? null,
-            ...meetingRecordFields(meeting, postponedFromDates.get(meeting.id) ?? null),
+            ...publicRecordFields(meeting, postponedFromDates.get(meeting.id) ?? null),
             released: meeting.released,
             subjectCount: meeting.subjects.length,
             hasTranscript: meeting._count.speakerSegments > 0,
@@ -403,10 +381,11 @@ export async function mcpGetMeeting(cityId: string, meetingId: string, identity:
     return {
         id: meeting.id,
         cityId,
-        name: meetingNameInCity(meeting, 'el'),
+        name: meetingLabelInCity(meeting, 'el'),
+        title: meetingDisplayName(meeting, 'el', meeting.city.timezone),
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
-        ...meetingRecordFields(meeting, await originalScheduledDate(cityId, meetingId)),
+        ...publicRecordFields(meeting, await originalScheduledDate(cityId, meetingId)),
         youtubeUrl: meeting.youtubeUrl,
         agendaUrl: meeting.agendaUrl,
         hasTranscript: transcribed,
@@ -788,7 +767,7 @@ export async function mcpListNearbySubjects(args: {
                 cityName: city.name,
                 meetingId: meeting.id,
                 meetingDate: meeting.dateTime,
-                meetingName: meetingDisplayName(meeting, 'el', timezone),
+                meetingName: meetingLabel(meeting, 'el', timezone),
                 administrativeBody: meeting.administrativeBody?.name ?? null,
                 topic: subject.topic?.name ?? null,
             }),
@@ -864,7 +843,7 @@ export async function mcpSearch(
                 cityName: result.councilMeeting.city.name,
                 meetingId: result.councilMeetingId,
                 meetingDate: result.councilMeeting.dateTime,
-                meetingName: meetingNameInCity(result.councilMeeting, 'el'),
+                meetingName: meetingLabelInCity(result.councilMeeting, 'el'),
                 administrativeBody: result.councilMeeting.administrativeBody?.name ?? null,
                 topic: result.topic?.name ?? null,
             }),

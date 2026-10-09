@@ -7,7 +7,7 @@ import { motion, useAnimation } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { useTranscriptOptions } from '@/components/meetings/options/OptionsContext';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 import { useCouncilMeetingData } from './CouncilMeetingDataContext';
 
 // MuxErrorCode.NETWORK_NOT_READY. playback-core reaches us as a transitive
@@ -140,7 +140,7 @@ export const Video: React.FC<{ className?: string, expandable?: boolean, /** a s
     const renderVideoElement = () => {
         return <VideoElement
             id={meeting.id}
-            title={meetingDisplayName(meetingRecord, 'el', city.timezone)}
+            title={meetingLabel(meetingRecord, 'el', city.timezone)}
             playbackId={!muxFailed ? meeting.muxPlaybackId : null}
             fallbackSrc={fallbackSrc}
             onMuxError={(stillEncoding) => {

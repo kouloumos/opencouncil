@@ -61,8 +61,7 @@
         }
     },
     "facts": {
-        "postponedFrom": "Одложена · првобитно заказана за {date}",
-        "sessionNumber": "{number}. {kind, select, regular {редовна седница} urgent {хитна седница} other {посебна седница}}",
+        "postponedFrom": "После одлагања · првобитно заказана за {date}",
         "format": {
             "teleconference": "Видео-конференција",
             "mixed": "Мешовита: уживо и путем видео-конференције"

@@ -19,7 +19,7 @@ import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { setNotisSubscription } from "@/lib/notis/client";
 import { IS_DEV } from "@/lib/utils";
 import { saveNotificationPreferencesSchema, savePetitionSchema } from "@/lib/zod-schemas/onboarding";
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 // Type definitions for user preferences data
 export type PetitionWithRelations = Petition & {
@@ -1200,6 +1200,7 @@ export async function getNotificationsGroupedByMeeting(filters: {
                     name: true,
                     name_en: true,
                     kind: true,
+                    sessionNumber: true,
                     dateTime: true,
                     administrativeBody: {
                         select: {
@@ -1226,7 +1227,7 @@ export async function getNotificationsGroupedByMeeting(filters: {
         if (!meetingStatsMap.has(key)) {
             meetingStatsMap.set(key, {
                 meetingId: notification.meetingId,
-                meetingName: meetingDisplayName(notification.meeting, 'el', notification.city.timezone),
+                meetingName: meetingLabel(notification.meeting, 'el', notification.city.timezone),
                 meetingDate: notification.meeting.dateTime,
                 cityId: notification.cityId,
                 cityName: notification.city.name_municipality || notification.city.name,

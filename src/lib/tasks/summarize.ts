@@ -12,7 +12,7 @@ import { requestSummarizeInternal } from "./summarizeInternal";
 import { withUserAuthorizedToEdit } from "../auth";
 import { after } from "next/server";
 import { generateImagesForMeeting } from "../subjectImages";
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 /**
  * Browser-facing entry point for the admin panel's summarize button. Callers
@@ -195,7 +195,7 @@ export async function handleSummarizeResult(taskId: string, response: SummarizeR
             if (stats.notificationsCreated > 0) {
                 sendNotificationsCreatedAdminAlert({
                     cityName: councilMeeting.city.name_en,
-                    meetingName: meetingNameInCity(councilMeeting, 'el'),
+                    meetingName: meetingLabelInCity(councilMeeting, 'el'),
                     notificationType: 'afterMeeting',
                     notificationsCreated: stats.notificationsCreated,
                     subjectsTotal: stats.subjectsTotal,
@@ -216,7 +216,7 @@ export async function handleSummarizeResult(taskId: string, response: SummarizeR
                     cityId: councilMeeting.cityId,
                     meetingId: councilMeeting.id,
                     cityName: councilMeeting.city.name_en,
-                    meetingName: meetingNameInCity(councilMeeting, 'el'),
+                    meetingName: meetingLabelInCity(councilMeeting, 'el'),
                     notificationCount: stats.notificationsCreated,
                     emailsSent: releaseResult.emailsSent,
                     failed: releaseResult.failed,

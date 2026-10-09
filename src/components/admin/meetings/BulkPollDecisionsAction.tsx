@@ -23,7 +23,7 @@ import { partitionMeetingsForPolling, MeetingPollEligibility, type PollSkipReaso
 import { requestPollDecisions } from '@/lib/tasks/pollDecisions';
 import { useSequentialDispatch } from '@/hooks/useSequentialDispatch';
 import { BatchProgressView } from '@/components/admin/BatchProgressView';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 const SKIP_REASON_LABELS = {
@@ -53,7 +53,7 @@ export function BulkPollDecisionsAction({
     const partition = useMemo(() => {
         const selected = meetings
             .filter(m => selectedMeetingIds.has(m.id))
-            .map(m => ({ id: m.id, name: meetingDisplayName(m, 'el', DEFAULT_TIMEZONE), kind: m.kind, scheduleStatus: m.scheduleStatus }));
+            .map(m => ({ id: m.id, name: meetingLabel(m, 'el', DEFAULT_TIMEZONE), kind: m.kind, scheduleStatus: m.scheduleStatus }));
         return partitionMeetingsForPolling(selected, decisionCounts);
     }, [meetings, selectedMeetingIds, decisionCounts]);
 

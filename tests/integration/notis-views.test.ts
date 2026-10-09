@@ -30,6 +30,10 @@ const LIFECYCLE_MIGRATION_PATH = path.join(
     __dirname,
     '../../prisma/migrations/20261006130000_meeting_lifecycle/migration.sql',
 )
+const TITLE_MIGRATION_PATH = path.join(
+    __dirname,
+    '../../prisma/migrations/20261009120000_meeting_title/migration.sql',
+)
 
 /** The consumer's half of the contract: the Prisma models Notis reads the
  *  views through. Kept in a separate file from the SQL that defines them,
@@ -82,6 +86,12 @@ async function applyNotisMigration() {
     // the derived-name function and the view are replayed.
     for (const statement of splitSqlStatements(fs.readFileSync(LIFECYCLE_MIGRATION_PATH, 'utf8'))) {
         if (/CREATE OR REPLACE (FUNCTION council_meeting_display_name|VIEW "notis_meeting_events")/.test(statement)) {
+            await prisma.$executeRawUnsafe(statement)
+        }
+    }
+    // The title migration replaces that function and the view again.
+    for (const statement of splitSqlStatements(fs.readFileSync(TITLE_MIGRATION_PATH, 'utf8'))) {
+        if (/CREATE OR REPLACE (FUNCTION council_meeting_display_name|VIEW "notis_meeting_events")|DROP FUNCTION council_meeting_display_name/.test(statement)) {
             await prisma.$executeRawUnsafe(statement)
         }
     }
@@ -232,7 +242,7 @@ describe('notis views migration', () => {
             name: null,
             name_en: null,
             kind: 'accountability',
-            // 22:30 UTC on 25 June is 01:30 on 26 June in Athens.
+            sessionNumber: 4,
             dateTime: new Date('2026-06-25T22:30:00Z'),
             administrativeBodyId: body.id,
             released: true,
@@ -250,7 +260,8 @@ describe('notis views migration', () => {
             'SELECT "taskId", "meetingName" FROM notis_meeting_events',
         )
         const nameOf = new Map(rows.map((r) => [r.taskId, r.meetingName]))
-        expect(nameOf.get(derivedTask.id)).toBe('Δημοτικό Συμβούλιο — Ειδική Συνεδρίαση Λογοδοσίας 26/06/2026')
+        // Notis shows the body and the date from their own columns.
+        expect(nameOf.get(derivedTask.id)).toBe('4η Ειδική Λογοδοσίας')
         expect(nameOf.get(overrideTask.id)).toBe('Λογοδοσία και Δημοτικό Συμβούλιο 04/02/26')
     })
 

@@ -41,7 +41,7 @@ import {
 } from './builders';
 
 import { buildTranscriptEntriesFromUtterances, CrossSubjectInfo } from './transcriptEntries';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 /** Who a document says presided, read off the raw extraction it was stored with. */
 function presidedByOf(extraction: unknown): { name: string; personId: string | null } | null {
@@ -455,7 +455,7 @@ export async function getMinutesData(
         meeting: {
             id: meeting.id,
             cityId: meeting.cityId,
-            name: meetingDisplayName(meeting, 'el', city.timezone),
+            name: meetingLabel(meeting, 'el', city.timezone),
             dateTime: meeting.dateTime.toISOString(),
         },
         administrativeBody: meeting.administrativeBody

@@ -61,8 +61,7 @@
         }
     },
     "facts": {
-        "postponedFrom": "Postponed · first set for {date}",
-        "sessionNumber": "{kind, select, regular {Regular meeting} urgent {Urgent meeting} other {Special meeting}} no. {number}",
+        "postponedFrom": "After a postponement · first set for {date}",
         "format": {
             "teleconference": "Teleconference",
             "mixed": "Mixed: in person and by teleconference"

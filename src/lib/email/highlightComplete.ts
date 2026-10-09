@@ -6,7 +6,7 @@ import { realmBaseUrl } from '@/lib/utils/realmBaseUrl';
 import prisma from '@/lib/db/prisma';
 import { formatDuration } from '@/lib/formatters/time';
 import { getLocalizedName } from '@/lib/formatters/name';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 interface SendHighlightCompleteEmailParams {
     userId: string;
@@ -93,7 +93,7 @@ export async function sendHighlightCompleteEmail({
         // Prepare email data
         const userName = user.name || user.email.split('@')[0];
         const highlightTitle = highlight.name || copy.untitled;
-        const meetingName = meetingNameInCity(highlight.meeting, locale);
+        const meetingName = meetingLabelInCity(highlight.meeting, locale);
         const cityName = getLocalizedName(highlight.meeting.city, locale);
 
         // Render the email template

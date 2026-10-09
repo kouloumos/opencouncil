@@ -11,6 +11,7 @@ export const meetingSummarySelect = {
     name: true,
     name_en: true,
     kind: true,
+    sessionNumber: true,
     dateTime: true,
     administrativeBody: { select: { name: true, name_en: true } },
     subjects: {

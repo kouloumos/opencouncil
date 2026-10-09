@@ -18,8 +18,10 @@ const AdministrativeBodySchema = z.object({
 // name is derived. The public list carries the display name in `name`/`name_en`.
 const MeetingSchema = z.object({
     id: z.string(),
-    name: z.string().nullable().openapi({ description: 'The display name in public responses; the stored override (null when derived) in admin responses.' }),
+    name: z.string().nullable().openapi({ description: 'In public responses, the name to print on its own: the body, the title and the date («Δημοτικό Συμβούλιο · 3η Τακτική · 12/03/2026»), or the override. In admin responses, the stored override (null when derived).' }),
     name_en: z.string().nullable(),
+    title: z.string().optional().openapi({ description: 'Public responses only: the short title («3η Τακτική»), for a place that shows the body and the date next to it.' }),
+    title_en: z.string().optional(),
     dateTime: z.string().datetime(),
     cityId: z.string(),
     youtubeUrl: z.string().nullable(),
@@ -37,8 +39,9 @@ const MeetingSchema = z.object({
     format: z.nativeEnum(MeetingFormat),
     closedToPublic: z.boolean(),
     place: z.string().nullable().openapi({ description: 'In public responses, the place of the meeting or else of its body.' }),
-    continuationOfId: z.string().nullable(),
+    continuationOfId: z.string().nullable().optional().openapi({ description: 'Admin responses only.' }),
     postponedFromId: z.string().nullable().optional().openapi({ description: 'Admin responses only. Public responses carry postponedFromDate instead.' }),
+    hiddenByPostponement: z.boolean().optional().openapi({ description: 'Admin responses only.' }),
     postponedFromDate: z.string().datetime().nullable().optional().openapi({ description: 'Public responses only: the date for which the meeting was first scheduled, when it replaces a postponed meeting.' }),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),

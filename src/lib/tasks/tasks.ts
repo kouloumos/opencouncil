@@ -19,7 +19,7 @@ import { taskHandlers, taskTerminalHooks } from './registry';
 import { mintCallbackToken } from './callbackToken';
 import { errorDetail, errorMessage } from '@/lib/utils/errors';
 import { meetingNameSelect } from '@/lib/db/types';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 export interface TaskIdempotencyResult {
     proceed: boolean;
@@ -108,7 +108,7 @@ function taskAlertTarget(task: TaskStatusWithMeeting) {
     return {
         taskType: task.type,
         cityName: task.councilMeeting.city.name_en,
-        meetingName: meetingNameInCity(task.councilMeeting, 'en'),
+        meetingName: meetingLabelInCity(task.councilMeeting, 'en'),
         taskId: task.id,
         cityId: task.cityId,
         meetingId: task.councilMeetingId,
@@ -227,7 +227,7 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
             status: 'started',
             taskType: taskType,
             cityName: newTask.councilMeeting.city.name_en,
-            meetingName: meetingNameInCity(newTask.councilMeeting, 'en'),
+            meetingName: meetingLabelInCity(newTask.councilMeeting, 'en'),
             taskId: newTask.id,
             cityId: cityId,
             meetingId: councilMeetingId,

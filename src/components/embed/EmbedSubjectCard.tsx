@@ -9,7 +9,7 @@ import type { PersonWithRelations } from '@/lib/db/people';
 import { embedLocalePrefix } from '@/lib/utils/embedParams';
 import { localizeText } from '@/lib/serbian';
 import { useTranslations } from 'next-intl';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 interface EmbedSubjectCardProps {
     subject: HotCardSubject;
@@ -40,7 +40,7 @@ export function EmbedSubjectCard({ subject, meeting, locationText, speakers, sta
             <SubjectCardContent
                 title={localizeText(subject.name, locale)}
                 topic={subject.topic}
-                context={{ meta: formatDate(meeting.dateTime, cityTimezone, locale), meetingName: meetingDisplayName(meeting, locale, cityTimezone ?? DEFAULT_TIMEZONE) }}
+                context={{ meta: formatDate(meeting.dateTime, cityTimezone, locale), meetingName: meetingLabel(meeting, locale, cityTimezone ?? DEFAULT_TIMEZONE, { date: false }) }}
                 locationText={locationText ? localizeText(locationText, locale) : t('noLocation')}
                 agendaLabel={getAgendaLabel(t, subject)}
                 description={subject.description ? localizeText(stripMarkdown(subject.description), locale) : null}

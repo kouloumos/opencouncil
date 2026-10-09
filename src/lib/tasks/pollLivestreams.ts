@@ -8,7 +8,7 @@ import { cacheHas, cacheSetJSON } from "../cache/valkey";
 import { requestTranscribeInternal } from "./transcribeInternal";
 import { sendLivestreamMatchedAlert, sendLivestreamMultipleMeetingsAlert, sendLivestreamRetriesExhaustedAlert } from "../discord";
 import type { MeetingKind } from "@prisma/client";
-import { meetingNameInCity } from "@/lib/meetingName";
+import { meetingLabelInCity } from "@/lib/meetingName";
 import { PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
 
 /** ±12h around a meeting's scheduled time — the window in which its livestream appears. */
@@ -280,8 +280,8 @@ export async function pollLivestreamsForRecentMeetings(
             const videos = await getChannelVideos(channelUrl);
             const decision = await matchMeetingToVideo(
                 {
-                    name: meetingNameInCity(meeting, 'el'),
-                    name_en: meetingNameInCity(meeting, 'en'),
+                    name: meetingLabelInCity(meeting, 'el'),
+                    name_en: meetingLabelInCity(meeting, 'en'),
                     dateTime: meeting.dateTime,
                     kind: meeting.kind,
                     sessionNumber: meeting.sessionNumber,
@@ -326,7 +326,7 @@ export async function pollLivestreamsForRecentMeetings(
                             cityId,
                             cityName: meeting.city.name,
                             meetingId,
-                            meetingName: meetingNameInCity(meeting, 'el'),
+                            meetingName: meetingLabelInCity(meeting, 'el'),
                             videoUrl,
                             videoTitle: matchedVideo.title,
                             attempts,
@@ -368,7 +368,7 @@ export async function pollLivestreamsForRecentMeetings(
                         cityId,
                         cityName: meeting.city.name,
                         meetingId,
-                        meetingName: meetingNameInCity(meeting, 'el'),
+                        meetingName: meetingLabelInCity(meeting, 'el'),
                         videoUrl,
                         videoTitle: matchedVideo.title,
                         confidence: decision.confidence,
@@ -393,7 +393,7 @@ export async function pollLivestreamsForRecentMeetings(
                         cityId,
                         cityName: meeting.city.name,
                         meetingId,
-                        meetingName: meetingNameInCity(meeting, 'el'),
+                        meetingName: meetingLabelInCity(meeting, 'el'),
                         channelUrl,
                         videoUrl,
                         reasoning: decision.reasoning,

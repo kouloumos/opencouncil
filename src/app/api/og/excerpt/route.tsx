@@ -10,7 +10,7 @@ import { sharedContext, sharedSubjectTile } from '@/lib/og/sharedContent';
 import { SharedContentOgImage } from '@/components/og/SharedContentOgImage';
 import { renderImage, shareCacheControl } from '@/lib/og/render';
 import { groupExcerptSpeakers } from '@/components/sharing/ExcerptQuote';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,6 +43,6 @@ export async function GET(request: Request) {
             detail: formatDate(excerpt.meeting.dateTime, excerpt.meeting.city.timezone, locale),
         } : undefined}
         // A passage with no subject clue in its meeting names the meeting as its context instead.
-        subject={subject ?? (excerpt ? { title: meetingNameInCity(excerpt.meeting, locale), src: null, wash: '#e7e5e4' } : undefined)}
+        subject={subject ?? (excerpt ? { title: meetingLabelInCity(excerpt.meeting, locale), src: null, wash: '#e7e5e4' } : undefined)}
     />, { width: 1200, height: 630, fonts: OG_FONTS, headers: { 'Cache-Control': shareCacheControl() } });
 }

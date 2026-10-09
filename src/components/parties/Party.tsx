@@ -32,7 +32,7 @@ import { EntityHeader, FactDot } from '@/components/EntityHeader';
 import { ContributionsHead } from '@/components/ContributionsHead';
 import { GoverningPartyChip } from '@/components/parties/GoverningPartyChip';
 import { partyComposition, type BodySeatTotals } from '@/lib/party/composition';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingLabel } from '@/lib/meetingName';
 
 type RoleWithPerson = Role & {
     person: Person;
@@ -296,7 +296,7 @@ function SegmentsTab({
                                     }}
                                     speaker={contribution.speaker}
                                     contextHeader={{
-                                        meetingName: meetingDisplayName(contribution.subject.councilMeeting, 'el', timezone),
+                                        meetingName: meetingLabel(contribution.subject.councilMeeting, 'el', timezone),
                                         adminBodyName: contribution.subject.councilMeeting.administrativeBody?.name ?? null,
                                         meetingDate: contribution.subject.councilMeeting.dateTime,
                                         subjectName: contribution.subject.name,

@@ -1,12 +1,13 @@
-import type { MeetingFormat } from '@prisma/client';
+import type { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
 import { MEETING_FORMATS } from '@/lib/meetingLifecycleRules';
-import { meetingDisplayName, type MeetingNameFields } from '@/lib/meetingName';
+import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '@/lib/meetingName';
 
 /**
  * The public projections of a meeting. The new meeting of a postponement
  * carries `postponedFromId`, and the postponed meeting is not public once its
  * new meeting is released. A reader may learn the date for which the meeting
- * was first scheduled, but never the id of the hidden meeting.
+ * was first scheduled, but never the id of the hidden meeting. The first
+ * part of a continuation may be a draft, so its id stays private too.
  */
 
 /**
@@ -20,40 +21,73 @@ export function effectivePlace(
     return meeting.place ?? meeting.administrativeBody?.place ?? null;
 }
 
-/** A row for a server-rendered page or a public list: the same shape, with no link to the hidden meeting. */
-export function hidePostponedFrom<T extends { postponedFromId: string | null }>(row: T): T {
-    return { ...row, postponedFromId: null };
+/** A row for a server-rendered page or a public list: the same shape, with no link to another meeting. */
+export function hideLinks<T extends { postponedFromId: string | null; continuationOfId: string | null }>(row: T): T {
+    return { ...row, postponedFromId: null, continuationOfId: null };
 }
 
-type ApiMeetingSource = MeetingNameFields & {
-    postponedFromId: string | null;
+type RecordSource = {
+    scheduleStatus: MeetingScheduleStatus;
+    scheduleStatusReason: string | null;
+    kind: MeetingKind | null;
+    sessionNumber: number | null;
     format: MeetingFormat;
+    closedToPublic: boolean;
     place: string | null;
-    administrativeBody?: (MeetingNameFields['administrativeBody'] & { place?: string | null }) | null;
-};
-
-export type PublicApiMeeting<T extends ApiMeetingSource> = Omit<T, 'postponedFromId' | 'name' | 'name_en' | 'place'> & {
-    name: string;
-    name_en: string;
-    place: string | null;
-    postponedFromDate: string | null;
+    administrativeBody?: { place?: string | null } | null;
 };
 
 /**
- * A meeting in a public API response. `name` and `name_en` hold the display
- * names, so a client of the API reads a name for every meeting, as it did
- * before the names were derived. The key `postponedFromId` is left out.
+ * The record of a meeting as a reader may see it: whether it takes place,
+ * its kind, number and format, and where. The REST API and the MCP tools
+ * both return it.
+ */
+export function publicRecordFields(meeting: RecordSource, postponedFromDate: Date | null) {
+    return {
+        scheduleStatus: meeting.scheduleStatus,
+        scheduleStatusReason: meeting.scheduleStatusReason,
+        kind: meeting.kind,
+        sessionNumber: meeting.sessionNumber,
+        format: meeting.format,
+        closedToPublic: meeting.closedToPublic,
+        place: effectivePlace(meeting),
+        postponedFromDate: postponedFromDate?.toISOString() ?? null,
+    };
+}
+
+type ApiMeetingSource = MeetingNameFields & RecordSource & {
+    postponedFromId: string | null;
+    continuationOfId: string | null;
+    hiddenByPostponement?: boolean;
+    administrativeBody?: (MeetingNameFields['administrativeBody'] & { place?: string | null }) | null;
+};
+
+type ReplacedKeys = 'postponedFromId' | 'continuationOfId' | 'hiddenByPostponement' | 'name' | 'name_en' | 'place';
+
+export type PublicApiMeeting<T extends ApiMeetingSource> = Omit<T, ReplacedKeys>
+    & ReturnType<typeof publicRecordFields>
+    & { name: string; name_en: string; title: string; title_en: string };
+
+/**
+ * A meeting in a public API response. `name` and `name_en` hold the label,
+ * which a client can print on its own, as it did before the names were
+ * derived. `title` and `title_en` hold the short title. The links to other
+ * meetings are left out.
  */
 export function toPublicApiMeeting<T extends ApiMeetingSource>(
     row: T,
     { timezone, postponedFromDate }: { timezone: string; postponedFromDate: Date | null },
 ): PublicApiMeeting<T> {
-    const { postponedFromId: _hidden, name: _name, name_en: _nameEn, place: _place, ...rest } = row;
+    const {
+        postponedFromId: _postponed, continuationOfId: _continuation, hiddenByPostponement: _hidden,
+        name: _name, name_en: _nameEn, place: _place, ...rest
+    } = row;
     return {
         ...rest,
-        name: meetingDisplayName(row, 'el', timezone),
-        name_en: meetingDisplayName(row, 'en', timezone),
-        place: effectivePlace(row),
-        postponedFromDate: postponedFromDate?.toISOString() ?? null,
+        ...publicRecordFields(row, postponedFromDate),
+        name: meetingLabel(row, 'el', timezone),
+        name_en: meetingLabel(row, 'en', timezone),
+        title: meetingDisplayName(row, 'el', timezone),
+        title_en: meetingDisplayName(row, 'en', timezone),
     };
 }

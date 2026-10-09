@@ -77,23 +77,32 @@ The stages above describe the processing pipeline. The meeting record also holds
 
 ### The name
 
-`name` and `name_en` hold an override only. Null means that the name is derived. `meetingDisplayName` in `src/lib/meetingName.ts` builds it from the administrative body, the kind and the date. The date is in the timezone of the city. An example is «Δημοτικό Συμβούλιο — Ειδική Συνεδρίαση Λογοδοσίας 25/06/2026». Every reader of the name calls this function. The SQL function `council_meeting_display_name` builds the same Greek name for the Notis view `notis_meeting_events`. The Elasticsearch field `meeting_name` still reads the column, and no query reads that field.
+`name` and `name_en` hold an override only. Null means that the name is derived. `src/lib/meetingName.ts` derives two forms:
+
+* **The title** (`meetingDisplayName`): the session number and the kind, for example «3η Τακτική» or «4η Ειδική Λογοδοσίας». A meeting without a number reads «Τακτική Συνεδρίαση». A meeting of unknown kind reads «Συνεδρίαση 12/03/2026». The title has no body. The meeting page, the cards and the lists use it, because they show the body and the date next to it.
+* **The label** (`meetingLabel`): the body, the title and the date, for example «Δημοτικό Συμβούλιο · 3η Τακτική · 12/03/2026». A reader that prints the name on its own uses it. Examples are alerts, emails, the RSS feed, the OG images and the calendar event. Share texts, the MCP tools and the `name` of the public API use it too. The public API also returns the title as `title`.
+
+An override wins in both forms, as the admin wrote it. The kind words exist in Greek and English. The other locales name a meeting by their word for "meeting" and the date. The date is in the timezone of the city.
+
+The SQL function `council_meeting_display_name` builds the same title for the Notis view `notis_meeting_events`. Notis shows the body and the date from their own columns. A test compares the SQL function with `meetingDisplayName` for every kind, number and language. The Elasticsearch field `meeting_name` still reads the column, and no query reads that field.
 
 ### The write path and the visibility rules
 
 `src/lib/meetingWrites.ts` is the one write path for the details of a meeting. The meeting API routes and the MCP admin tools (`create_meeting`, `update_meeting`) call it after they authorize the request. It calls `src/lib/db/meetingLifecycle.ts`, which runs the rules of `src/lib/meetingLifecycleRules.ts` and the write in one transaction. The release toggle and the delete function call the lifecycle module directly.
 
 * A link goes to a postponed meeting of the same body, with no cycle. The status of a postponed meeting cannot change while its new meeting exists.
-* The link alone changes no visibility. When the admin releases the new meeting, every meeting before it in the chain becomes unreleased. When the admin unreleases or deletes the new meeting, and it was released, the postponed meeting before it is released again.
+* The link alone changes no visibility. When the admin releases the new meeting, every public meeting before it in the chain becomes unreleased. Each of those meetings remembers it (`hiddenByPostponement`). Then the admin can unrelease or delete the released new meeting. The postponed meeting before it is released again only when that release had hidden it. A postponed draft stays a draft.
+* A postponed meeting has one new meeting at most.
 * A change of status never changes the visibility. A postponed meeting stays public until its new meeting is released. A cancelled meeting stays public.
-* No public payload carries `postponedFromId`. The new meeting shows the date for which it was first scheduled (`postponedFromDate`).
+* No public payload carries `postponedFromId` or `continuationOfId`. The new meeting shows the date for which it was first scheduled (`postponedFromDate`).
 * The write takes no lock. Two admins who edit the same postponement chain at the same moment can, in theory, break the rules above.
 
 ### What the other parts of the platform do
 
-* **Public presentation**: `publicMeetingPresentation` in `src/lib/meetingPresentation.ts` shows a postponed or cancelled meeting as such at every age, in place of its stage. A meeting that is closed to the public or held by circulation reads as held without a recording.
-* **Pipelines**: the livestream cron, the decision poller, the upload lists and the landing page skip a meeting that is not scheduled. `requestTranscribeInternal` refuses it, and also a meeting with no public recording. A pending notice before a postponed or cancelled meeting is not sent.
-* **Calendar**: `syncMeetingToCalendar` patches the event of a postponed or cancelled meeting to `status: 'cancelled'`. A past meeting emails nobody.
+* **Public presentation**: `publicMeetingPresentation` in `src/lib/meetingPresentation.ts` shows a postponed or cancelled meeting as such at every age, in place of its stage. A meeting that is closed to the public or held by circulation offers no channel before it starts. After it starts, it reads as held without a recording.
+* **One meaning for each value**: `src/lib/meetingLifecycleRules.ts` holds a table for each enum (`SCHEDULE_STATUSES`, `MEETING_FORMATS`, `MEETING_KINDS`). Code reads `takesPlace`, `TAKES_PLACE_WHERE`, `hasPublicRecording` or `PUBLIC_RECORDING_WHERE`, never a raw value. A new value fails to compile until each table gives it a meaning.
+* **Pipelines and lists**: some parts skip a meeting that does not take place. These are the livestream cron, the decision poller, the bulk poll dialog and the upload lists. The landing page, the city rail, the embed widget and `/latest` skip it too. `requestTranscribeInternal` refuses it, and also a meeting with no public recording. A pending notice before a postponed or cancelled meeting is not sent.
+* **Calendar**: `syncMeetingToCalendar` patches the event of a postponed or cancelled meeting to `status: 'cancelled'`. It patches the event back to `confirmed` only when the meeting returns to scheduled. Any other edit leaves the status alone. A past meeting emails nobody.
 * **Decision polling** skips λογοδοσία by `kind`, not by the name. The migration set the kind of the existing λογοδοσία meetings.
 
 ### The archive

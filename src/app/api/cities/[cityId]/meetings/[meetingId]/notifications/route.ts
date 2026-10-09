@@ -4,7 +4,7 @@ import { createNotificationsForMeeting } from '@/lib/db/notifications';
 import { releaseNotifications } from '@/lib/notifications/deliver';
 import { sendNotificationsCreatedAdminAlert, sendNotificationsSentAdminAlert } from '@/lib/discord';
 import prisma from '@/lib/db/prisma';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 export async function POST(
     request: NextRequest,
@@ -63,7 +63,7 @@ export async function POST(
     if (stats.notificationsCreated > 0 && meeting) {
         sendNotificationsCreatedAdminAlert({
             cityName: meeting.city.name_en,
-            meetingName: meetingNameInCity(meeting, 'el'),
+            meetingName: meetingLabelInCity(meeting, 'el'),
             notificationType: type,
             notificationsCreated: stats.notificationsCreated,
             subjectsTotal: stats.subjectsTotal,
@@ -85,7 +85,7 @@ export async function POST(
             cityId: params.cityId,
             meetingId: params.meetingId,
             cityName: meeting?.city.name_en ?? params.cityId,
-            meetingName: meeting ? meetingNameInCity(meeting, 'el') : params.meetingId,
+            meetingName: meeting ? meetingLabelInCity(meeting, 'el') : params.meetingId,
             notificationCount: stats.notificationsCreated,
             emailsSent: releaseResult.emailsSent,
             failed: releaseResult.failed,

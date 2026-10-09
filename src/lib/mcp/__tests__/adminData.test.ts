@@ -113,7 +113,8 @@ describe('meeting tools authorize before they write', () => {
         } });
         const result = await mcpCreateMeeting(ADMIN_TOKEN, { cityId: 'argos', dateTime: '2026-10-05T18:00:00+03:00', processAgenda: false });
         expect(createMeetingWithEffects).toHaveBeenCalledWith('argos', expect.objectContaining({ name: undefined, name_en: undefined }));
-        expect(result.name).toBe('Δημοτικό Συμβούλιο 05/10/2026');
+        expect(result.name).toBe('Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 05/10/2026');
+        expect(result.title).toBe('Τακτική Συνεδρίαση');
     });
 
     it('clears the name override with null, and returns the derived names', async () => {
@@ -125,8 +126,8 @@ describe('meeting tools authorize before they write', () => {
         });
         const result = await mcpUpdateMeeting(ADMIN_TOKEN, { cityId: 'argos', meetingId: 'm1', name: null, name_en: null });
         expect(updateMeetingWithEffects).toHaveBeenCalledWith('argos', 'm1', { name: null, name_en: null });
-        expect(result.name).toBe('Δημοτικό Συμβούλιο — Έκτακτη Συνεδρίαση 05/10/2026');
-        expect(result.name_en).toMatch(/^Municipal Council .*05\/10\/2026$/);
+        expect(result.name).toBe('Δημοτικό Συμβούλιο · Έκτακτη Συνεδρίαση · 05/10/2026');
+        expect(result.name_en).toBe('Municipal Council · Urgent Meeting · 05/10/2026');
     });
 
     it('rejects an update with no field to change', async () => {

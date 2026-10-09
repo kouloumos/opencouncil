@@ -6,7 +6,7 @@ import { TOPICLESS_COLOR } from '@/lib/topicStyle';
 import { useCouncilMeetingData } from "@/components/meetings/CouncilMeetingDataContext";
 import { SubjectSection } from "@/components/meetings/subject-section";
 import { TopicFilter } from "@/components/TopicFilter";
-import { CalendarIcon, ExternalLink, FileIcon, FileText, Hash, History, Lock, MapPin, Video } from "lucide-react";
+import { CalendarIcon, ExternalLink, FileIcon, FileText, History, Lock, MapPin, Video } from "lucide-react";
 import { formatDate } from "@/lib/formatters/time";
 import { presentationPendingKind, type PresentationKey } from "@/lib/meetingPresentation";
 import { effectivePlace } from "@/lib/meetingPublic";
@@ -188,13 +188,6 @@ function MeetingInfo({ stage, now }: { stage: PresentationKey; now: Date }) {
                         <div className="flex items-center">
                             <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
                             {tStage('facts.postponedFrom', { date: formatDate(new Date(meeting.postponedFromDate), city.timezone, locale) })}
-                        </div>
-                    )}
-
-                    {meeting.sessionNumber !== null && (
-                        <div className="flex items-center">
-                            <Hash className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
-                            {tStage('facts.sessionNumber', { number: meeting.sessionNumber, kind: meeting.kind ?? 'regular' })}
                         </div>
                     )}
 

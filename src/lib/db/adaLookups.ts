@@ -4,7 +4,7 @@ import type { PollDecisionsResult } from '@/lib/apiTypes';
 import type { AdaLookupOutcome } from '@/lib/db/types';
 import { ADA_LOOKUP_SETTLE_MS } from '@/lib/db/types/adaLookups';
 import { meetingNameSelect } from '@/lib/db/types';
-import { meetingNameInCity } from '@/lib/meetingName';
+import { meetingLabelInCity } from '@/lib/meetingName';
 
 /** What a pollDecisions task found for one typed ΑΔΑ. */
 export async function getAdaLookupOutcome(cityId: string, meetingId: string, taskId: string, ada: string): Promise<AdaLookupOutcome> {
@@ -48,7 +48,7 @@ export async function getAdaLookupOutcome(cityId: string, meetingId: string, tas
             ? {
                 subjectId: holder.subjectId,
                 meetingId: holder.subject.councilMeetingId,
-                meetingName: meetingNameInCity(holder.subject.councilMeeting, 'el'),
+                meetingName: meetingLabelInCity(holder.subject.councilMeeting, 'el'),
                 subjectName: holder.subject.name,
                 agendaItemIndex: holder.subject.agendaItemIndex,
             }
