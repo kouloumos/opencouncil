@@ -20,8 +20,8 @@ import { CUSTOMER_CITY_WHERE, PUBLIC_CITY_WHERE } from '../cityStatus';
 import { createCache } from '../cache/index';
 import { getCityRealm } from "./cityRealm";
 import { deleteMeetingRecord, setMeetingReleased } from "./meetingLifecycle";
-import { LifecycleRuleError, PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "../meetingLifecycleRules";
-import { publicRow } from "../meetingPublic";
+import { LifecycleRuleError, PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
+import { publicRow } from "@/lib/meetingPublic";
 // List reads and their payload types live in meetingsList.ts. Re-exported here
 // as types only, so callers of this module keep one import.
 export type { CouncilMeetingWithAdminBodyAndSubjects, CouncilMeetingWithSubjectPreview, MeetingListOptions } from './meetingsList';

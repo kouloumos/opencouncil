@@ -10,7 +10,7 @@ import {
     validateMeetingRecord,
     type LifecycleContext,
     type MeetingRecordState,
-} from '../meetingLifecycleRules';
+} from '@/lib/meetingLifecycleRules';
 import type { CouncilMeetingWithAdminBody } from './meetings';
 
 type Client = Prisma.TransactionClient | PrismaClient;

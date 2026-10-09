@@ -1,5 +1,5 @@
 import type { MeetingKind, MeetingScheduleStatus } from "@prisma/client";
-import { takesPlace } from "../meetingLifecycleRules";
+import { takesPlace } from "@/lib/meetingLifecycleRules";
 import { isLogodosiaMeeting, pollDueAt } from "./pollDecisionsBackoff";
 import { MeetingDecisionCounts } from "../db/decisions";
 

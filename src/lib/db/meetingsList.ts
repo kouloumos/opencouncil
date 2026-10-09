@@ -6,7 +6,7 @@ import "server-only";
 import { AdministrativeBodyType, Prisma } from '@prisma/client';
 import prisma from "./prisma";
 import { meetingBodyTypeWhere } from "./meetingBodyFilter";
-import { TAKES_PLACE_WHERE } from "../meetingLifecycleRules";
+import { TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
 
 const meetingWithSubjectsInclude = {
     subjects: {
