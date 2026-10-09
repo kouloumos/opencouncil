@@ -32,7 +32,7 @@ const meetingRecordInput = {
     kind: z.enum(MeetingKind).nullable().optional()
         .describe('The kind that the invitation prints: regular (Τακτική), urgent (Έκτακτη), accountability '
             + '(Ειδική Λογοδοσίας), annualReport, budget, presidencyElection. Defaults to regular on create. '
-            + 'accountability and annualReport belong to a council only. Null means unknown'),
+            + 'The four special kinds (accountability, annualReport, budget, presidencyElection) belong to a council only. Null means unknown'),
     sessionNumber: z.number().int().positive().nullable().optional()
         .describe('The session number that the invitation prints, e.g. 3 for «3η Τακτική». Never compute it'),
     scheduleStatus: z.enum(MeetingScheduleStatus).optional()

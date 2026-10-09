@@ -46,10 +46,14 @@ describe('validateMeetingRecord', () => {
         expect(codes(state(), context())).toEqual([]);
     });
 
-    it('keeps λογοδοσία and απολογισμός for the council', () => {
+    it('keeps every special meeting for the council', () => {
         const committee = context({ body: { type: 'committee' } });
-        expect(codes(state({ kind: 'accountability' }), committee)).toEqual(['councilOnlyKind']);
-        expect(codes(state({ kind: 'annualReport' }), committee)).toEqual(['councilOnlyKind']);
+        for (const kind of ['accountability', 'annualReport', 'budget', 'presidencyElection'] as const) {
+            expect(codes(state({ kind }), committee)).toEqual(['councilOnlyKind']);
+            expect(codes(state({ kind }), context({ body: { type: 'community' } }))).toEqual(['councilOnlyKind']);
+        }
+        expect(codes(state({ kind: 'regular' }), committee)).toEqual([]);
+        expect(codes(state({ kind: 'urgent' }), committee)).toEqual([]);
         expect(codes(state({ kind: 'accountability' }), context())).toEqual([]);
         // A meeting with no body reads as the council's everywhere.
         expect(codes(state({ kind: 'accountability', administrativeBodyId: null }), context({ body: null }))).toEqual([]);

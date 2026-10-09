@@ -130,8 +130,8 @@ enum MeetingKind {
   urgent             // Έκτακτη (the law says κατεπείγουσα)
   accountability     // Ειδική Συνεδρίαση Λογοδοσίας, council only
   annualReport       // Ειδική Συνεδρίαση Απολογισμού, council only
-  budget             // Ειδική Συνεδρίαση Προϋπολογισμού
-  presidencyElection // Ειδική Συνεδρίαση Εκλογής Προεδρείου
+  budget             // Ειδική Συνεδρίαση Προϋπολογισμού, council only
+  presidencyElection // Ειδική Συνεδρίαση Εκλογής Προεδρείου, council only
 }
 
 enum MeetingFormat {

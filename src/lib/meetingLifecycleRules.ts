@@ -115,8 +115,8 @@ export const MEETING_KINDS = {
     urgent: { councilOnly: false },
     accountability: { councilOnly: true },
     annualReport: { councilOnly: true },
-    budget: { councilOnly: false },
-    presidencyElection: { councilOnly: false },
+    budget: { councilOnly: true },
+    presidencyElection: { councilOnly: true },
 } as const satisfies Record<MeetingKind, { councilOnly: boolean }>;
 
 function keysWhere<K extends string, V>(table: Record<K, V>, test: (value: V) => boolean): K[] {
@@ -165,7 +165,7 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     const fail = (code: LifecycleRuleCode, message: string) => errors.push(new LifecycleRuleError(code, message));
 
     if (next.kind && COUNCIL_ONLY_KINDS.has(next.kind) && !isCouncil(ctx.body)) {
-        fail('councilOnlyKind', 'Only a council holds a λογοδοσία or an απολογισμός meeting.');
+        fail('councilOnlyKind', 'Only a council holds a special meeting.');
     }
     if (COUNCIL_ONLY_FORMATS.has(next.format) && !isCouncil(ctx.body)) {
         fail('councilOnlyFormat', 'Only a council holds a meeting by circulation.');
