@@ -1,12 +1,18 @@
--- The απολογισμός πεπραγμένων (151) takes place in the 2nd, 3rd and 4th year
--- of the term, and the law also calls the financial accounts «απολογισμός»
--- (515). The kind takes the law's term (#150 review). No row holds the value
--- yet. The title function gets the new words; KIND_WORDS in
--- src/lib/meetingName.ts repeats them.
+-- The stored name becomes an override (#150). Null means that the title is
+-- derived from the session number and the kind (src/lib/meetingName.ts).
 BEGIN;
 
-ALTER TYPE "MeetingKind" RENAME VALUE 'annualReport' TO 'activityReport';
+ALTER TABLE "CouncilMeeting"
+  ALTER COLUMN "name" DROP NOT NULL,
+  ALTER COLUMN "name_en" DROP NOT NULL;
 
+-- The title for the readers that are SQL, not TypeScript. It gives the same
+-- string as meetingDisplayName for every city language, and it reads an empty
+-- override as no override; an integration test compares the two, and
+-- KIND_WORDS in src/lib/meetingName.ts repeats the words. "dateTime" is a
+-- timestamp without zone that holds UTC, so it is read as UTC before the
+-- conversion to the city's zone. STABLE, not IMMUTABLE: the conversion
+-- depends on the timezone database.
 CREATE OR REPLACE FUNCTION council_meeting_display_name(
   override text,
   kind "MeetingKind",
@@ -70,5 +76,28 @@ LANGUAGE sql STABLE AS $$
       END AS full_title
   ) AS words
 $$;
+
+-- Notis reads the meeting name from this view, and its consumer model
+-- declares the column non-null. The columns and their types do not change.
+CREATE OR REPLACE VIEW "notis_meeting_events" AS
+SELECT
+  ts.id              AS "taskId",
+  ts.type,
+  ts."updatedAt"     AS "completedAt",
+  ts."cityId",
+  ts."councilMeetingId" AS "meetingId",
+  council_meeting_display_name(cm.name, cm.kind, cm."sessionNumber", cm."dateTime", c.timezone, c.language::text) AS "meetingName",
+  cm."dateTime"      AS "meetingDate",
+  cm.released,
+  ab.name            AS "adminBodyName",
+  c.realm::text      AS realm,
+  c.language::text   AS language,
+  c.timezone
+FROM "TaskStatus" ts
+JOIN "CouncilMeeting" cm ON cm."cityId" = ts."cityId" AND cm.id = ts."councilMeetingId"
+JOIN "City" c ON c.id = ts."cityId"
+LEFT JOIN "AdministrativeBody" ab ON ab.id = cm."administrativeBodyId"
+WHERE ts.type IN ('processAgenda', 'summarize')
+  AND ts.status = 'succeeded';
 
 COMMIT;

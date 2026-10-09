@@ -9,26 +9,21 @@ import { createAdministrativeBody, createCity, createMeeting } from '../helpers/
 
 const MIGRATION = path.join(
     __dirname,
-    '../../prisma/migrations/20261006130000_meeting_lifecycle/migration.sql',
+    '../../prisma/migrations/20261010120000_meeting_record/migration.sql',
 )
 
 /** The test database is built with `prisma db push`, which knows nothing of
  *  the hand-written parts of the migration. Replay those parts: the named
  *  checks, and (on demand) the λογοδοσία kind backfill. */
-const MEMORY_CHECK_MIGRATION = path.join(
-    __dirname,
-    '../../prisma/migrations/20261009150000_postponement_memory_check/migration.sql',
-)
-
-function migrationStatements(match: RegExp, migration: string = MIGRATION): string[] {
-    const sql = fs.readFileSync(migration, 'utf8')
+function migrationStatements(match: RegExp): string[] {
+    const sql = fs.readFileSync(MIGRATION, 'utf8')
     return splitSqlStatements(sql)
         .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
         .filter((s) => match.test(s))
 }
 
 async function addNamedChecks() {
-    for (const statement of [...migrationStatements(/CHECK \(/), ...migrationStatements(/CHECK \(/, MEMORY_CHECK_MIGRATION)]) {
+    for (const statement of migrationStatements(/CHECK \(/)) {
         await prisma.$executeRawUnsafe(statement)
     }
 }
@@ -185,61 +180,5 @@ describe('the λογοδοσία kind backfill', () => {
         }
         expect(kindOf.get('set')).toBe('budget')
         expect(updated).toBe(CASES.filter(([, , expected]) => expected).length)
-    })
-})
-
-describe('the unstated format migration', () => {
-    const FORMAT_MIGRATION = path.join(
-        __dirname,
-        '../../prisma/migrations/20261009130000_meeting_format_unstated/migration.sql',
-    )
-    const LIFECYCLE_RAN_AT = new Date('2026-10-06T13:00:00Z')
-
-    beforeEach(async () => {
-        await resetDatabase(prisma)
-        // `prisma db push` builds the test database, so it has no migration log.
-        await prisma.$executeRawUnsafe(`
-            CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
-                "id" TEXT PRIMARY KEY, "migration_name" TEXT NOT NULL,
-                "finished_at" TIMESTAMPTZ, "rolled_back_at" TIMESTAMPTZ
-            )`)
-        await prisma.$executeRawUnsafe(`DELETE FROM "_prisma_migrations"`)
-        // A failed attempt, rolled back and retried, leaves rows of its own.
-        await prisma.$executeRaw`
-            INSERT INTO "_prisma_migrations" ("id", "migration_name", "finished_at", "rolled_back_at")
-            VALUES ('0', '20261006130000_meeting_lifecycle', NULL, ${new Date('2026-10-06T12:00:00Z')}),
-                   ('1', '20261006130000_meeting_lifecycle', ${LIFECYCLE_RAN_AT}, NULL)`
-    })
-
-    afterAll(async () => {
-        await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "_prisma_migrations"`)
-    })
-
-    test('clears the format that the lifecycle migration gave, and keeps one that may be stated', async () => {
-        await createCity({ id: 'c1' })
-        const before = new Date(LIFECYCLE_RAN_AT.getTime() - 60_000)
-        const after = new Date(LIFECYCLE_RAN_AT.getTime() + 60_000)
-        await createMeeting('c1', { id: 'archive', createdAt: before, format: 'inPerson' })
-        await createMeeting('c1', { id: 'archive-teams', createdAt: before, format: 'teleconference' })
-        await createMeeting('c1', { id: 'stated', createdAt: after, format: 'inPerson' })
-        await createMeeting('c1', { id: 'archive-edited', createdAt: before, format: 'inPerson' })
-        // @updatedAt is set by Prisma on every write, so set the times in SQL.
-        await prisma.$executeRaw`UPDATE "CouncilMeeting" SET "updatedAt" = ${before} WHERE id IN ('archive', 'archive-teams')`
-        await prisma.$executeRaw`UPDATE "CouncilMeeting" SET "updatedAt" = ${after} WHERE id IN ('stated', 'archive-edited')`
-
-        const sql = fs.readFileSync(FORMAT_MIGRATION, 'utf8')
-        const [update] = splitSqlStatements(sql)
-            .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
-            .filter((s) => /^UPDATE "CouncilMeeting"/.test(s))
-        expect(await prisma.$executeRawUnsafe(update)).toBe(1)
-
-        const rows = await prisma.councilMeeting.findMany({ where: { cityId: 'c1' }, select: { id: true, format: true } })
-        expect(Object.fromEntries(rows.map((r) => [r.id, r.format]))).toEqual({
-            archive: null,
-            'archive-teams': 'teleconference',
-            stated: 'inPerson',
-            // An admin set inPerson on an archive meeting after the lifecycle migration.
-            'archive-edited': 'inPerson',
-        })
     })
 })

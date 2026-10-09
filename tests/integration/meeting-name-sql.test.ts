@@ -10,7 +10,7 @@ import { splitSqlStatements } from '../helpers/sql'
 // so the test installs the one that the latest migration defines.
 const MIGRATION = path.join(
     __dirname,
-    '../../prisma/migrations/20261009140000_meeting_kind_activity_report/migration.sql',
+    '../../prisma/migrations/20261010120100_meeting_title/migration.sql',
 )
 
 const KINDS: Array<MeetingKind | null> = [null, ...Object.values(MeetingKind)]
