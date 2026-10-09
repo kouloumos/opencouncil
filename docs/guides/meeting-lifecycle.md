@@ -70,9 +70,9 @@ The stage derivation logic automatically determines the current stage by checkin
 The stages above describe the processing pipeline. The meeting record also holds the facts that the municipality announces. These facts are separate from the stages.
 
 * **Schedule status** (`scheduleStatus`): `scheduled`, `postponed` or `cancelled`, with an optional reason. An admin sets it. The platform does not store "held": a meeting is held when material exists.
-* **Kind** (`kind`): `regular`, `urgent`, `accountability`, `activityReport`, `budget` or `presidencyElection`. A null kind means that the record states no single kind: the invitation is not read yet, the record holds several meetings and its name override says which, or the meeting is none of these kinds, such as the financial accounts. The form offers «Από την πρόσκληση» for null and has no default. The four special kinds and a meeting by circulation belong to a council.
+* **Kind** (`kind`): `regular`, `urgent`, `accountability`, `activityReport`, `budget` or `presidencyElection`. A null kind means that the record states no single kind. There are three cases. The invitation is not read yet. The record holds several meetings, and its name override says which. The meeting is none of these kinds, such as the financial accounts. The form offers «Από την πρόσκληση» for null and has no default. The four special kinds and a meeting by circulation belong to a council.
 * **Session number** (`sessionNumber`): the number that the municipality prints. It is not unique. A cancelled meeting keeps its number, and the new meeting after a postponement takes the same number. The platform never computes it.
-* **Format and place** (`format`, `closedToPublic`, `place`): `format` is null until somebody states it or reads it from the invitation, like the kind. A meeting of unstated format can have a stream and a transcript. A meeting without its own `place` shows the `place` of its administrative body, except for a format that has no place, such as a teleconference.
+* **Format and place** (`format`, `closedToPublic`, `place`): `format` is null until somebody states it or reads it from the invitation, like the kind. A meeting of unstated format is expected as usual: it can have a stream and a transcript. A meeting without its own `place` shows the `place` of its administrative body. A format that has no place, such as a teleconference, shows no place.
 * **Links**: the new meeting after a postponement points to the postponed meeting (`postponedFromId`). A later part of a meeting points to its first part (`continuationOfId`). The continuation has its column and its checks only; the form and the page for it are a follow-up.
 
 ### The name
@@ -107,7 +107,7 @@ The SQL function `council_meeting_display_name` builds the same title for the No
 
 ### The archive
 
-The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later migration clears the `inPerson` format that the first one gave to every existing meeting. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
+The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later migration clears the `inPerson` format that the first one gave to the existing meetings. It keeps the format of a meeting that changed after the first migration. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
 
 ## Sequence Diagram
 
