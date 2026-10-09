@@ -5,13 +5,16 @@
 import "server-only";
 import { Prisma } from '@prisma/client';
 import { getCityNameEnAndTimezone } from '@/lib/db/citiesAdmin';
-import { generateUniqueMeetingId, getCouncilMeetingDirect, type CouncilMeetingWithAdminBody } from '@/lib/db/meetings';
+import { generateUniqueMeetingId, getCouncilMeetingDirect, upcomingMeetingsTag, type CouncilMeetingWithAdminBody } from '@/lib/db/meetings';
+import { getCityRealm } from '@/lib/db/cityRealm';
+import { landingSubjectsTag } from '@/lib/db/subject';
 import { createMeetingRecord, updateMeetingRecord, type MeetingRecordFields } from '@/lib/db/meetingLifecycle';
 import { sendMeetingCreatedAdminAlert } from '@/lib/discord';
 import { syncMeetingToCalendar } from '@/lib/google-calendar';
 import { requestProcessAgendaInternal } from '@/lib/tasks/processAgendaInternal';
 import { revalidateAfterResponse } from '@/lib/cache/afterResponse';
 import { meetingDisplayName } from '@/lib/meetingName';
+import { pickRecordInput, takesPlace, type MeetingRecordInput } from '@/lib/meetingLifecycleRules';
 
 export type NewMeetingInput = {
     /** A name override. Omit or null to derive the name (see meetingDisplayName). */
@@ -25,9 +28,7 @@ export type NewMeetingInput = {
     administrativeBodyId?: string | null;
     /** Queue the processAgenda task when there is an agenda URL. */
     processAgenda?: boolean;
-} & Partial<Pick<MeetingRecordFields,
-    | 'kind' | 'scheduleStatus' | 'scheduleStatusReason' | 'sessionNumber' | 'format'
-    | 'closedToPublic' | 'place' | 'postponedFromId' | 'continuationOfId'>>;
+} & MeetingRecordInput & Partial<Pick<MeetingRecordFields, 'postponedFromId' | 'continuationOfId'>>;
 
 export type ProcessAgendaOutcome = string | 'failed' | 'skipped_no_agenda';
 
@@ -40,14 +41,13 @@ export async function createMeetingWithEffects(
     cityId: string,
     input: NewMeetingInput
 ): Promise<{ meeting: CouncilMeetingWithAdminBody; processAgendaStatus?: ProcessAgendaOutcome }> {
-    const {
-        name, name_en, date, youtubeUrl, agendaUrl, administrativeBodyId, processAgenda,
-        kind, scheduleStatus, scheduleStatusReason, sessionNumber, format, closedToPublic, place, postponedFromId, continuationOfId,
-    } = input;
+    const { name, name_en, date, youtubeUrl, agendaUrl, administrativeBodyId, processAgenda, postponedFromId, continuationOfId } = input;
+    const record = pickRecordInput(input);
 
     let meetingId = input.meetingId || (await generateUniqueMeetingId(cityId, date));
 
     const buildMeetingData = (id: string) => ({
+        ...record,
         name: name ?? null,
         name_en: name_en ?? null,
         id,
@@ -60,13 +60,7 @@ export async function createMeetingWithEffects(
         administrativeBodyId: administrativeBodyId || null,
         // An unknown kind is for the archive only. A later part of a
         // meeting has no kind of its own: its first part holds it.
-        kind: kind !== undefined ? kind : (continuationOfId ? null : 'regular' as const),
-        scheduleStatus,
-        scheduleStatusReason,
-        sessionNumber,
-        format,
-        closedToPublic,
-        place,
+        kind: record.kind !== undefined ? record.kind : (continuationOfId ? null : 'regular' as const),
         postponedFromId,
         continuationOfId,
     });
@@ -135,8 +129,14 @@ export async function updateMeetingWithEffects(
     const before = await getCouncilMeetingDirect(cityId, meetingId);
     const meeting = await updateMeetingRecord(cityId, meetingId, data);
 
+    // The landing lists the upcoming meetings that take place, so a change of
+    // status, date or body can move a meeting in or out of that list.
+    const realm = await getCityRealm(cityId);
     revalidateAfterResponse({
-        tags: [`city:${cityId}:meetings`],
+        tags: [
+            `city:${cityId}:meetings`,
+            ...(realm ? [upcomingMeetingsTag(realm), landingSubjectsTag(realm)] : []),
+        ],
         paths: [{ path: `/${cityId}`, type: 'layout' }],
     });
 
@@ -144,7 +144,7 @@ export async function updateMeetingWithEffects(
     // to the Google Calendar event. The meeting name is not on the event.
     // A meeting that was created postponed or cancelled has no event yet;
     // when it becomes scheduled, it gets one (a future meeting only).
-    const rescheduled = before?.scheduleStatus !== 'scheduled' && meeting.scheduleStatus === 'scheduled';
+    const rescheduled = !!before && !takesPlace(before) && takesPlace(meeting);
     await syncMeetingToCalendar(cityId, meetingId, { allowCreate: rescheduled });
 
     return meeting;

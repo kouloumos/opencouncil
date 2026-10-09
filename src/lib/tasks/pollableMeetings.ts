@@ -1,8 +1,9 @@
-import type { MeetingKind } from "@prisma/client";
+import type { MeetingKind, MeetingScheduleStatus } from "@prisma/client";
+import { takesPlace } from "../meetingLifecycleRules";
 import { isLogodosiaMeeting, pollDueAt } from "./pollDecisionsBackoff";
 import { MeetingDecisionCounts } from "../db/decisions";
 
-export type PollSkipReason = "logodosia" | "noEligibleSubjects";
+export type PollSkipReason = "notTakingPlace" | "logodosia" | "noEligibleSubjects";
 
 export interface MeetingPollEligibility {
     meetingId: string;
@@ -26,13 +27,14 @@ export interface PollPartition {
  * Per-meeting gates only — the city-level `diavgeiaUid` requirement is checked
  * separately by the caller (the action is disabled when the city has none).
  *
- * - `skipped`: Λογοδοσία meetings, or meetings with no decision-eligible subjects.
+ * - `skipped`: postponed or cancelled meetings, Λογοδοσία meetings, or meetings
+ *   with no decision-eligible subjects.
  * - `pollable`: everything else. `alreadyComplete` is true when every eligible
  *   subject already has a linked decision (still pollable for a deliberate
  *   re-poll, but surfaced so the admin knows).
  */
 export function partitionMeetingsForPolling(
-    meetings: { id: string; name: string; kind: MeetingKind | null }[],
+    meetings: { id: string; name: string; kind: MeetingKind | null; scheduleStatus: MeetingScheduleStatus }[],
     decisionCounts: MeetingDecisionCounts,
 ): PollPartition {
     const pollable: MeetingPollEligibility[] = [];
@@ -48,7 +50,9 @@ export function partitionMeetingsForPolling(
         };
 
         let skipReason: PollSkipReason | null = null;
-        if (isLogodosiaMeeting(meeting)) {
+        if (!takesPlace(meeting)) {
+            skipReason = "notTakingPlace";
+        } else if (isLogodosiaMeeting(meeting)) {
             skipReason = "logodosia";
         } else if (counts.eligible === 0) {
             skipReason = "noEligibleSubjects";

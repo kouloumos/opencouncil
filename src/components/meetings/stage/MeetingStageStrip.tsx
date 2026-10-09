@@ -10,6 +10,7 @@ import { useCouncilMeetingData } from '@/components/meetings/CouncilMeetingDataC
 import { useNotificationPreference } from '@/contexts/NotificationPreferenceContext';
 import { formatClockTime, formatDate, formatWeekdayDateTime } from '@/lib/formatters/time';
 import { presentationExplainHref, type PresentationKey, type PublicMeetingPresentation } from '@/lib/meetingPresentation';
+import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import { cn } from '@/lib/utils';
 import { StageRing } from './StageRing';
 
@@ -55,7 +56,8 @@ export function MeetingStageStrip({ presentation, stage, deadline }: { presentat
 
     const date = new Date(meeting.dateTime);
     const timezone = city.timezone;
-    const channel = meeting.administrativeBody?.youtubeChannelUrl ?? null;
+    // A meeting with no public recording has no stream to point to, also before it starts.
+    const channel = hasPublicRecording(meeting) ? meeting.administrativeBody?.youtubeChannelUrl ?? null : null;
     const video = meeting.youtubeUrl ?? null;
     const explainHref = presentationExplainHref(city.realm, presentation);
     const track = (action: string) =>

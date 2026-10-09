@@ -145,9 +145,9 @@ describe('pollLivestreamsForRecentMeetings', () => {
         await pollLivestreamsForRecentMeetings();
         // A postponed meeting in the window would take the stream of its new meeting.
         expect(mockMeetingFindMany.mock.calls[0][0].where).toMatchObject({
-            scheduleStatus: 'scheduled',
+            scheduleStatus: { in: ['scheduled'] },
             closedToPublic: false,
-            format: { not: 'byCirculation' },
+            format: { in: ['inPerson', 'teleconference', 'mixed'] },
         });
     });
 

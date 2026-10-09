@@ -1,5 +1,6 @@
 import prisma from '@/lib/db/prisma';
-import { Prisma, DiscussionStatus, type AdministrativeBodyType, type CouncilMeeting } from '@prisma/client';
+import { Prisma, DiscussionStatus, type AdministrativeBodyType, type CouncilMeeting, type MeetingScheduleStatus } from '@prisma/client';
+import { takesPlace } from '@/lib/meetingLifecycleRules';
 import { searchInRealm } from '@/lib/search/core';
 import { openDateRange } from '@/lib/search/dateRange';
 import { getCities, getCity, getListedCityAtPoint } from '@/lib/db/cities';
@@ -178,6 +179,14 @@ function meetingRecordFields(
         continuationOfId: meeting.continuationOfId,
     };
 }
+
+/** What an assistant must know about a meeting that does not take place on its date. */
+const SCHEDULE_STATUS_NOTES = {
+    scheduled: null,
+    cancelled: 'This meeting was cancelled: it did not take place. Its agenda is the whole record.',
+    postponed: 'This meeting was postponed: it did not take place on this date. The new meeting, once published, '
+        + 'carries postponedFromDate.',
+} as const satisfies Record<MeetingScheduleStatus, string | null>;
 
 /** The timezone that a derived meeting name prints its date in. */
 async function cityTimezone(cityId: string): Promise<string> {
@@ -405,11 +414,8 @@ export async function mcpGetMeeting(cityId: string, meetingId: string, identity:
         // An empty agenda is the one shape an agent reads wrongly: it looks
         // like an empty meeting, when in fact the transcript is usually there
         // and only the summarization step has not run. Say so in the payload.
-        ...(meeting.scheduleStatus !== 'scheduled' ? {
-            note: meeting.scheduleStatus === 'cancelled'
-                ? 'This meeting was cancelled: it did not take place. Its agenda is the whole record.'
-                : 'This meeting was postponed: it did not take place on this date. The new meeting, once published, '
-                + 'carries postponedFromDate.',
+        ...(!takesPlace(meeting) ? {
+            note: SCHEDULE_STATUS_NOTES[meeting.scheduleStatus],
         } : meeting.subjects.length === 0 && {
             note: transcribed
                 ? 'This meeting has no subjects because it has not been summarized yet — not because nothing was said. '

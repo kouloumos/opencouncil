@@ -12,6 +12,7 @@ import { getMeetingForCalendarSync, setMeetingCalendarEventId, MeetingForCalenda
 import { sendTaskAdminAlert } from '@/lib/discord';
 import { realmBaseUrl } from '@/lib/utils/realmBaseUrl';
 import { meetingNameInCity } from '@/lib/meetingName';
+import { takesPlace } from '@/lib/meetingLifecycleRules';
 
 // Bounds each Google API call so a hung request cannot stall the admin
 // routes that await the sync (googleapis sets no timeout by default).
@@ -61,7 +62,7 @@ function calculateMeetingEndTime(startTime: Date, durationHours: number = 2): Da
  * update paths both use this, so every sync rewrites the whole event
  * (title, description, times, attendees).
  */
-function buildMeetingEventPayload(meeting: MeetingForCalendarSync) {
+function buildMeetingEventPayload(meeting: MeetingForCalendarSync, { restore }: { restore: boolean }) {
     const title = meeting.administrativeBody?.name
         ? `${meeting.city.name}: ${meeting.administrativeBody.name}`
         : meeting.city.name;
@@ -100,7 +101,9 @@ function buildMeetingEventPayload(meeting: MeetingForCalendarSync) {
         // A postponed or cancelled meeting cancels its event, and Google tells
         // the attendees. The event is kept, so a return to scheduled is one
         // more patch. The new meeting after a postponement gets its own event.
-        status: meeting.scheduleStatus === 'scheduled' ? 'confirmed' : 'cancelled',
+        // Any other edit leaves the status alone, so it never restores an
+        // event that someone cancelled by hand in Google Calendar.
+        status: !takesPlace(meeting) ? 'cancelled' : restore ? 'confirmed' : undefined,
     };
 }
 
@@ -153,7 +156,7 @@ export async function syncMeetingToCalendar(
         const isPast = meeting.dateTime.getTime() < Date.now();
 
         const calendar = await getCalendarClient();
-        const requestBody = buildMeetingEventPayload(meeting);
+        const requestBody = buildMeetingEventPayload(meeting, { restore: !!options.allowCreate });
 
         if (meeting.calendarEventId) {
             await calendar.events.patch({
@@ -162,7 +165,7 @@ export async function syncMeetingToCalendar(
                 requestBody,
                 sendUpdates: isPast ? 'none' : 'all',
             }, { timeout: CALENDAR_REQUEST_TIMEOUT_MS });
-        } else if (options.allowCreate && !isPast && meeting.scheduleStatus === 'scheduled') {
+        } else if (options.allowCreate && !isPast && takesPlace(meeting)) {
             const response = await calendar.events.insert({
                 calendarId: env.GOOGLE_CALENDAR_ID,
                 requestBody,

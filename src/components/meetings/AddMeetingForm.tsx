@@ -28,7 +28,7 @@ import InputWithDerivatives from "../InputWithDerivatives"
 import { LinkOrDrop } from "../ui/link-or-drop"
 import { YouTubePreview } from "./YouTubePreview"
 import { CouncilMeeting, MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client'
-import { SCHEDULE_STATUS_REASON_MAX_LENGTH } from '@/lib/meetingLifecycleRules'
+import { COUNCIL_ONLY_FORMATS, COUNCIL_ONLY_KINDS, OFFERED_FORMATS, SCHEDULE_STATUS_REASON_MAX_LENGTH, takesPlace } from '@/lib/meetingLifecycleRules'
 import { meetingDisplayName } from '@/lib/meetingName'
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time'
 import { Textarea } from '../ui/textarea'
@@ -77,13 +77,9 @@ const formSchema = z.object({
 const KINDS = Object.values(MeetingKind)
 /** The Select's sentinel for the null kind of an archive meeting. */
 const UNKNOWN_KIND = 'unknown'
-// Meetings by circulation are not added to the platform yet (#150 follow-up):
-// the value exists for completeness, and the form offers it only to keep the
-// format of a meeting that already has it.
-const OFFERED_FORMATS = Object.values(MeetingFormat).filter(format => format !== MeetingFormat.byCirculation)
 const STATUSES = Object.values(MeetingScheduleStatus)
 /** Kinds and formats that the law gives to the council only. */
-const COUNCIL_ONLY: ReadonlySet<string> = new Set<string>([MeetingKind.accountability, MeetingKind.annualReport, MeetingFormat.byCirculation])
+const COUNCIL_ONLY: ReadonlySet<string> = new Set<string>([...COUNCIL_ONLY_KINDS, ...COUNCIL_ONLY_FORMATS])
 
 /** A row of the editor list that the "postponed from" picker needs. */
 interface PostponementCandidate {
@@ -356,7 +352,7 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
                             </FormItem>
                         )}
                     />
-                    {scheduleStatus !== MeetingScheduleStatus.scheduled && (
+                    {!takesPlace({ scheduleStatus }) && (
                         <FormField
                             control={form.control}
                             name="scheduleStatusReason"
@@ -564,7 +560,8 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {(meeting?.format === MeetingFormat.byCirculation ? [...OFFERED_FORMATS, MeetingFormat.byCirculation] : OFFERED_FORMATS).map(format => (
+                                        {/* A format that the form does not offer stays selectable on a meeting that already has it. */}
+                                        {(meeting && !OFFERED_FORMATS.includes(meeting.format) ? [...OFFERED_FORMATS, meeting.format] : OFFERED_FORMATS).map(format => (
                                             <SelectItem key={format} value={format} disabled={COUNCIL_ONLY.has(format) && !isCouncil}>
                                                 {t(`formatOptions.${format}`)}{COUNCIL_ONLY.has(format) ? ` (${t('councilOnly')})` : ''}
                                             </SelectItem>

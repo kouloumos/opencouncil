@@ -1,4 +1,5 @@
 import type { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
+import { takesPlace } from '@/lib/meetingLifecycleRules';
 
 /**
  * The id that the meeting form sends. PUT identifies the meeting by the URL,
@@ -42,7 +43,7 @@ export function meetingRequestFields(values: MeetingFormLifecycleValues, { linkC
         name_en: text(values.name_en),
         kind: values.kind,
         scheduleStatus: values.scheduleStatus,
-        scheduleStatusReason: values.scheduleStatus === 'scheduled' ? null : text(values.scheduleStatusReason),
+        scheduleStatusReason: takesPlace(values) ? null : text(values.scheduleStatusReason),
         sessionNumber: number ? Number(number) : null,
         format: values.format,
         closedToPublic: values.closedToPublic,

@@ -1,5 +1,6 @@
 import type { MeetingFormat, MeetingScheduleStatus, Realm } from '@prisma/client';
 import { hasExplainPage } from '@/lib/explain/availability';
+import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import {
     msUntilStageChange,
     pendingKind,
@@ -35,22 +36,36 @@ export function publicMeetingPresentation(
     signals: MeetingStageSignals,
     now: Date = new Date(),
 ): PublicMeetingPresentation {
-    if (fields.scheduleStatus === 'postponed') return { type: 'postponed', reason: fields.scheduleStatusReason };
-    if (fields.scheduleStatus === 'cancelled') return { type: 'cancelled', reason: fields.scheduleStatusReason };
+    switch (fields.scheduleStatus) {
+        case 'postponed': return { type: 'postponed', reason: fields.scheduleStatusReason };
+        case 'cancelled': return { type: 'cancelled', reason: fields.scheduleStatusReason };
+        case 'scheduled': break;
+        default: {
+            const unhandled: never = fields.scheduleStatus;
+            throw new Error(`Unhandled schedule status ${unhandled}`);
+        }
+    }
 
     const stage = publicMeetingStage(signals, now);
-    const noRecording = fields.format === 'byCirculation'
-        ? 'byCirculation'
-        : fields.closedToPublic ? 'closedToPublic' : null;
-    // A meeting that has not started reads as upcoming, and a transcript that
-    // exists anyway (an admin uploaded the audio) is shown as it is.
-    if (noRecording && stage !== 'upcoming' && !signals.transcribed) {
-        return { type: 'noRecording', reason: noRecording };
+    // A meeting that has not started reads as upcoming; the strip offers it no
+    // channel. Once it starts, it never promises a video or a transcript.
+    if (!hasPublicRecording(fields) && stage !== 'upcoming') {
+        return { type: 'noRecording', reason: fields.closedToPublic ? 'closedToPublic' : 'byCirculation' };
     }
     return { type: 'stage', stage };
 }
 
-export type PresentationKey = PublicMeetingStage | 'postponed' | 'cancelled' | 'noRecording';
+/**
+ * Every chip key: the stages, then the types that replace the stage.
+ * `presentationKey` returns a stage or a type, so a new one fails to compile
+ * until it is listed here, and the translation test then asks for its label.
+ */
+export const PRESENTATION_KEYS = [
+    'upcoming', 'live', 'waiting', 'transcribing', 'review', 'complete', 'archive',
+    'postponed', 'cancelled', 'noRecording',
+] as const;
+
+export type PresentationKey = (typeof PRESENTATION_KEYS)[number];
 
 /** One key per chip, tone and /explain sentence. */
 export function presentationKey(presentation: PublicMeetingPresentation): PresentationKey {

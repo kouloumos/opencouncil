@@ -123,11 +123,18 @@ describe('syncMeetingToCalendar', () => {
 
     it('restores the event with one more patch when the meeting is scheduled again', async () => {
         mockGetMeeting.mockResolvedValue(makeMeeting({ calendarEventId: 'evt-1', scheduleStatus: 'scheduled' }));
-        await syncMeetingToCalendar('athens', 'jun5_2026');
+        // The update path passes allowCreate when the meeting returns to scheduled.
+        await syncMeetingToCalendar('athens', 'jun5_2026', { allowCreate: true });
         expect(mockPatch).toHaveBeenCalledWith(
             expect.objectContaining({ requestBody: expect.objectContaining({ status: 'confirmed' }) }),
             expect.anything(),
         );
+    });
+
+    it('leaves the status alone on any other edit, so an event cancelled by hand stays cancelled', async () => {
+        mockGetMeeting.mockResolvedValue(makeMeeting({ calendarEventId: 'evt-1', scheduleStatus: 'scheduled' }));
+        await syncMeetingToCalendar('athens', 'jun5_2026');
+        expect(mockPatch.mock.calls[0][0].requestBody.status).toBeUndefined();
     });
 
     it('creates no event for a new meeting that is not scheduled', async () => {

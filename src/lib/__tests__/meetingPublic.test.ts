@@ -8,6 +8,7 @@ const row = {
     kind: 'regular' as const,
     dateTime: new Date('2026-03-19T16:00:00Z'),
     released: true,
+    format: 'inPerson' as const,
     place: null,
     postponedFromId: 'mar12_2026',
     administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council', place: 'Δημαρχείο Χανίων' },
@@ -32,6 +33,12 @@ describe('public meeting projections', () => {
 
     it('prefers the place of the meeting over the hall of its body', () => {
         expect(effectivePlace({ ...row, place: 'Πολιτιστικό Κέντρο' })).toBe('Πολιτιστικό Κέντρο');
-        expect(effectivePlace({ place: null, administrativeBody: null })).toBeNull();
+        expect(effectivePlace({ ...row, place: null })).toBe(row.administrativeBody.place);
+        expect(effectivePlace({ format: 'inPerson', place: null, administrativeBody: null })).toBeNull();
+    });
+
+    it('gives a meeting no place when its format has none', () => {
+        expect(effectivePlace({ ...row, format: 'teleconference' })).toBeNull();
+        expect(effectivePlace({ ...row, format: 'mixed' })).toBe(row.administrativeBody.place);
     });
 });

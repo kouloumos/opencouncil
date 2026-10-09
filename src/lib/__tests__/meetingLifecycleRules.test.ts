@@ -155,7 +155,7 @@ describe('transcriptionRefusal', () => {
         [{ ...held, scheduleStatus: 'postponed' as const }, 'Meeting is postponed'],
         [{ ...held, scheduleStatus: 'cancelled' as const }, 'Meeting is cancelled'],
         [{ ...held, closedToPublic: true }, 'closed to the public'],
-        [{ ...held, format: 'byCirculation' as const }, 'by circulation'],
+        [{ ...held, format: 'byCirculation' as const }, 'byCirculation'],
     ])('refuses %o', (meeting, reason) => {
         expect(transcriptionRefusal(meeting)).toContain(reason);
     });

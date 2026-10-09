@@ -19,6 +19,7 @@ function meetingData(postponedFromId: string | null) {
             name_en: null,
             kind: 'regular',
             dateTime: new Date('2026-03-19T16:00:00Z'),
+            format: 'inPerson',
             place: null,
             postponedFromId,
             postponedFromDate: new Date('2026-03-12T16:00:00Z'),

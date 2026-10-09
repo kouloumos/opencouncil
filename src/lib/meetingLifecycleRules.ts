@@ -1,4 +1,4 @@
-import type { AdministrativeBodyType, CouncilMeeting, MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
+import type { AdministrativeBodyType, CouncilMeeting, MeetingFormat, MeetingKind, MeetingScheduleStatus, Prisma } from '@prisma/client';
 
 /** The columns of a meeting that the lifecycle rules read, as they will be after the write. */
 export interface MeetingRecordState {
@@ -64,7 +64,91 @@ export class LifecycleRuleError extends Error {
 
 export const SCHEDULE_STATUS_REASON_MAX_LENGTH = 500;
 
-const COUNCIL_ONLY_KINDS: ReadonlySet<MeetingKind> = new Set(['accountability', 'annualReport']);
+/**
+ * The facts of the record that a write sets besides the links, in one list:
+ * the meeting writes and the MCP tools read it, so a new fact reaches both.
+ */
+export const MEETING_RECORD_INPUT_KEYS = [
+    'kind', 'sessionNumber', 'scheduleStatus', 'scheduleStatusReason', 'format', 'closedToPublic', 'place',
+] as const satisfies ReadonlyArray<keyof CouncilMeeting>;
+
+export type MeetingRecordInput = Partial<Pick<CouncilMeeting, (typeof MEETING_RECORD_INPUT_KEYS)[number]>>;
+
+/** The record facts of a request, without the keys that it left out. */
+export function pickRecordInput(input: MeetingRecordInput): MeetingRecordInput {
+    return Object.fromEntries(
+        MEETING_RECORD_INPUT_KEYS.filter((key) => input[key] !== undefined).map((key) => [key, input[key]]),
+    ) as MeetingRecordInput;
+}
+
+/**
+ * One stated meaning for each value of the lifecycle enums. Every consumer
+ * reads these tables (or a helper below), so a new value fails to compile
+ * here instead of changing behaviour in silence where a raw value is tested.
+ */
+export const SCHEDULE_STATUSES = {
+    scheduled: { takesPlace: true },
+    postponed: { takesPlace: false },
+    cancelled: { takesPlace: false },
+} as const satisfies Record<MeetingScheduleStatus, { takesPlace: boolean }>;
+
+export const MEETING_FORMATS = {
+    inPerson: { publicRecording: true, showsPlace: true, namedInFacts: false, councilOnly: false, offeredInForm: true },
+    teleconference: { publicRecording: true, showsPlace: false, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    mixed: { publicRecording: true, showsPlace: true, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    // Offered in no form yet: the by-circulation page is a follow-up.
+    byCirculation: { publicRecording: false, showsPlace: false, namedInFacts: false, councilOnly: true, offeredInForm: false },
+} as const satisfies Record<MeetingFormat, {
+    /** The meeting can have a stream and a transcript. */
+    publicRecording: boolean;
+    /** The meeting page shows where the meeting takes place. */
+    showsPlace: boolean;
+    /** The facts row of the meeting page names the format (meetingStage.facts.format). */
+    namedInFacts: boolean;
+    /** Only a council holds a meeting in this format. */
+    councilOnly: boolean;
+    offeredInForm: boolean;
+}>;
+
+export const MEETING_KINDS = {
+    regular: { councilOnly: false },
+    urgent: { councilOnly: false },
+    accountability: { councilOnly: true },
+    annualReport: { councilOnly: true },
+    budget: { councilOnly: false },
+    presidencyElection: { councilOnly: false },
+} as const satisfies Record<MeetingKind, { councilOnly: boolean }>;
+
+function keysWhere<K extends string, V>(table: Record<K, V>, test: (value: V) => boolean): K[] {
+    return (Object.keys(table) as K[]).filter((key) => test(table[key]));
+}
+
+export const TAKES_PLACE_STATUSES = keysWhere(SCHEDULE_STATUSES, (status) => status.takesPlace);
+export const OFFERED_FORMATS = keysWhere(MEETING_FORMATS, (format) => format.offeredInForm);
+export const COUNCIL_ONLY_KINDS: ReadonlySet<MeetingKind> = new Set(keysWhere(MEETING_KINDS, (kind) => kind.councilOnly));
+export const COUNCIL_ONLY_FORMATS: ReadonlySet<MeetingFormat> = new Set(keysWhere(MEETING_FORMATS, (format) => format.councilOnly));
+
+/** The meeting takes place on its date: it is neither postponed nor cancelled. */
+export function takesPlace(meeting: { scheduleStatus: MeetingScheduleStatus }): boolean {
+    return SCHEDULE_STATUSES[meeting.scheduleStatus].takesPlace;
+}
+
+/** `takesPlace` as a database filter. */
+export const TAKES_PLACE_WHERE = {
+    scheduleStatus: { in: TAKES_PLACE_STATUSES },
+} satisfies Prisma.CouncilMeetingWhereInput;
+
+/** The meeting has a recording that the public can watch: no stream or transcript otherwise. */
+export function hasPublicRecording(meeting: { format: MeetingFormat; closedToPublic: boolean }): boolean {
+    return MEETING_FORMATS[meeting.format].publicRecording && !meeting.closedToPublic;
+}
+
+/** `hasPublicRecording` as a database filter. */
+export const PUBLIC_RECORDING_WHERE = {
+    closedToPublic: false,
+    format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) },
+} satisfies Prisma.CouncilMeetingWhereInput;
+
 
 /** A meeting with no body reads as the council's everywhere (see meetingsList.ts). */
 function isCouncil(body: LifecycleContext['body']): boolean {
@@ -83,7 +167,7 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     if (next.kind && COUNCIL_ONLY_KINDS.has(next.kind) && !isCouncil(ctx.body)) {
         fail('councilOnlyKind', 'Only a council holds a λογοδοσία or an απολογισμός meeting.');
     }
-    if (next.format === 'byCirculation' && !isCouncil(ctx.body)) {
+    if (COUNCIL_ONLY_FORMATS.has(next.format) && !isCouncil(ctx.body)) {
         fail('councilOnlyFormat', 'Only a council holds a meeting by circulation.');
     }
 
@@ -158,8 +242,8 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
  * closed to the public or held by circulation has no public recording.
  */
 export function transcriptionRefusal(meeting: Pick<CouncilMeeting, 'scheduleStatus' | 'closedToPublic' | 'format'>): string | null {
-    if (meeting.scheduleStatus !== 'scheduled') return `Meeting is ${meeting.scheduleStatus}`;
+    if (!takesPlace(meeting)) return `Meeting is ${meeting.scheduleStatus}`;
     if (meeting.closedToPublic) return 'Meeting is closed to the public: it has no recording to transcribe';
-    if (meeting.format === 'byCirculation') return 'Meeting is held by circulation: it has no recording to transcribe';
+    if (!hasPublicRecording(meeting)) return `Meeting is held as ${meeting.format}: it has no recording to transcribe`;
     return null;
 }

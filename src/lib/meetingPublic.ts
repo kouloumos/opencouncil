@@ -1,3 +1,5 @@
+import type { MeetingFormat } from '@prisma/client';
+import { MEETING_FORMATS } from '@/lib/meetingLifecycleRules';
 import { meetingDisplayName, type MeetingNameFields } from '@/lib/meetingName';
 
 /**
@@ -7,10 +9,14 @@ import { meetingDisplayName, type MeetingNameFields } from '@/lib/meetingName';
  * was first scheduled, but never the id of the hidden meeting.
  */
 
-/** The place of an in-person meeting: its own place, else the hall of its body. */
+/**
+ * Where a meeting takes place: its own place, else the hall of its body. Null
+ * for a format that has no place, such as a teleconference.
+ */
 export function effectivePlace(
-    meeting: { place: string | null; administrativeBody?: { place?: string | null } | null },
+    meeting: { format: MeetingFormat; place: string | null; administrativeBody?: { place?: string | null } | null },
 ): string | null {
+    if (!MEETING_FORMATS[meeting.format].showsPlace) return null;
     return meeting.place ?? meeting.administrativeBody?.place ?? null;
 }
 
@@ -21,6 +27,7 @@ export function hidePostponedFrom<T extends { postponedFromId: string | null }>(
 
 type ApiMeetingSource = MeetingNameFields & {
     postponedFromId: string | null;
+    format: MeetingFormat;
     place: string | null;
     administrativeBody?: (MeetingNameFields['administrativeBody'] & { place?: string | null }) | null;
 };

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMeetingDataCore } from '@/lib/getMeetingData';
-import { LifecycleRuleError } from '@/lib/meetingLifecycleRules';
 import { toPublicApiMeeting } from '@/lib/meetingPublic';
-import { z } from 'zod';
+import { handleApiError } from '@/lib/api/errors';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
 import { meetingSchema } from '@/lib/zod-schemas/meeting';
 import { updateMeetingWithEffects } from '@/lib/meetingWrites';
@@ -54,43 +53,25 @@ export async function PUT(
     try {
         await withUserAuthorizedToEdit({ cityId: params.cityId });
         const body = await request.json();
+        // The URL names the meeting, and an edit queues no agenda task. Every
+        // other field of the schema is a field of the record, so a field that
+        // the schema gains reaches the update without a list here.
         const {
-            name, name_en, date, youtubeUrl, agendaUrl, administrativeBodyId,
-            kind, scheduleStatus, scheduleStatusReason, sessionNumber, format, closedToPublic, place, postponedFromId, continuationOfId,
+            meetingId: _meetingId, processAgenda: _processAgenda,
+            date, youtubeUrl, agendaUrl, administrativeBodyId, ...record
         } = meetingSchema.parse(body);
 
         // A field that the request leaves out keeps its value.
         const meeting = await updateMeetingWithEffects(params.cityId, params.meetingId, {
-            name,
-            name_en,
+            ...record,
             dateTime: date,
             youtubeUrl: emptyToNull(youtubeUrl),
             agendaUrl: emptyToNull(agendaUrl),
             administrativeBodyId: emptyToNull(administrativeBodyId),
-            kind,
-            scheduleStatus,
-            scheduleStatusReason,
-            sessionNumber,
-            format,
-            closedToPublic,
-            place,
-            postponedFromId,
-            continuationOfId,
         });
 
         return NextResponse.json(meeting);
     } catch (error) {
-        if (error instanceof z.ZodError) {
-            console.error('Validation error:', error.errors);
-            return NextResponse.json({ error: error.errors }, { status: 400 });
-        }
-        if (error instanceof LifecycleRuleError) {
-            return NextResponse.json({ error: error.message, code: error.code }, { status: 422 });
-        }
-        console.error('Failed to update meeting:', error);
-        return NextResponse.json(
-            { error: 'Failed to update meeting' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'Failed to update meeting');
     }
 }

@@ -10,6 +10,7 @@ import { CalendarIcon, ExternalLink, FileIcon, FileText, Hash, History, Lock, Ma
 import { formatDate } from "@/lib/formatters/time";
 import { presentationPendingKind, type PresentationKey } from "@/lib/meetingPresentation";
 import { effectivePlace } from "@/lib/meetingPublic";
+import { MEETING_FORMATS } from "@/lib/meetingLifecycleRules";
 import { MeetingStageChip } from "@/components/meetings/stage/MeetingStageChip";
 import { MeetingStageStrip } from "@/components/meetings/stage/MeetingStageStrip";
 import { PendingSubjectsNote } from "@/components/meetings/stage/PendingSubjectsNote";
@@ -197,15 +198,15 @@ function MeetingInfo({ stage, now }: { stage: PresentationKey; now: Date }) {
                         </div>
                     )}
 
-                    {(meeting.format === 'teleconference' || meeting.format === 'mixed') && (
+                    {MEETING_FORMATS[meeting.format].namedInFacts && (
                         <div className="flex items-center">
                             <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
                             {tStage(`facts.format.${meeting.format}`)}
                         </div>
                     )}
 
-                    {/* The place of an in-person meeting: its own, else the hall of its body. */}
-                    {(meeting.format === 'inPerson' || meeting.format === 'mixed') && effectivePlace(meeting) && (
+                    {/* The place of the meeting: its own, else the hall of its body. */}
+                    {effectivePlace(meeting) && (
                         <div className="flex items-center">
                             <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
                             {effectivePlace(meeting)}

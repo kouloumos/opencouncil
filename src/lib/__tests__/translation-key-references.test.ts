@@ -273,7 +273,7 @@ const COMPUTED_GROUPS: { group: string; members?: MemberSource; why?: string }[]
     { group: 'AddMeetingForm.formatOptions.', members: { prismaEnum: 'MeetingFormat' } },
     { group: 'AddMeetingForm.scheduleStatusOptions.', members: { prismaEnum: 'MeetingScheduleStatus' } },
     { group: 'AdministrativeBodiesList.types.', members: { prismaEnum: 'AdministrativeBodyType' } },
-    { group: 'meetingStage.label.', why: 'the leaf is a PresentationKey (lib/meetingPresentation.ts): the PublicMeetingStage members plus postponed, cancelled and noRecording' },
+    { group: 'meetingStage.label.', members: { file: 'src/lib/meetingPresentation.ts', constArray: 'PRESENTATION_KEYS' } },
     { group: 'meetingStage.strip.', why: 'computed only for postponed and cancelled (MeetingStageStrip); the other strip keys are literal' },
     { group: 'meetingStage.facts.format.', why: 'only teleconference and mixed: the formats that the facts row names (meeting page)' },
     { group: 'meetingStage.rows.', why: 'the leaf is a PendingKind with processing folded into review (SubjectRow)' },

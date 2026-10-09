@@ -20,7 +20,7 @@ import { CUSTOMER_CITY_WHERE, PUBLIC_CITY_WHERE } from '../cityStatus';
 import { createCache } from '../cache/index';
 import { getCityRealm } from "./cityRealm";
 import { deleteMeetingRecord, setMeetingReleased } from "./meetingLifecycle";
-import { LifecycleRuleError } from "../meetingLifecycleRules";
+import { LifecycleRuleError, PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "../meetingLifecycleRules";
 import { hidePostponedFrom } from "../meetingPublic";
 // List reads and their payload types live in meetingsList.ts. Re-exported here
 // as types only, so callers of this module keep one import.
@@ -154,7 +154,7 @@ export async function getUpcomingMeetings(realm: Realm, { limit = 10 }: { limit?
                 released: true,
                 dateTime: { gt: new Date() },
                 // A postponed or cancelled meeting is not coming up.
-                scheduleStatus: 'scheduled',
+                ...TAKES_PLACE_WHERE,
                 city: { ...PUBLIC_CITY_WHERE, realm },
             },
             orderBy: [{ dateTime: 'asc' }, { createdAt: 'asc' }],
@@ -170,7 +170,7 @@ export async function getUpcomingMeetings(realm: Realm, { limit = 10 }: { limit?
 
 // Cache tag for a realm's upcoming-meetings list — revalidated when a meeting's release toggles.
 // Not exported: a "use server" module may only export async functions, and it's used only here.
-const upcomingMeetingsTag = (realm: Realm) => `realm:${realm}:upcoming-meetings`;
+export const upcomingMeetingsTag = (realm: Realm) => `realm:${realm}:upcoming-meetings`;
 
 /**
  * Realm-scoped, cached wrapper around getUpcomingMeetings for the landing (read on every render).
@@ -271,7 +271,7 @@ export async function getLatestReleasedMeetingIdForCity(cityId: string): Promise
     const now = new Date();
 
     const upcoming = await prisma.councilMeeting.findFirst({
-        where: { cityId, released: true, dateTime: { gt: now }, scheduleStatus: 'scheduled' },
+        where: { cityId, released: true, dateTime: { gt: now }, ...TAKES_PLACE_WHERE },
         orderBy: { dateTime: 'asc' },
         select: { id: true },
     });
@@ -279,7 +279,7 @@ export async function getLatestReleasedMeetingIdForCity(cityId: string): Promise
     if (upcoming) return upcoming.id;
 
     const latest = await prisma.councilMeeting.findFirst({
-        where: { cityId, released: true },
+        where: { cityId, released: true, ...TAKES_PLACE_WHERE },
         orderBy: { dateTime: 'desc' },
         select: { id: true },
     });
@@ -329,8 +329,10 @@ export async function getMeetingUploadLists(last30Days: boolean = false): Promis
             where: {
                 AND: [
                     { city: CUSTOMER_CITY_WHERE },
-                    // A postponed or cancelled meeting has nothing to upload.
-                    { scheduleStatus: 'scheduled' },
+                    // A postponed or cancelled meeting has nothing to upload, and
+                    // a meeting with no public recording takes no transcription.
+                    TAKES_PLACE_WHERE,
+                    PUBLIC_RECORDING_WHERE,
                     {
                         NOT: {
                             taskStatuses: {
@@ -352,7 +354,7 @@ export async function getMeetingUploadLists(last30Days: boolean = false): Promis
             where: {
                 dateTime: { gt: now },
                 city: CUSTOMER_CITY_WHERE,
-                scheduleStatus: 'scheduled',
+                ...TAKES_PLACE_WHERE,
             },
             select: meetingListItemSelect,
             orderBy: { dateTime: 'asc' }

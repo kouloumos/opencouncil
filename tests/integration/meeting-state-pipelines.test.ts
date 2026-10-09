@@ -60,7 +60,7 @@ describe('pipelines skip postponed and cancelled meetings', () => {
         ['cancelled', { scheduleStatus: 'cancelled' as const }, 'Meeting is cancelled'],
         ['postponed', { scheduleStatus: 'postponed' as const }, 'Meeting is postponed'],
         ['closed to the public', { closedToPublic: true }, 'closed to the public'],
-        ['held by circulation', { format: 'byCirculation' as const }, 'by circulation'],
+        ['held by circulation', { format: 'byCirculation' as const }, 'byCirculation'],
     ])('transcription refuses a meeting that is %s', async (_label, data, message) => {
         await createMeeting(CITY, { id: 'm', administrativeBodyId, kind: 'regular', ...data })
         await expect(requestTranscribeInternal('https://youtu.be/abc', 'm', CITY)).rejects.toThrow(message)

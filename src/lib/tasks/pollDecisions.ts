@@ -10,6 +10,7 @@ import { startTask } from "./tasks";
 import { after } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
 
 import { sortSubjectsByDiscussionOrder } from "@/lib/minutes/builders";
 
@@ -247,7 +248,7 @@ export async function pollDecisionsForMeeting(
 // cancelled meeting took no decisions on its date.
 const AWAITING_DECISIONS_MEETING_WHERE = {
     AND: [NOT_LOGODOSIA_MEETING_WHERE],
-    scheduleStatus: 'scheduled',
+    ...TAKES_PLACE_WHERE,
     subjects: { some: { ...DECISION_ELIGIBLE_SUBJECT_WHERE, decision: null } },
 } satisfies Prisma.CouncilMeetingWhereInput;
 
@@ -968,7 +969,7 @@ export async function handlePollDecisionsResult(taskId: string, result: PollDeci
             // it, midnight-stored meetings would shift a day.
             const cityMeetings = polledMeeting ? (await tx.councilMeeting.findMany({
                 // A decision never belongs to a meeting that did not take place.
-                where: { cityId: task.cityId, scheduleStatus: 'scheduled' },
+                where: { cityId: task.cityId, ...TAKES_PLACE_WHERE },
                 select: { id: true, kind: true, dateTime: true, administrativeBodyId: true },
                 orderBy: { dateTime: 'asc' },
             })).map(m => ({

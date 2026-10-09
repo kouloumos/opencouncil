@@ -73,10 +73,10 @@ describe('publicMeetingPresentation', () => {
         expect(publicMeetingPresentation(closed, signals(), at(8 * DAY))).toEqual({ type: 'noRecording', reason: 'closedToPublic' });
     });
 
-    it('lets a transcript that exists anyway win over the closed flag', () => {
+    it('shows a closed meeting as held without a recording even when a transcript exists', () => {
         const closed = { ...scheduled, closedToPublic: true };
         const transcribed = signals({ transcribed: true, summarized: true });
-        expect(publicMeetingPresentation(closed, transcribed, at(8 * DAY))).toEqual({ type: 'stage', stage: 'complete' });
+        expect(publicMeetingPresentation(closed, transcribed, at(8 * DAY))).toEqual({ type: 'noRecording', reason: 'closedToPublic' });
     });
 
     it('shows a meeting by circulation as held without a recording', () => {
