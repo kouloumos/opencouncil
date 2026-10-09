@@ -112,6 +112,30 @@ describe('meeting lifecycle module', () => {
             expect(await visibility('a', 'z', 'c')).toEqual({ a: false, z: false, c: true })
         })
 
+        test('a draft in the middle of a chain: unreleasing or deleting C brings A back', async () => {
+            // A is public, B was postponed again while still a draft (a meeting made
+            // through MCP starts as a draft), C is the meeting that happens.
+            for (const end of ['unrelease', 'delete'] as const) {
+                await resetDatabase(prisma)
+                await createCity({ id: CITY })
+                councilId = (await createAdministrativeBody(CITY, { type: 'council' })).id
+                await createMeeting(CITY, { id: 'a', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', scheduleStatus: 'postponed', released: true })
+                await createMeetingRecord({ cityId: CITY, id: 'b', dateTime: MARCH(19), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a' })
+                await updateMeetingRecord(CITY, 'b', { scheduleStatus: 'postponed' })
+                await createMeetingRecord({ cityId: CITY, id: 'c', dateTime: MARCH(26), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'b' })
+                await setMeetingReleased(CITY, 'c', true)
+                expect(await visibility('a', 'b', 'c')).toEqual({ a: false, b: false, c: true })
+
+                if (end === 'unrelease') {
+                    await setMeetingReleased(CITY, 'c', false)
+                    expect(await visibility('a', 'b', 'c')).toEqual({ a: true, b: false, c: false })
+                } else {
+                    await deleteMeetingRecord(CITY, 'c')
+                    expect(await visibility('a', 'b')).toEqual({ a: true, b: false })
+                }
+            }
+        })
+
         test('an admin who releases a hidden meeting by hand clears the memory of the hide', async () => {
             await postponement()
             await setMeetingReleased(CITY, 'b', true)

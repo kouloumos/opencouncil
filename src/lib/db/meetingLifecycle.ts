@@ -35,6 +35,7 @@ const chainSelect = {
     administrativeBodyId: true,
     dateTime: true,
     postponedFromId: true,
+    hiddenByPostponement: true,
 } satisfies Prisma.CouncilMeetingSelect;
 type ChainRow = Prisma.CouncilMeetingGetPayload<{ select: typeof chainSelect }>;
 
@@ -90,15 +91,21 @@ async function hideChainFrom(tx: Prisma.TransactionClient, cityId: string, fromI
 }
 
 /**
- * The new meeting stops being public, so the postponed meeting before it is
- * shown again, when the release of a new meeting had hidden it. A postponed
- * draft stays a draft.
+ * The new meeting stops being public, so the nearest postponed meeting
+ * before it that a release had hidden is shown again. The walk passes a
+ * postponed draft, which stays a draft, and stops at a public meeting.
  */
 async function showPredecessor(tx: Prisma.TransactionClient, cityId: string, predecessorId: string) {
-    await tx.councilMeeting.updateMany({
-        where: { cityId, id: predecessorId, scheduleStatus: 'postponed', hiddenByPostponement: true },
-        data: { released: true, hiddenByPostponement: false },
-    });
+    for (const row of await walkBack(tx, cityId, predecessorId)) {
+        if (row.released) return;
+        if (row.hiddenByPostponement && row.scheduleStatus === 'postponed') {
+            await tx.councilMeeting.updateMany({
+                where: { cityId, id: row.id, hiddenByPostponement: true },
+                data: { released: true, hiddenByPostponement: false },
+            });
+            return;
+        }
+    }
 }
 
 async function loadContext(client: Client, cityId: string, next: MeetingRecordState): Promise<LifecycleContext> {
