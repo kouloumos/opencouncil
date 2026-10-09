@@ -14,9 +14,15 @@ describe('public sharing boundary', () => {
         expect(JSON.stringify(publicSubjectSelect)).not.toMatch(/votes|attendance|speakerSegments|highlights|geometry/);
     });
     it('honors the existing human-review visibility contract', () => {
-        const meeting = { administrativeBody: { showUnreviewedTranscript: false }, taskStatuses: [] } as unknown as PublicMeeting;
+        const meeting = { format: null, closedToPublic: false, administrativeBody: { showUnreviewedTranscript: false }, taskStatuses: [] } as unknown as PublicMeeting;
         expect(transcriptIsPublic(meeting)).toBe(false);
         expect(transcriptIsPublic({ ...meeting, taskStatuses: [{ id: 'review' }] })).toBe(true);
         expect(transcriptIsPublic({ ...meeting, administrativeBody: null })).toBe(true);
+    });
+    it('never shows the transcript of a meeting with no public recording', () => {
+        const meeting = { format: null, closedToPublic: false, administrativeBody: null, taskStatuses: [{ id: 'review' }] } as unknown as PublicMeeting;
+        expect(transcriptIsPublic({ ...meeting, closedToPublic: true })).toBe(false);
+        expect(transcriptIsPublic({ ...meeting, format: 'byCirculation' })).toBe(false);
+        expect(transcriptIsPublic({ ...meeting, format: 'teleconference' })).toBe(true);
     });
 });

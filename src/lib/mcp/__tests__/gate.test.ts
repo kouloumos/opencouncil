@@ -32,7 +32,8 @@ function row(released: boolean) {
         videoUrl: null,
         format: 'inPerson',
         closedToPublic: false,
-        administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
+        administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council', showUnreviewedTranscript: true },
+        taskStatuses: [],
         city: { timezone: 'Europe/Athens' },
     };
 }
@@ -42,8 +43,8 @@ function payload(released: boolean, editor: boolean | null) {
         dateTime: new Date('2026-05-12T18:00:00Z'),
         name: 'Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 12/05/2026',
         videoUrl: null,
-        administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
-        publicRecording: true,
+        administrativeBody: { name: 'Δημοτικό Συμβούλιο' },
+        publicTranscript: true,
         editor,
     };
 }
@@ -108,6 +109,23 @@ describe('realm scoping', () => {
     });
 });
 
+describe('the transcript of a visible meeting', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [] });
+    });
+
+    it('is not public when the meeting is closed, or when its body waits for the review', async () => {
+        mockMeetingFindFirst.mockResolvedValue({ ...row(true), closedToPublic: true });
+        expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(false);
+        const unreviewed = { ...row(true), administrativeBody: { ...row(true).administrativeBody, showUnreviewedTranscript: false } };
+        mockMeetingFindFirst.mockResolvedValue(unreviewed);
+        expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(false);
+        mockMeetingFindFirst.mockResolvedValue({ ...unreviewed, taskStatuses: [{ id: 't1' }] });
+        expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(true);
+    });
+});
+
 describe('requirePublicTranscript', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -115,13 +133,13 @@ describe('requirePublicTranscript', () => {
     });
 
     it('lets everyone read the transcript of a meeting with a public recording', async () => {
-        await expect(requirePublicTranscript({ publicRecording: true }, 'athens', null)).resolves.toBeUndefined();
+        await expect(requirePublicTranscript({ publicTranscript: true }, 'athens', null)).resolves.toBeUndefined();
     });
 
     it('withholds the transcript of a closed meeting from readers, not from editors', async () => {
-        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', null)).rejects.toThrow(ForbiddenError);
-        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', USER)).rejects.toThrow(ForbiddenError);
+        await expect(requirePublicTranscript({ publicTranscript: false }, 'athens', null)).rejects.toThrow(ForbiddenError);
+        await expect(requirePublicTranscript({ publicTranscript: false }, 'athens', USER)).rejects.toThrow(ForbiddenError);
         mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [{ cityId: 'athens' }] });
-        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', USER)).resolves.toBeUndefined();
+        await expect(requirePublicTranscript({ publicTranscript: false }, 'athens', USER)).resolves.toBeUndefined();
     });
 });

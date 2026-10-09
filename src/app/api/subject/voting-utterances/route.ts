@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
+import { isUserAuthorizedToEdit } from '@/lib/auth';
+import { transcriptGateSelect, transcriptIsPublic } from '@/lib/db/sharing/publicContent';
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,10 +14,28 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const subject = await prisma.subject.findUnique({
+            where: { id: subjectId },
+            select: { cityId: true, councilMeetingId: true, councilMeeting: { select: { ...transcriptGateSelect, released: true } } },
+        });
+        if (!subject) {
+            return NextResponse.json({ utterances: [] });
+        }
+        // A reader gets the words of a public transcript only; an editor of
+        // the city also gets a draft or a closed meeting.
+        const { councilMeeting } = subject;
+        if ((!councilMeeting.released || !transcriptIsPublic(councilMeeting))
+            && !(await isUserAuthorizedToEdit({ cityId: subject.cityId }))) {
+            return NextResponse.json({ utterances: [] });
+        }
+
         const utterances = await prisma.utterance.findMany({
             where: {
                 discussionSubjectId: subjectId,
-                discussionStatus: 'VOTE'
+                discussionStatus: 'VOTE',
+                // The gate above read the meeting of the subject: no utterance
+                // of another meeting passes through it.
+                speakerSegment: { cityId: subject.cityId, meetingId: subject.councilMeetingId },
             },
             select: {
                 id: true,
