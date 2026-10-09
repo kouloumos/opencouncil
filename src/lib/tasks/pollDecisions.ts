@@ -30,7 +30,10 @@ import { agendaItemTitleOrName, isRecordSubject } from "@/lib/utils/subjects";
 /** A manual poll either starts, or finds one already running for the meeting. */
 export type PollStart =
     | { status: 'started'; taskId: string }
-    | { status: 'alreadyRunning'; taskId: string };
+    | { status: 'alreadyRunning'; taskId: string }
+    | { status: 'refused'; message: string };
+
+const TAKES_NO_DECISIONS_MESSAGE = 'This meeting takes no decisions, so it has none to poll.';
 
 export async function requestPollDecisions(
     cityId: string,
@@ -57,6 +60,14 @@ export async function requestPollDecisions(
     });
     const runningId = pendingPollTaskId(openTasks);
     if (runningId) return { status: 'alreadyRunning', taskId: runningId };
+
+    // A refusal is returned, not thrown: production hides the message of an
+    // error that a Server Action throws.
+    const meeting = await prisma.councilMeeting.findUnique({
+        where: { cityId_id: { cityId, id: councilMeetingId } },
+        select: { kind: true, continuationOf: { select: { kind: true } } },
+    });
+    if (meeting && takesNoDecisions(meeting)) return { status: 'refused', message: TAKES_NO_DECISIONS_MESSAGE };
 
     const task = await pollDecisionsForMeeting(cityId, councilMeetingId, options);
     return { status: 'started', taskId: task.id };
@@ -119,7 +130,7 @@ export async function pollDecisionsForMeeting(
     }
 
     if (takesNoDecisions(councilMeeting)) {
-        throw new Error("This meeting takes no decisions (λογοδοσία or απολογισμός)");
+        throw new Error(TAKES_NO_DECISIONS_MESSAGE);
     }
 
     if (!councilMeeting.city.diavgeiaUid) {

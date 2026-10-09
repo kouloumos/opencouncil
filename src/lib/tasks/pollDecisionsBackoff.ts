@@ -15,7 +15,7 @@ import { MEETING_KINDS, NO_DECISION_KINDS } from "@/lib/meetingLifecycleRules";
  * holds a regular meeting (e.g. "Λογοδοσία και Δημοτικό Συμβούλιο") has no
  * kind and is polled: its regular part produces decisions.
  */
-export function takesNoDecisions(meeting: { kind: MeetingKind | null; continuationOf?: { kind: MeetingKind | null } | null }): boolean {
+export function takesNoDecisions(meeting: { kind: MeetingKind | null; continuationOf: { kind: MeetingKind | null } | null }): boolean {
     const kind = meeting.kind ?? meeting.continuationOf?.kind ?? null;
     return kind !== null && !MEETING_KINDS[kind].takesDecisions;
 }

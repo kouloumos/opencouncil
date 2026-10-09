@@ -51,7 +51,7 @@ export interface PollPartition {
  *   re-poll, but surfaced so the admin knows).
  */
 export function partitionMeetingsForPolling(
-    meetings: { id: string; name: string; kind: MeetingKind | null; continuationOf?: { kind: MeetingKind | null } | null; scheduleStatus: MeetingScheduleStatus }[],
+    meetings: { id: string; name: string; kind: MeetingKind | null; continuationOf: { kind: MeetingKind | null } | null; scheduleStatus: MeetingScheduleStatus }[],
     decisionCounts: MeetingDecisionCounts,
 ): PollPartition {
     const pollable: MeetingPollEligibility[] = [];

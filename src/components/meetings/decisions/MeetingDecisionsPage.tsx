@@ -859,7 +859,9 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
             const start = await requestPollDecisions(meeting.cityId, meeting.id, { lookupAdas: [ada] });
             setPanel(p => p && p.subjectId === subjectId ? {
                 ...p,
-                lookup: start.status === 'started' ? { kind: 'searching', ada, taskId: start.taskId } : { kind: 'blocked' },
+                lookup: start.status === 'started' ? { kind: 'searching', ada, taskId: start.taskId }
+                    : start.status === 'refused' ? { kind: 'failed', ada, cause: start.message }
+                    : { kind: 'blocked' },
             } : p);
             await refreshPollingStatus();
         } catch (error) {
@@ -1045,6 +1047,7 @@ export function MeetingDecisionsPage({ isSuperAdmin }: { isSuperAdmin: boolean }
         try {
             const start = await requestPollDecisions(meeting.cityId, meeting.id, forceExtract ? { forceExtract: true } : undefined);
             if (start.status === 'alreadyRunning') toast({ title: tPage('poll.alreadyRunning') });
+            if (start.status === 'refused') toast({ title: tPage('pollError'), description: start.message, variant: 'destructive' });
             await refreshPollingStatus();
         } catch (error) {
             toast({ title: tPage('pollError'), description: failureSentence(error), variant: 'destructive' });

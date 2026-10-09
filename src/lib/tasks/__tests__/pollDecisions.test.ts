@@ -201,14 +201,13 @@ describe('getBackoffState', () => {
 
 describe('takesNoDecisions', () => {
     it('reads the kind, not the name', () => {
-        expect(takesNoDecisions({ kind: 'accountability' })).toBe(true);
-        expect(takesNoDecisions({ kind: 'activityReport' })).toBe(true);
-        expect(takesNoDecisions({ kind: 'regular' })).toBe(false);
-        expect(takesNoDecisions({ kind: 'budget' })).toBe(false);
+        expect(takesNoDecisions({ kind: 'accountability', continuationOf: null })).toBe(true);
+        expect(takesNoDecisions({ kind: 'activityReport', continuationOf: null })).toBe(true);
+        expect(takesNoDecisions({ kind: 'regular', continuationOf: null })).toBe(false);
+        expect(takesNoDecisions({ kind: 'budget', continuationOf: null })).toBe(false);
     });
 
     it('polls a meeting of unknown kind: a combined record has no kind of its own', () => {
-        expect(takesNoDecisions({ kind: null })).toBe(false);
         expect(takesNoDecisions({ kind: null, continuationOf: null })).toBe(false);
     });
 
