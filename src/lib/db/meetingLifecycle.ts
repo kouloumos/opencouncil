@@ -71,20 +71,33 @@ async function walkForward(client: Client, cityId: string, startId: string): Pro
     }
 }
 
-/** Hide `fromId` and every meeting before it: a later meeting of the chain is public. */
+/**
+ * Hide `fromId` and every meeting before it: a later meeting of the chain is
+ * public. Each meeting that this hides remembers it, so that only a meeting
+ * that was public becomes public again.
+ */
 async function hideChainFrom(tx: Prisma.TransactionClient, cityId: string, fromId: string) {
     const earlier = await walkBack(tx, cityId, fromId);
     const shown = earlier.filter((row) => row.released).map((row) => row.id);
     if (shown.length > 0) {
-        await tx.councilMeeting.updateMany({ where: { cityId, id: { in: shown } }, data: { released: false } });
+        await tx.councilMeeting.updateMany({
+            // Only a row that is still public: a concurrent unrelease by an
+            // admin must not be remembered as a hide.
+            where: { cityId, id: { in: shown }, released: true },
+            data: { released: false, hiddenByPostponement: true },
+        });
     }
 }
 
-/** The new meeting stops being public, so the postponed meeting before it is shown again. */
+/**
+ * The new meeting stops being public, so the postponed meeting before it is
+ * shown again, when the release of a new meeting had hidden it. A postponed
+ * draft stays a draft.
+ */
 async function showPredecessor(tx: Prisma.TransactionClient, cityId: string, predecessorId: string) {
     await tx.councilMeeting.updateMany({
-        where: { cityId, id: predecessorId, scheduleStatus: 'postponed' },
-        data: { released: true },
+        where: { cityId, id: predecessorId, scheduleStatus: 'postponed', hiddenByPostponement: true },
+        data: { released: true, hiddenByPostponement: false },
     });
 }
 
@@ -215,9 +228,11 @@ export async function setMeetingReleased(cityId: string, id: string, released: b
             await showPredecessor(tx, cityId, current.postponedFromId);
         }
 
+        // A change of visibility by the admin replaces the memory of a hide.
+        // A repeated call changes nothing, so the memory stays.
         return tx.councilMeeting.update({
             where: { cityId_id: { cityId, id } },
-            data: { released },
+            data: { released, ...(current.released !== released && { hiddenByPostponement: false }) },
             include: withAdminBody,
         });
     });

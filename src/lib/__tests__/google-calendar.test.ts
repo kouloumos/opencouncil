@@ -68,6 +68,7 @@ function makeMeeting(overrides: Partial<MeetingForCalendarSync> = {}): MeetingFo
         place: null,
         postponedFromId: null,
         continuationOfId: null,
+        hiddenByPostponement: false,
         administrativeBodyId: null,
         city: { name: 'Αθήνα', timezone: 'Europe/Athens', realm: 'greece' },
         administrativeBody: null,

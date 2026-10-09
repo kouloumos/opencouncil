@@ -94,6 +94,37 @@ describe('meeting lifecycle module', () => {
             expect(await visibility('a', 'b', 'c')).toEqual({ a: false, b: true, c: false })
         })
 
+        test('a postponed draft stays a draft when its new meeting stops being public', async () => {
+            await createMeeting(CITY, { id: 'a', dateTime: MARCH(12), administrativeBodyId: councilId, scheduleStatus: 'postponed', released: false, kind: 'regular' })
+            await createMeetingRecord({ cityId: CITY, id: 'b', dateTime: MARCH(19), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a' })
+            await setMeetingReleased(CITY, 'b', true)
+            await setMeetingReleased(CITY, 'b', false)
+            expect(await visibility('a', 'b')).toEqual({ a: false, b: false })
+
+            // The same through a delete and through a relink.
+            await setMeetingReleased(CITY, 'b', true)
+            await deleteMeetingRecord(CITY, 'b')
+            expect(await visibility('a')).toEqual({ a: false })
+
+            await createMeeting(CITY, { id: 'z', dateTime: MARCH(11), administrativeBodyId: councilId, scheduleStatus: 'postponed', released: false, kind: 'regular' })
+            await createMeetingRecord({ cityId: CITY, id: 'c', dateTime: MARCH(20), administrativeBodyId: councilId, kind: 'regular', postponedFromId: 'a', released: true })
+            await updateMeetingRecord(CITY, 'c', { postponedFromId: 'z' })
+            expect(await visibility('a', 'z', 'c')).toEqual({ a: false, z: false, c: true })
+        })
+
+        test('an admin who releases a hidden meeting by hand clears the memory of the hide', async () => {
+            await postponement()
+            await setMeetingReleased(CITY, 'b', true)
+            await setMeetingReleased(CITY, 'b', false)
+            expect(await visibility('a', 'b')).toEqual({ a: true, b: false })
+            // A was public before, so B hid it and unhid it. Now the admin hides
+            // A by hand: a later release and unrelease of B leaves it hidden.
+            await setMeetingReleased(CITY, 'a', false)
+            await setMeetingReleased(CITY, 'b', true)
+            await setMeetingReleased(CITY, 'b', false)
+            expect(await visibility('a', 'b')).toEqual({ a: false, b: false })
+        })
+
         test('shows the date of the first meeting of the chain as the original date', async () => {
             await postponement()
             await updateMeetingRecord(CITY, 'b', { scheduleStatus: 'postponed' })

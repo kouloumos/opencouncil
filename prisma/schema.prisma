@@ -268,6 +268,10 @@ model CouncilMeeting {
   postponedFromId String?
   postponedFrom   CouncilMeeting? @relation("Postponement", fields: [cityId, postponedFromId], references: [cityId, id], onDelete: NoAction, onUpdate: NoAction)
   postponedTo     CouncilMeeting? @relation("Postponement")
+  // The release of a later meeting of the chain unreleased this meeting. Only
+  // such a meeting becomes public again when the later meeting stops being
+  // public: a postponed draft stays a draft.
+  hiddenByPostponement Boolean @default(false)
 
   // A later day of the same meeting points to its first part.
   continuationOfId String?
