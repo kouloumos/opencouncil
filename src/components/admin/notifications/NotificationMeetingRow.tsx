@@ -373,7 +373,7 @@ export function NotificationMeetingRow({
                 }
             }}
             expandedContent={expandedContent}
-            ariaLabel={meeting.meetingName}
+            ariaLabel={meeting.meetingLabel}
         >
             {/* Meeting Info */}
             <TableCell className="min-w-0" onClick={() => loadNotifications()}>

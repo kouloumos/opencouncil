@@ -28,7 +28,7 @@ import Link from "next/link";
 import { MeetingTimeline } from "@/components/meetings/MeetingTimeline";
 import { getPollingHistoryForMeeting } from "@/lib/tasks/pollDecisions";
 import { DEFAULT_TIMEZONE, formatNumericDate } from '@/lib/formatters/time';
-import { meetingDisplayName } from '@/lib/meetingName';
+import { meetingDisplayName, meetingLabel } from '@/lib/meetingName';
 
 interface ExpandableMeetingRowProps {
     meeting: CouncilMeetingWithAdminBodyAndSubjects;
@@ -245,7 +245,7 @@ export function ExpandableMeetingRow({
             onSelect={onSelect}
             expandedContent={expandedContent}
             onExpand={fetchPollingStatus}
-            ariaLabel={displayName}
+            ariaLabel={meetingLabel(meeting, 'el', DEFAULT_TIMEZONE)}
         >
             {/* Meeting Info */}
             <TableCell className="min-w-0">
