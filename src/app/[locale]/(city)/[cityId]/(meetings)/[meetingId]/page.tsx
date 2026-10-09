@@ -191,7 +191,7 @@ function MeetingInfo({ stage, now }: { stage: PresentationKey; now: Date }) {
                         </div>
                     )}
 
-                    {MEETING_FORMATS[meeting.format].namedInFacts && (
+                    {meeting.format !== null && MEETING_FORMATS[meeting.format].namedInFacts && (
                         <div className="flex items-center">
                             <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
                             {tStage(`facts.format.${meeting.format}`)}

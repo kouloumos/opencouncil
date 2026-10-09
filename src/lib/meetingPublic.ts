@@ -12,12 +12,13 @@ import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '@/lib/
 
 /**
  * Where a meeting takes place: its own place, else the hall of its body. Null
- * for a format that has no place, such as a teleconference.
+ * for a format that has no place, such as a teleconference. A meeting of
+ * unstated format shows the hall, because a body sits there as a rule.
  */
 export function effectivePlace(
-    meeting: { format: MeetingFormat; place: string | null; administrativeBody?: { place?: string | null } | null },
+    meeting: { format: MeetingFormat | null; place: string | null; administrativeBody?: { place?: string | null } | null },
 ): string | null {
-    if (!MEETING_FORMATS[meeting.format].showsPlace) return null;
+    if (meeting.format !== null && !MEETING_FORMATS[meeting.format].showsPlace) return null;
     return meeting.place ?? meeting.administrativeBody?.place ?? null;
 }
 
@@ -41,7 +42,7 @@ export function hideLinks<T extends { postponedFromId: string | null; continuati
  * A row of a public list: no link to another meeting, and no media of a
  * meeting that has no public recording.
  */
-export function publicRow<T extends { postponedFromId: string | null; continuationOfId: string | null; format: MeetingFormat; closedToPublic: boolean } & MediaFields>(row: T): T {
+export function publicRow<T extends { postponedFromId: string | null; continuationOfId: string | null; format: MeetingFormat | null; closedToPublic: boolean } & MediaFields>(row: T): T {
     const linked = hideLinks(row);
     return hasPublicRecording(row) ? linked : withoutMedia(linked);
 }
@@ -51,7 +52,7 @@ type RecordSource = {
     scheduleStatusReason: string | null;
     kind: MeetingKind | null;
     sessionNumber: number | null;
-    format: MeetingFormat;
+    format: MeetingFormat | null;
     closedToPublic: boolean;
     place: string | null;
     administrativeBody?: { place?: string | null } | null;

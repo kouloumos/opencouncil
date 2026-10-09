@@ -46,13 +46,13 @@ export const meetingSchema = z.object({
     processAgenda: z.boolean().optional().default(false),
 
     // The lifecycle of the meeting. An omitted field keeps its value on
-    // update; on create the database defaults apply, and the kind defaults to
-    // regular (see the POST route).
+    // update. On create the database defaults apply: the kind and the format
+    // stay null until somebody states them or reads them from the invitation.
     kind: z.nativeEnum(MeetingKind).nullable().optional(),
     scheduleStatus: z.nativeEnum(MeetingScheduleStatus).optional(),
     scheduleStatusReason: optionalText(SCHEDULE_STATUS_REASON_MAX_LENGTH),
     sessionNumber: z.number().int().positive().nullable().optional(),
-    format: z.nativeEnum(MeetingFormat).optional(),
+    format: z.nativeEnum(MeetingFormat).nullable().optional(),
     closedToPublic: z.boolean().optional(),
     place: optionalText(200),
     postponedFromId: z.string().min(1).nullable().optional(),

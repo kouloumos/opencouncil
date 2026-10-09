@@ -151,7 +151,7 @@ function recordState(id: string, fields: Partial<MeetingRecordFields> & Pick<Cou
         scheduleStatusReason: fields.scheduleStatusReason ?? null,
         kind: fields.kind ?? null,
         sessionNumber: fields.sessionNumber ?? null,
-        format: fields.format ?? 'inPerson',
+        format: fields.format ?? null,
         postponedFromId: fields.postponedFromId ?? null,
         continuationOfId: fields.continuationOfId ?? null,
     };

@@ -9,7 +9,7 @@ export interface MeetingRecordState {
     scheduleStatusReason: string | null;
     kind: MeetingKind | null;
     sessionNumber: number | null;
-    format: MeetingFormat;
+    format: MeetingFormat | null;
     postponedFromId: string | null;
     continuationOfId: string | null;
 }
@@ -143,15 +143,21 @@ export const TAKES_PLACE_WHERE = {
     scheduleStatus: { in: TAKES_PLACE_STATUSES },
 } satisfies Prisma.CouncilMeetingWhereInput;
 
-/** The meeting has a recording that the public can watch: no stream or transcript otherwise. */
-export function hasPublicRecording(meeting: { format: MeetingFormat; closedToPublic: boolean }): boolean {
-    return MEETING_FORMATS[meeting.format].publicRecording && !meeting.closedToPublic;
+/**
+ * The meeting has a recording that the public can watch: no stream or
+ * transcript otherwise. A meeting of unstated format can have one.
+ */
+export function hasPublicRecording(meeting: { format: MeetingFormat | null; closedToPublic: boolean }): boolean {
+    return (meeting.format === null || MEETING_FORMATS[meeting.format].publicRecording) && !meeting.closedToPublic;
 }
 
-/** `hasPublicRecording` as a database filter. */
+/**
+ * `hasPublicRecording` as a database filter. In SQL `format IN (…)` is not
+ * true for a null format, so the null case is explicit.
+ */
 export const PUBLIC_RECORDING_WHERE = {
     closedToPublic: false,
-    format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) },
+    OR: [{ format: null }, { format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) } }],
 } satisfies Prisma.CouncilMeetingWhereInput;
 
 
@@ -172,7 +178,7 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     if (next.kind && COUNCIL_ONLY_KINDS.has(next.kind) && !isCouncil(ctx.body)) {
         fail('councilOnlyKind', 'Only a council holds a special meeting.');
     }
-    if (COUNCIL_ONLY_FORMATS.has(next.format) && !isCouncil(ctx.body)) {
+    if (next.format && COUNCIL_ONLY_FORMATS.has(next.format) && !isCouncil(ctx.body)) {
         fail('councilOnlyFormat', 'Only a council holds a meeting by circulation.');
     }
 

@@ -16,12 +16,13 @@ export function meetingIdForRequest(typedId: string | undefined, editing: boolea
 export interface MeetingFormLifecycleValues {
     name?: string;
     name_en?: string;
-    /** Null only on an archive meeting whose kind nobody has set. */
+    /** Null: «Από την πρόσκληση», nobody has stated the kind. */
     kind: MeetingKind | null;
     scheduleStatus: MeetingScheduleStatus;
     scheduleStatusReason?: string;
     sessionNumber?: string;
-    format: MeetingFormat;
+    /** Null: «Από την πρόσκληση», nobody has stated the format. */
+    format: MeetingFormat | null;
     closedToPublic: boolean;
     place?: string;
     /** `none` is the Select's sentinel for "not the new meeting of a postponement". */

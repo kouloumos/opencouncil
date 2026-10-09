@@ -43,14 +43,14 @@ describe('meeting API routes', () => {
         committeeId = (await createAdministrativeBody(CITY, { type: 'committee', name: 'Δημοτική Επιτροπή', name_en: 'Municipal Committee' })).id
     })
 
-    test('creates two meetings on one day when no id is sent, with a regular kind and no stored name', async () => {
+    test('creates two meetings on one day when no id is sent, with no stored name and an unstated kind and format', async () => {
         const body = { date: '2026-03-12T16:00:00.000Z', administrativeBodyId: councilId }
         const first = await POST(request(`/api/cities/${CITY}/meetings`, body), cityParams)
         const second = await POST(request(`/api/cities/${CITY}/meetings`, body), cityParams)
         expect([first.status, second.status]).toEqual([201, 201])
         const [a, b] = [await first.json(), await second.json()]
         expect([a.id, b.id]).toEqual(['mar12_2026', 'mar12_2026_2'])
-        expect(a).toMatchObject({ kind: 'regular', name: null, name_en: null, scheduleStatus: 'scheduled', format: 'inPerson' })
+        expect(a).toMatchObject({ kind: null, name: null, name_en: null, scheduleStatus: 'scheduled', format: null })
     })
 
     test('refuses a rule violation with 422 and the code of the rule', async () => {

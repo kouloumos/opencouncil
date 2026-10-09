@@ -27,7 +27,7 @@ export type PublicMeetingPresentation =
 export interface MeetingPresentationFields {
     scheduleStatus: MeetingScheduleStatus;
     scheduleStatusReason: string | null;
-    format: MeetingFormat;
+    format: MeetingFormat | null;
     closedToPublic: boolean;
 }
 

@@ -70,9 +70,9 @@ The stage derivation logic automatically determines the current stage by checkin
 The stages above describe the processing pipeline. The meeting record also holds the facts that the municipality announces. These facts are separate from the stages.
 
 * **Schedule status** (`scheduleStatus`): `scheduled`, `postponed` or `cancelled`, with an optional reason. An admin sets it. The platform does not store "held": a meeting is held when material exists.
-* **Kind** (`kind`): `regular`, `urgent`, `accountability`, `annualReport`, `budget` or `presidencyElection`. Null means "unknown" and occurs on archive meetings only. A new meeting is `regular` by default. λογοδοσία, απολογισμός and a meeting by circulation belong to a council.
+* **Kind** (`kind`): `regular`, `urgent`, `accountability`, `annualReport`, `budget` or `presidencyElection`. Null means "unstated": nobody has stated the kind, and nobody has read it from the invitation yet. The form offers «Από την πρόσκληση» for null and has no default. The four special kinds and a meeting by circulation belong to a council.
 * **Session number** (`sessionNumber`): the number that the municipality prints. It is not unique. A cancelled meeting keeps its number, and the new meeting after a postponement takes the same number. The platform never computes it.
-* **Format and place** (`format`, `closedToPublic`, `place`): `format` defaults to `inPerson`. A meeting without its own `place` shows the `place` of its administrative body.
+* **Format and place** (`format`, `closedToPublic`, `place`): `format` is null until somebody states it or reads it from the invitation, like the kind. A meeting of unstated format can have a stream and a transcript. A meeting without its own `place` shows the `place` of its administrative body, except for a format that has no place, such as a teleconference.
 * **Links**: the new meeting after a postponement points to the postponed meeting (`postponedFromId`). A later part of a meeting points to its first part (`continuationOfId`). The continuation has its column and its checks only; the form and the page for it are a follow-up.
 
 ### The name
@@ -103,11 +103,11 @@ The SQL function `council_meeting_display_name` builds the same title for the No
 * **One meaning for each value**: `src/lib/meetingLifecycleRules.ts` holds a table for each enum (`SCHEDULE_STATUSES`, `MEETING_FORMATS`, `MEETING_KINDS`). Code reads `takesPlace`, `TAKES_PLACE_WHERE`, `hasPublicRecording` or `PUBLIC_RECORDING_WHERE`, never a raw value. A new value fails to compile until each table gives it a meaning.
 * **Pipelines and lists**: some parts skip a meeting that does not take place. These are the livestream cron, the decision poller, the bulk poll dialog and the upload lists. The landing page, the city rail, the embed widget and `/latest` skip it too. `requestTranscribeInternal` refuses it, and also a meeting with no public recording. A pending notice before a postponed or cancelled meeting is not sent.
 * **Calendar**: `syncMeetingToCalendar` patches the event of a postponed or cancelled meeting to `status: 'cancelled'`. It patches the event back to `confirmed` only when the meeting returns to scheduled. Any other edit leaves the status alone. A past meeting emails nobody.
-* **Decision polling** skips λογοδοσία by `kind`, not by the name. The migration set the kind of the existing λογοδοσία meetings.
+* **Decision polling** skips the meetings that take no decisions, λογοδοσία and απολογισμός, by `kind`, not by the name. A later part takes the kind of its first part. The migration set the kind of the existing λογοδοσία meetings.
 
 ### The archive
 
-The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
+The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later migration clears the `inPerson` format that the first one gave to every existing meeting. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
 
 ## Sequence Diagram
 
@@ -239,7 +239,7 @@ sequenceDiagram
 ### Data Validation Rules
 1. A name override is empty or at least 2 characters. An empty name is derived from the body, the kind and the date
 2. Meeting ID is auto-generated from the date when the form sends none, with `_2`, `_3` for a second meeting on one day. An admin can type an ID
-3. A new meeting needs a kind (default `regular`). The lifecycle rules in `src/lib/meetingLifecycleRules.ts` apply to every write
+3. The kind and the format may stay unstated («Από την πρόσκληση»). The lifecycle rules in `src/lib/meetingLifecycleRules.ts` apply to every write
 4. YouTube and agenda URLs must be valid URLs or empty strings
 5. Administrative body selection is optional but validated if provided
 6. Date/time combination must be valid and not in the distant past

@@ -64,6 +64,10 @@ describe('validateMeetingRecord', () => {
         expect(codes(state({ format: 'byCirculation' }), context())).toEqual([]);
     });
 
+    it('accepts an unstated kind and format on every body', () => {
+        expect(codes(state({ kind: null, format: null }), context({ body: { type: 'community' } }))).toEqual([]);
+    });
+
     describe('postponement', () => {
         const postponedA = { administrativeBodyId: 'council', scheduleStatus: 'postponed' as const };
 
@@ -153,6 +157,7 @@ describe('transcriptionRefusal', () => {
     it('accepts a scheduled meeting with a public recording', () => {
         expect(transcriptionRefusal(held)).toBeNull();
         expect(transcriptionRefusal({ ...held, format: 'mixed' })).toBeNull();
+        expect(transcriptionRefusal({ ...held, format: null })).toBeNull();
     });
 
     it.each([

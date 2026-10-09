@@ -60,23 +60,22 @@ const formSchema = z.object({
     meetingId: z.string().optional(),
     administrativeBodyId: z.string().optional(),
     processAgenda: z.boolean().default(true),
-    // A new meeting needs a kind. Only archive meetings have none, and an edit
-    // keeps that until the admin chooses one.
+    // Null until somebody states it: processAgenda can read it from the invitation.
     kind: z.nativeEnum(MeetingKind).nullable(),
     scheduleStatus: z.nativeEnum(MeetingScheduleStatus),
     scheduleStatusReason: z.string().max(SCHEDULE_STATUS_REASON_MAX_LENGTH).optional(),
     sessionNumber: z.string().regex(/^\s*(\d*)\s*$/, { message: "The session number is a whole number." })
         .refine(val => val.trim() === '' || Number(val) >= 1, { message: "The session number is 1 or more." })
         .optional(),
-    format: z.nativeEnum(MeetingFormat),
+    format: z.nativeEnum(MeetingFormat).nullable(),
     closedToPublic: z.boolean(),
     place: z.string().max(200).optional(),
     postponedFromId: z.string().optional(),
 })
 
 const KINDS = Object.values(MeetingKind)
-/** The Select's sentinel for the null kind of an archive meeting. */
-const UNKNOWN_KIND = 'unknown'
+/** The Select's sentinel for a null kind or format: «Από την πρόσκληση». */
+const FROM_INVITATION = 'fromInvitation'
 const STATUSES = Object.values(MeetingScheduleStatus)
 /** Kinds and formats that the law gives to the council only. */
 const COUNCIL_ONLY: ReadonlySet<string> = new Set<string>([...COUNCIL_ONLY_KINDS, ...COUNCIL_ONLY_FORMATS])
@@ -123,11 +122,11 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
             meetingId: meeting?.id ?? "",
             administrativeBodyId: meeting?.administrativeBodyId || "none",
             processAgenda: true,
-            kind: meeting ? meeting.kind : MeetingKind.regular,
+            kind: meeting?.kind ?? null,
             scheduleStatus: meeting?.scheduleStatus ?? MeetingScheduleStatus.scheduled,
             scheduleStatusReason: meeting?.scheduleStatusReason ?? "",
             sessionNumber: meeting?.sessionNumber?.toString() ?? "",
-            format: meeting?.format ?? MeetingFormat.inPerson,
+            format: meeting?.format ?? null,
             closedToPublic: meeting?.closedToPublic ?? false,
             place: meeting?.place ?? "",
             postponedFromId: meeting?.postponedFromId ?? "none",
@@ -308,16 +307,14 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('kind')}</FormLabel>
-                                <Select onValueChange={value => field.onChange(value === UNKNOWN_KIND ? null : value)} value={field.value ?? UNKNOWN_KIND}>
+                                <Select onValueChange={value => field.onChange(value === FROM_INVITATION ? null : value)} value={field.value ?? FROM_INVITATION}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {meeting && meeting.kind === null && (
-                                            <SelectItem value={UNKNOWN_KIND}>{t('kindUnknown')}</SelectItem>
-                                        )}
+                                        <SelectItem value={FROM_INVITATION}>{t('fromInvitation')}</SelectItem>
                                         {KINDS.map(kind => (
                                             <SelectItem key={kind} value={kind} disabled={COUNCIL_ONLY.has(kind) && !isCouncil}>
                                                 {t(`kindOptions.${kind}`)}{COUNCIL_ONLY.has(kind) ? ` (${t('councilOnly')})` : ''}
@@ -554,15 +551,16 @@ export default function AddMeetingForm({ cityId, meeting, onSuccess }: AddMeetin
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{t('format')}</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={value => field.onChange(value === FROM_INVITATION ? null : value)} value={field.value ?? FROM_INVITATION}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
+                                        <SelectItem value={FROM_INVITATION}>{t('fromInvitation')}</SelectItem>
                                         {/* A format that the form does not offer stays selectable on a meeting that already has it. */}
-                                        {(meeting && !OFFERED_FORMATS.includes(meeting.format) ? [...OFFERED_FORMATS, meeting.format] : OFFERED_FORMATS).map(format => (
+                                        {(meeting?.format && !OFFERED_FORMATS.includes(meeting.format) ? [...OFFERED_FORMATS, meeting.format] : OFFERED_FORMATS).map(format => (
                                             <SelectItem key={format} value={format} disabled={COUNCIL_ONLY.has(format) && !isCouncil}>
                                                 {t(`formatOptions.${format}`)}{COUNCIL_ONLY.has(format) ? ` (${t('councilOnly')})` : ''}
                                             </SelectItem>

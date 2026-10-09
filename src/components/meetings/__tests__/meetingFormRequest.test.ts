@@ -56,8 +56,10 @@ describe('meetingRequestFields', () => {
         expect(JSON.stringify(meetingRequestFields({ ...base, postponedFromId: 'none' }, { linkChanged: false }))).not.toContain('postponedFromId');
     });
 
-    it('keeps the unknown kind of an archive meeting on an unrelated edit', () => {
-        expect(meetingRequestFields({ ...base, kind: null }, { linkChanged: false }).kind).toBeNull();
+    it('sends an unstated kind and format as null: «Από την πρόσκληση»', () => {
+        const fields = meetingRequestFields({ ...base, kind: null, format: null }, { linkChanged: false });
+        expect(fields.kind).toBeNull();
+        expect(fields.format).toBeNull();
     });
 });
 

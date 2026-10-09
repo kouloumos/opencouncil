@@ -58,9 +58,9 @@ export async function createMeetingWithEffects(
         released: false as const,
         muxPlaybackId: null,
         administrativeBodyId: administrativeBodyId || null,
-        // An unknown kind is for the archive only. A later part of a
+        // An unstated kind waits for the invitation. A later part of a
         // meeting has no kind of its own: its first part holds it.
-        kind: record.kind !== undefined ? record.kind : (continuationOfId ? null : 'regular' as const),
+        kind: record.kind ?? null,
         postponedFromId,
         continuationOfId,
     });

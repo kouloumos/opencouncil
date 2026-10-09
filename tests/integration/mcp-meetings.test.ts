@@ -230,7 +230,7 @@ describe('MCP meeting tools report the record of a meeting - integration', () =>
         })
         await createMeeting('athens', {
             id: 'mar26_2026', dateTime: new Date('2026-03-26T16:00:00Z'), administrativeBodyId: council.id,
-            name: null, name_en: null, kind: 'urgent', scheduleStatus: 'cancelled', scheduleStatusReason: 'Λόγω απεργίας', released: true,
+            name: null, name_en: null, kind: 'urgent', format: 'inPerson', scheduleStatus: 'cancelled', scheduleStatusReason: 'Λόγω απεργίας', released: true,
         })
     })
 

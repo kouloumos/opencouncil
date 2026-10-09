@@ -147,7 +147,8 @@ describe('pollLivestreamsForRecentMeetings', () => {
         expect(mockMeetingFindMany.mock.calls[0][0].where).toMatchObject({
             scheduleStatus: { in: ['scheduled'] },
             closedToPublic: false,
-            format: { in: ['inPerson', 'teleconference', 'mixed'] },
+            // A meeting of unstated format can have a stream.
+            OR: [{ format: null }, { format: { in: ['inPerson', 'teleconference', 'mixed'] } }],
         });
     });
 

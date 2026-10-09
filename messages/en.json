@@ -347,7 +347,7 @@
         "meetingIdDescription": "The ID is used in the meeting's URL. Leave it empty: the platform makes it from the date, and adds _2 when the day already has a meeting.",
         "kind": "Kind of meeting",
         "kindDescription": "As the invitation says. The kind is part of the name of the meeting.",
-        "kindUnknown": "Unknown (archive)",
+        "fromInvitation": "From the invitation",
         "kindOptions": {
             "regular": "Regular",
             "urgent": "Urgent",

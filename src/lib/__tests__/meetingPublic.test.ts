@@ -53,11 +53,18 @@ describe('public meeting projections', () => {
         expect(effectivePlace({ ...row, format: 'mixed' })).toBe(row.administrativeBody.place);
     });
 
+    it('gives a meeting of unstated format its own place, else the hall of its body', () => {
+        expect(effectivePlace({ ...row, format: null })).toBe(row.administrativeBody.place);
+        expect(effectivePlace({ ...row, format: null, place: 'Πολιτιστικό Κέντρο' })).toBe('Πολιτιστικό Κέντρο');
+    });
+
     it('gives a public list no links, and no media of a meeting with no public recording', () => {
         const media = { youtubeUrl: 'https://youtu.be/x', videoUrl: 'https://cdn/v.mp4', audioUrl: null, muxPlaybackId: 'mux1' };
         expect(publicRow({ ...row, ...media })).toMatchObject({ ...media, postponedFromId: null, continuationOfId: null });
         expect(publicRow({ ...row, ...media, closedToPublic: true }))
             .toMatchObject({ youtubeUrl: null, videoUrl: null, audioUrl: null, muxPlaybackId: null });
         expect(publicRow({ ...row, ...media, format: 'byCirculation' as const }).muxPlaybackId).toBeNull();
+        // A meeting of unstated format keeps its media.
+        expect(publicRow({ ...row, ...media, format: null })).toMatchObject(media);
     });
 });

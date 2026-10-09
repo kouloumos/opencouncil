@@ -31,15 +31,15 @@ const isoDateTime = z.iso.datetime({ offset: true })
 const meetingRecordInput = {
     kind: z.enum(MeetingKind).nullable().optional()
         .describe('The kind that the invitation prints: regular (Τακτική), urgent (Έκτακτη), accountability '
-            + '(Ειδική Λογοδοσίας), annualReport, budget, presidencyElection. Defaults to regular on create. '
-            + 'The four special kinds (accountability, annualReport, budget, presidencyElection) belong to a council only. Null means unknown'),
+            + '(Ειδική Λογοδοσίας), annualReport, budget, presidencyElection. Null (the default on create) means unstated: read it from the invitation later. '
+            + 'The four special kinds (accountability, annualReport, budget, presidencyElection) belong to a council only'),
     sessionNumber: z.number().int().positive().nullable().optional()
         .describe('The session number that the invitation prints, e.g. 3 for «3η Τακτική». Never compute it'),
     scheduleStatus: z.enum(MeetingScheduleStatus).optional()
         .describe('scheduled, postponed or cancelled. A postponed or cancelled meeting stays public with its status'),
     scheduleStatusReason: z.string().max(SCHEDULE_STATUS_REASON_MAX_LENGTH).nullable().optional()
         .describe('Why the meeting was postponed or cancelled, as the municipality says it'),
-    format: z.enum(OFFERED_FORMATS).optional().describe('How the meeting takes place. Defaults to inPerson'),
+    format: z.enum(OFFERED_FORMATS).nullable().optional().describe('How the meeting takes place. Null (the default on create) means unstated: read it from the invitation later'),
     closedToPublic: z.boolean().optional()
         .describe('The council decided to meet behind closed doors: no stream and no transcription'),
     place: z.string().max(200).nullable().optional()

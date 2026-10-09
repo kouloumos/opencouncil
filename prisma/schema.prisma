@@ -259,7 +259,9 @@ model CouncilMeeting {
   // cancelled meeting keeps its number, and the new meeting after a
   // postponement reuses it.
   sessionNumber        Int?
-  format               MeetingFormat @default(inPerson)
+  // Null: nobody has stated the format, and nobody has read it from the
+  // invitation yet.
+  format               MeetingFormat?
   closedToPublic       Boolean @default(false)
   place                String? // overrides administrativeBody.place
 
