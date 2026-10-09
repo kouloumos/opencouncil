@@ -93,23 +93,47 @@ export const SCHEDULE_STATUSES = {
 } as const satisfies Record<MeetingScheduleStatus, { takesPlace: boolean }>;
 
 export const MEETING_FORMATS = {
-    inPerson: { publicRecording: true, showsPlace: true, namedInFacts: false, councilOnly: false, offeredInForm: true },
-    teleconference: { publicRecording: true, showsPlace: false, namedInFacts: true, councilOnly: false, offeredInForm: true },
-    mixed: { publicRecording: true, showsPlace: true, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    inPerson: { publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: false, councilOnly: false, offeredInForm: true },
+    teleconference: { publicRecording: true, noRecordingReason: null, showsPlace: false, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    mixed: { publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: true, councilOnly: false, offeredInForm: true },
     // Offered in no form yet: the by-circulation page is a follow-up.
-    byCirculation: { publicRecording: false, showsPlace: false, namedInFacts: false, councilOnly: true, offeredInForm: false },
-} as const satisfies Record<MeetingFormat, {
+    byCirculation: { publicRecording: false, noRecordingReason: 'byCirculation', showsPlace: false, namedInFacts: false, councilOnly: true, offeredInForm: false },
+} as const satisfies Record<MeetingFormat, FormatRules & { offeredInForm: boolean }>;
+
+/**
+ * A null format: nobody has stated it yet, and the meeting is expected as
+ * usual. It has a recording, it shows the hall of its body, and the facts
+ * row does not name it. processAgenda reads the format from the invitation.
+ */
+export const UNSTATED_FORMAT = {
+    publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: false, councilOnly: false,
+} as const satisfies FormatRules;
+
+/** The rules of a format, stated or not. Every reader of a format asks this. */
+export function formatRules(format: MeetingFormat | null): FormatRules {
+    return format === null ? UNSTATED_FORMAT : MEETING_FORMATS[format];
+}
+
+interface FormatRules {
     /** The meeting can have a stream and a transcript. */
     publicRecording: boolean;
+    /** Why a reader sees no recording, for a format without one: the presentation and the strip say so. */
+    noRecordingReason: 'byCirculation' | null;
     /** The meeting page shows where the meeting takes place. */
     showsPlace: boolean;
     /** The facts row of the meeting page names the format (meetingStage.facts.format). */
     namedInFacts: boolean;
     /** Only a council holds a meeting in this format. */
     councilOnly: boolean;
-    offeredInForm: boolean;
-}>;
+}
 
+/**
+ * A null kind means that the record states no single kind. There are three
+ * cases: the invitation is not read yet; the record holds several meetings,
+ * and its name override says which; or the meeting is none of these kinds,
+ * such as the financial accounts (515–518). A null kind takes decisions and
+ * is not council-only.
+ */
 export const MEETING_KINDS = {
     regular: { councilOnly: false, takesDecisions: true },
     urgent: { councilOnly: false, takesDecisions: true },
@@ -148,7 +172,7 @@ export const TAKES_PLACE_WHERE = {
  * transcript otherwise. A meeting of unstated format can have one.
  */
 export function hasPublicRecording(meeting: { format: MeetingFormat | null; closedToPublic: boolean }): boolean {
-    return (meeting.format === null || MEETING_FORMATS[meeting.format].publicRecording) && !meeting.closedToPublic;
+    return formatRules(meeting.format).publicRecording && !meeting.closedToPublic;
 }
 
 /**
@@ -157,7 +181,10 @@ export function hasPublicRecording(meeting: { format: MeetingFormat | null; clos
  */
 export const PUBLIC_RECORDING_WHERE = {
     closedToPublic: false,
-    OR: [{ format: null }, { format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) } }],
+    OR: [
+        ...(UNSTATED_FORMAT.publicRecording ? [{ format: null }] : []),
+        { format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) } },
+    ],
 } satisfies Prisma.CouncilMeetingWhereInput;
 
 
@@ -178,7 +205,7 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     if (next.kind && COUNCIL_ONLY_KINDS.has(next.kind) && !isCouncil(ctx.body)) {
         fail('councilOnlyKind', 'Only a council holds a special meeting.');
     }
-    if (next.format && COUNCIL_ONLY_FORMATS.has(next.format) && !isCouncil(ctx.body)) {
+    if (formatRules(next.format).councilOnly && !isCouncil(ctx.body)) {
         fail('councilOnlyFormat', 'Only a council holds a meeting by circulation.');
     }
 

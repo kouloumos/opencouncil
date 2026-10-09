@@ -1,5 +1,5 @@
 import type { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
-import { MEETING_FORMATS, hasPublicRecording } from '@/lib/meetingLifecycleRules';
+import { formatRules, hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '@/lib/meetingName';
 
 /**
@@ -12,13 +12,12 @@ import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '@/lib/
 
 /**
  * Where a meeting takes place: its own place, else the hall of its body. Null
- * for a format that has no place, such as a teleconference. A meeting of
- * unstated format shows the hall, because a body sits there as a rule.
+ * for a format that has no place, such as a teleconference.
  */
 export function effectivePlace(
     meeting: { format: MeetingFormat | null; place: string | null; administrativeBody?: { place?: string | null } | null },
 ): string | null {
-    if (meeting.format !== null && !MEETING_FORMATS[meeting.format].showsPlace) return null;
+    if (!formatRules(meeting.format).showsPlace) return null;
     return meeting.place ?? meeting.administrativeBody?.place ?? null;
 }
 

@@ -64,7 +64,7 @@ function kindLocale(locale: string): 'el' | 'en' | null {
 
 /**
  * The derived title, and whether it carries the date. A title with a known
- * kind does not: «3η Τακτική». An unknown kind gives «Συνεδρίαση 12/03/2026».
+ * kind does not: «3η Τακτική». A null kind gives «Συνεδρίαση 12/03/2026».
  */
 function derivedTitle(meeting: MeetingNameFields, locale: string, timezone: string): { text: string; dated: boolean } {
     const words = kindLocale(locale);

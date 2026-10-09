@@ -1,6 +1,6 @@
 import type { MeetingFormat, MeetingScheduleStatus, Realm } from '@prisma/client';
 import { hasExplainPage } from '@/lib/explain/availability';
-import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
+import { formatRules, hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import {
     msUntilStageChange,
     pendingKind,
@@ -50,7 +50,8 @@ export function publicMeetingPresentation(
     // A meeting that has not started reads as upcoming; the strip offers it no
     // channel. Once it starts, it never promises a video or a transcript.
     if (!hasPublicRecording(fields) && stage !== 'upcoming') {
-        return { type: 'noRecording', reason: fields.closedToPublic ? 'closedToPublic' : 'byCirculation' };
+        const reason = fields.closedToPublic ? 'closedToPublic' : formatRules(fields.format).noRecordingReason;
+        if (reason) return { type: 'noRecording', reason };
     }
     return { type: 'stage', stage };
 }

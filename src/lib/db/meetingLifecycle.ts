@@ -142,24 +142,29 @@ async function assertValid(client: Client, cityId: string, next: MeetingRecordSt
     if (first) throw first;
 }
 
-function recordState(id: string, fields: Partial<MeetingRecordFields> & Pick<CouncilMeeting, 'dateTime'>): MeetingRecordState {
+/**
+ * The state of a meeting that the create call will write. Every record
+ * column is nullable with no default, except `scheduleStatus` (`scheduled`).
+ * An update validates the merged row itself.
+ */
+function newRecordState(data: NewMeetingRecord): MeetingRecordState {
     return {
-        id,
-        administrativeBodyId: fields.administrativeBodyId ?? null,
-        dateTime: fields.dateTime,
-        scheduleStatus: fields.scheduleStatus ?? 'scheduled',
-        scheduleStatusReason: fields.scheduleStatusReason ?? null,
-        kind: fields.kind ?? null,
-        sessionNumber: fields.sessionNumber ?? null,
-        format: fields.format ?? null,
-        postponedFromId: fields.postponedFromId ?? null,
-        continuationOfId: fields.continuationOfId ?? null,
+        id: data.id,
+        administrativeBodyId: data.administrativeBodyId ?? null,
+        dateTime: data.dateTime,
+        scheduleStatus: data.scheduleStatus ?? 'scheduled',
+        scheduleStatusReason: data.scheduleStatusReason ?? null,
+        kind: data.kind ?? null,
+        sessionNumber: data.sessionNumber ?? null,
+        format: data.format ?? null,
+        postponedFromId: data.postponedFromId ?? null,
+        continuationOfId: data.continuationOfId ?? null,
     };
 }
 
 export async function createMeetingRecord(data: NewMeetingRecord): Promise<CouncilMeetingWithAdminBody> {
     return prisma.$transaction(async (tx) => {
-        await assertValid(tx, data.cityId, recordState(data.id, data));
+        await assertValid(tx, data.cityId, newRecordState(data));
         const meeting = await tx.councilMeeting.create({ data, include: withAdminBody });
         if (meeting.released && meeting.postponedFromId) {
             await hideChainFrom(tx, data.cityId, meeting.postponedFromId);
@@ -184,7 +189,7 @@ export async function updateMeetingRecord(
         if (!current) throw new Error(`Meeting ${cityId}/${id} not found`);
 
         const merged = { ...current, ...definedOnly(patch) };
-        await assertValid(client, cityId, recordState(id, merged));
+        await assertValid(client, cityId, merged);
 
         const relinked = merged.postponedFromId !== current.postponedFromId;
         const meeting = await client.councilMeeting.update({

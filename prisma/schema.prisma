@@ -123,8 +123,10 @@ enum MeetingScheduleStatus {
   cancelled
 }
 
-/// The kind of meeting that the invitation names. null on a meeting means
-/// "unknown", which only archive rows carry; the admin form requires a kind.
+/// The kind of meeting that the invitation names. A null kind means that the
+/// record states no single kind: its invitation is not read yet, it holds
+/// several meetings (its name override says which), or the meeting is none of
+/// these kinds, such as the financial accounts. See MEETING_KINDS.
 enum MeetingKind {
   regular            // Τακτική
   urgent             // Έκτακτη (the law says κατεπείγουσα)

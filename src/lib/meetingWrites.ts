@@ -58,7 +58,7 @@ export async function createMeetingWithEffects(
         released: false as const,
         muxPlaybackId: null,
         administrativeBodyId: administrativeBodyId || null,
-        // An unstated kind waits for the invitation. A later part of a
+        // A null kind states no single kind (see MEETING_KINDS). A later part of a
         // meeting has no kind of its own: its first part holds it.
         kind: record.kind ?? null,
         postponedFromId,

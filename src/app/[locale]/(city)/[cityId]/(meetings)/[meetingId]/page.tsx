@@ -10,7 +10,7 @@ import { CalendarIcon, ExternalLink, FileIcon, FileText, History, Lock, MapPin, 
 import { formatDate } from "@/lib/formatters/time";
 import { presentationPendingKind, type PresentationKey } from "@/lib/meetingPresentation";
 import { effectivePlace } from "@/lib/meetingPublic";
-import { MEETING_FORMATS } from "@/lib/meetingLifecycleRules";
+import { formatRules } from "@/lib/meetingLifecycleRules";
 import { MeetingStageChip } from "@/components/meetings/stage/MeetingStageChip";
 import { MeetingStageStrip } from "@/components/meetings/stage/MeetingStageStrip";
 import { PendingSubjectsNote } from "@/components/meetings/stage/PendingSubjectsNote";
@@ -191,7 +191,7 @@ function MeetingInfo({ stage, now }: { stage: PresentationKey; now: Date }) {
                         </div>
                     )}
 
-                    {meeting.format !== null && MEETING_FORMATS[meeting.format].namedInFacts && (
+                    {meeting.format !== null && formatRules(meeting.format).namedInFacts && (
                         <div className="flex items-center">
                             <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2 sm:mr-2.5" />
                             {tStage(`facts.format.${meeting.format}`)}

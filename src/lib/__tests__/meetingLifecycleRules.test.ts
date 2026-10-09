@@ -1,4 +1,6 @@
 import {
+    formatRules,
+    MEETING_FORMATS,
     transcriptionRefusal,
     validateMeetingRecord,
     type LifecycleContext,
@@ -62,6 +64,13 @@ describe('validateMeetingRecord', () => {
     it('keeps the meeting by circulation for the council', () => {
         expect(codes(state({ format: 'byCirculation' }), context({ body: { type: 'community' } }))).toEqual(['councilOnlyFormat']);
         expect(codes(state({ format: 'byCirculation' }), context())).toEqual([]);
+    });
+
+    it('gives every format without a recording a reason that readers see', () => {
+        for (const format of [...Object.keys(MEETING_FORMATS), null] as Array<keyof typeof MEETING_FORMATS | null>) {
+            const rules = formatRules(format);
+            expect([format, rules.noRecordingReason !== null]).toEqual([format, !rules.publicRecording]);
+        }
     });
 
     it('accepts an unstated kind and format on every body', () => {
