@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getMeetingDataCore } from '@/lib/getMeetingData';
-import { toPublicApiMeeting } from '@/lib/meetingPublic';
+import { toPublicApiMeeting, withoutMedia } from '@/lib/meetingPublic';
+import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import { handleApiError } from '@/lib/api/errors';
-import { withUserAuthorizedToEdit } from '@/lib/auth';
+import { isUserAuthorizedToEdit, withUserAuthorizedToEdit } from '@/lib/auth';
 import { meetingSchema } from '@/lib/zod-schemas/meeting';
 import { updateMeetingWithEffects } from '@/lib/meetingWrites';
 
@@ -15,12 +16,16 @@ export async function GET(
         const data = await getMeetingDataCore(params.cityId, params.meetingId);
         // No auth on this endpoint: the meeting carries its display names and
         // never the id of the meeting that it replaced.
-        const meeting = toPublicApiMeeting(data.meeting, {
+        // A meeting with no public recording gives a reader no transcript and
+        // no media. An editor of the city keeps both, to export them.
+        const withheld = !hasPublicRecording(data.meeting)
+            && !(await isUserAuthorizedToEdit({ cityId: params.cityId }));
+        const meeting = toPublicApiMeeting(withheld ? withoutMedia(data.meeting) : data.meeting, {
             timezone: data.city.timezone,
             postponedFromDate: data.meeting.postponedFromDate,
         });
         // Strip transcript data when hidden for review
-        if (data.transcriptHiddenForReview) {
+        if (data.transcriptHiddenForReview || withheld) {
             return NextResponse.json({ ...data, meeting, transcript: [], speakerTags: [] });
         }
         return NextResponse.json({ ...data, meeting });

@@ -1,4 +1,4 @@
-import { effectivePlace, hideLinks, toPublicApiMeeting } from '../meetingPublic';
+import { effectivePlace, hideLinks, publicRow, toPublicApiMeeting } from '../meetingPublic';
 
 const row = {
     id: 'b',
@@ -51,5 +51,13 @@ describe('public meeting projections', () => {
     it('gives a meeting no place when its format has none', () => {
         expect(effectivePlace({ ...row, format: 'teleconference' })).toBeNull();
         expect(effectivePlace({ ...row, format: 'mixed' })).toBe(row.administrativeBody.place);
+    });
+
+    it('gives a public list no links, and no media of a meeting with no public recording', () => {
+        const media = { youtubeUrl: 'https://youtu.be/x', videoUrl: 'https://cdn/v.mp4', audioUrl: null, muxPlaybackId: 'mux1' };
+        expect(publicRow({ ...row, ...media })).toMatchObject({ ...media, postponedFromId: null, continuationOfId: null });
+        expect(publicRow({ ...row, ...media, closedToPublic: true }))
+            .toMatchObject({ youtubeUrl: null, videoUrl: null, audioUrl: null, muxPlaybackId: null });
+        expect(publicRow({ ...row, ...media, format: 'byCirculation' as const }).muxPlaybackId).toBeNull();
     });
 });

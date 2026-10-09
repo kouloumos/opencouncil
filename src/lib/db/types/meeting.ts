@@ -19,9 +19,10 @@ export const meetingNameSelect = {
  * the same edit that changes that include — persisted unstable_cache entries
  * keep serving the old shape under the old key otherwise. It lives here
  * because meetings.ts is a "use server" module and cannot export a constant.
- * The public meeting lists key on it too: v5 hides the continuation link.
+ * The public meeting lists key on it too: v6 hides the links and the media
+ * of a meeting with no public recording.
  */
-export const MEETING_PREVIEW_CACHE_VERSION = 'v5';
+export const MEETING_PREVIEW_CACHE_VERSION = 'v6';
 
 /** What the header needs to step to a neighbouring meeting. */
 export type AdjacentMeeting = Pick<CouncilMeeting, 'id' | 'name' | 'name_en' | 'kind' | 'sessionNumber' | 'dateTime'> & {

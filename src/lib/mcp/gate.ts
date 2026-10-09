@@ -1,9 +1,10 @@
 import prisma from '@/lib/db/prisma';
-import { NotFoundError } from '@/lib/api/errors';
+import { ForbiddenError, NotFoundError } from '@/lib/api/errors';
 import { canUserEditCity } from '@/lib/db/highlights-core';
 import { isSuperIdentity, type McpIdentity } from './auth';
 import { currentRealm } from './realm-context';
 import { meetingLabelInCity } from '@/lib/meetingName';
+import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
 
 /**
  * Whether the identity may see a city's unreleased (draft) meetings: service
@@ -36,6 +37,8 @@ export async function requireVisibleMeeting(
     name: string;
     videoUrl: string | null;
     administrativeBody: { name: string } | null;
+    /** The meeting has a public recording, so readers may read its transcript. */
+    publicRecording: boolean;
     /**
      * Whether the identity edits the city, when the gate had to find out. A
      * released meeting needs no answer, and a caller that needs one then
@@ -60,6 +63,8 @@ export async function requireVisibleMeeting(
             kind: true,
             sessionNumber: true,
             videoUrl: true,
+            format: true,
+            closedToPublic: true,
             administrativeBody: { select: { name: true, name_en: true } },
             city: { select: { timezone: true } },
         },
@@ -76,6 +81,21 @@ export async function requireVisibleMeeting(
         name: meetingLabelInCity(meeting, 'el'),
         videoUrl: meeting.videoUrl,
         administrativeBody: meeting.administrativeBody,
+        publicRecording: hasPublicRecording(meeting),
         editor,
     };
+}
+
+/**
+ * A meeting with no public recording (closed to the public, or by
+ * circulation) shows no transcript to readers, as on the site. An editor of
+ * the city still reads it.
+ */
+export async function requirePublicTranscript(
+    meeting: { publicRecording: boolean },
+    cityId: string,
+    identity: McpIdentity,
+): Promise<void> {
+    if (meeting.publicRecording || await canSeeUnreleased(identity, cityId)) return;
+    throw new ForbiddenError('This meeting was closed to the public: it has no public transcript.');
 }

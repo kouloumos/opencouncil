@@ -1,6 +1,6 @@
 import prisma from '@/lib/db/prisma';
 import { Prisma, DiscussionStatus, type AdministrativeBodyType, type CouncilMeeting, type MeetingScheduleStatus } from '@prisma/client';
-import { takesPlace } from '@/lib/meetingLifecycleRules';
+import { hasPublicRecording, takesPlace } from '@/lib/meetingLifecycleRules';
 import { searchInRealm } from '@/lib/search/core';
 import { openDateRange } from '@/lib/search/dateRange';
 import { getCities, getCity, getListedCityAtPoint } from '@/lib/db/cities';
@@ -20,7 +20,7 @@ import { mcpTaskSummary } from './taskSummary';
 import { upsertHighlightCore, canUserEditCity, canActorManageHighlight, getUserCityRights, type UserCityRights } from '@/lib/db/highlights-core';
 import { requestGenerateHighlightCore } from '@/lib/tasks/generateHighlight-core';
 import { NotFoundError, UnauthorizedError, BadRequestError, ForbiddenError } from '@/lib/api/errors';
-import { canSeeUnreleased, requireVisibleMeeting } from './gate';
+import { canSeeUnreleased, requirePublicTranscript, requireVisibleMeeting } from './gate';
 import { assertCitiesInRealm, requireCityBodies, requireRealmBodies, requireRealmCity } from './realmGuards';
 import { getRoleLabelAt, RoleTextTranslator } from '@/lib/utils/roles';
 import { roleWithRelationsInclude } from '@/lib/db/types';
@@ -386,7 +386,8 @@ export async function mcpGetMeeting(cityId: string, meetingId: string, identity:
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
         ...publicRecordFields(meeting, await originalScheduledDate(cityId, meetingId)),
-        youtubeUrl: meeting.youtubeUrl,
+        // A reader gets no stream of a meeting with no public recording.
+        youtubeUrl: hasPublicRecording(meeting) || visible.editor !== false && await canSeeUnreleased(identity, cityId) ? meeting.youtubeUrl : null,
         agendaUrl: meeting.agendaUrl,
         hasTranscript: transcribed,
         ...(tasks && { tasks: tasks.map(mcpTaskSummary) }),
@@ -489,11 +490,13 @@ export async function mcpGetSubjectTranscript(subjectId: string, page: number, i
         select: { id: true, name: true, cityId: true, councilMeetingId: true },
     });
     if (!subject) throw new NotFoundError('Subject not found');
-    const { dateTime: meetingDate } = await requireVisibleMeeting(
+    const visibleMeeting = await requireVisibleMeeting(
         subject.cityId,
         subject.councilMeetingId,
         identity
     );
+    await requirePublicTranscript(visibleMeeting, subject.cityId, identity);
+    const meetingDate = visibleMeeting.dateTime;
     const t = await getRoleTranslations();
 
     const where: Prisma.UtteranceWhereInput = {
@@ -563,7 +566,9 @@ export async function mcpGetTranscript(
     options: { page: number; segmentsPerPage: number; includeUtteranceIds: boolean; personId?: string },
     identity: McpIdentity
 ) {
-    const { dateTime: meetingDate } = await requireVisibleMeeting(cityId, meetingId, identity);
+    const visibleMeeting = await requireVisibleMeeting(cityId, meetingId, identity);
+    await requirePublicTranscript(visibleMeeting, cityId, identity);
+    const meetingDate = visibleMeeting.dateTime;
     const t = await getRoleTranslations();
 
     const allSegments = await getTranscript(meetingId, cityId);

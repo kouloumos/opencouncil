@@ -7,7 +7,7 @@ import { createMeetingWithEffects } from '@/lib/meetingWrites';
 import { handleApiError } from '@/lib/api/errors';
 import { getCityNameEnAndTimezone } from '@/lib/db/citiesAdmin';
 import { meetingSchema } from '@/lib/zod-schemas/meeting';
-import { toPublicApiMeeting } from '@/lib/meetingPublic';
+import { publicRow, toPublicApiMeeting } from '@/lib/meetingPublic';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
 
 const getMeetingsQuerySchema = z.object({
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ cityI
         const timezone = city?.timezone ?? DEFAULT_TIMEZONE;
         const dates = await originalScheduledDates(params.cityId, meetings);
         return NextResponse.json(meetings.map(meeting =>
-            toPublicApiMeeting(meeting, { timezone, postponedFromDate: dates.get(meeting.id) ?? null })));
+            toPublicApiMeeting(publicRow(meeting), { timezone, postponedFromDate: dates.get(meeting.id) ?? null })));
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.errors }, { status: 400 });

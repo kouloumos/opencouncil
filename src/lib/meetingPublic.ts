@@ -1,5 +1,5 @@
 import type { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
-import { MEETING_FORMATS } from '@/lib/meetingLifecycleRules';
+import { MEETING_FORMATS, hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import { meetingDisplayName, meetingLabel, type MeetingNameFields } from '@/lib/meetingName';
 
 /**
@@ -21,9 +21,29 @@ export function effectivePlace(
     return meeting.place ?? meeting.administrativeBody?.place ?? null;
 }
 
+type MediaFields = { youtubeUrl: string | null; videoUrl: string | null; audioUrl: string | null; muxPlaybackId: string | null };
+
+/**
+ * A meeting with no public recording (closed to the public, or by
+ * circulation) as a reader receives it: no media to play. An editor of the
+ * city still receives the media.
+ */
+export function withoutMedia<T extends MediaFields>(row: T): T {
+    return { ...row, youtubeUrl: null, videoUrl: null, audioUrl: null, muxPlaybackId: null };
+}
+
 /** A row for a server-rendered page or a public list: the same shape, with no link to another meeting. */
 export function hideLinks<T extends { postponedFromId: string | null; continuationOfId: string | null }>(row: T): T {
     return { ...row, postponedFromId: null, continuationOfId: null };
+}
+
+/**
+ * A row of a public list: no link to another meeting, and no media of a
+ * meeting that has no public recording.
+ */
+export function publicRow<T extends { postponedFromId: string | null; continuationOfId: string | null; format: MeetingFormat; closedToPublic: boolean } & MediaFields>(row: T): T {
+    const linked = hideLinks(row);
+    return hasPublicRecording(row) ? linked : withoutMedia(linked);
 }
 
 type RecordSource = {

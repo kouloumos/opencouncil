@@ -21,7 +21,7 @@ import { createCache } from '../cache/index';
 import { getCityRealm } from "./cityRealm";
 import { deleteMeetingRecord, setMeetingReleased } from "./meetingLifecycle";
 import { LifecycleRuleError, PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "../meetingLifecycleRules";
-import { hideLinks } from "../meetingPublic";
+import { publicRow } from "../meetingPublic";
 // List reads and their payload types live in meetingsList.ts. Re-exported here
 // as types only, so callers of this module keep one import.
 export type { CouncilMeetingWithAdminBodyAndSubjects, CouncilMeetingWithSubjectPreview, MeetingListOptions } from './meetingsList';
@@ -161,7 +161,7 @@ export async function getUpcomingMeetings(realm: Realm, { limit = 10 }: { limit?
             take: limit,
             include: upcomingMeetingInclude,
         });
-        return meetings.map(hideLinks);
+        return meetings.map(publicRow);
     } catch (error) {
         console.error('Error fetching upcoming meetings:', error);
         throw new Error('Failed to fetch upcoming meetings');

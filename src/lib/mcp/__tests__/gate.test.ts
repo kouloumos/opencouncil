@@ -15,8 +15,8 @@ jest.mock('../../db/prisma', () => ({
     },
 }));
 
-import { requireVisibleMeeting } from '../gate';
-import { NotFoundError } from '../../api/errors';
+import { requirePublicTranscript, requireVisibleMeeting } from '../gate';
+import { ForbiddenError, NotFoundError } from '../../api/errors';
 
 const USER = { type: 'user', userId: 'u1' } as const;
 const SERVICE = { type: 'service', keyName: 'bot' } as const;
@@ -30,6 +30,8 @@ function row(released: boolean) {
         name_en: null,
         kind: 'regular',
         videoUrl: null,
+        format: 'inPerson',
+        closedToPublic: false,
         administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
         city: { timezone: 'Europe/Athens' },
     };
@@ -41,6 +43,7 @@ function payload(released: boolean, editor: boolean | null) {
         name: 'Δημοτικό Συμβούλιο · Τακτική Συνεδρίαση · 12/05/2026',
         videoUrl: null,
         administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
+        publicRecording: true,
         editor,
     };
 }
@@ -102,5 +105,23 @@ describe('realm scoping', () => {
         // realm predicate is always present, so one realm can't read another's.
         const where = mockMeetingFindFirst.mock.calls[0][0].where;
         expect(where).toMatchObject({ cityId: 'athens', id: 'm1', city: { realm: 'greece' } });
+    });
+});
+
+describe('requirePublicTranscript', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [] });
+    });
+
+    it('lets everyone read the transcript of a meeting with a public recording', async () => {
+        await expect(requirePublicTranscript({ publicRecording: true }, 'athens', null)).resolves.toBeUndefined();
+    });
+
+    it('withholds the transcript of a closed meeting from readers, not from editors', async () => {
+        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', null)).rejects.toThrow(ForbiddenError);
+        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', USER)).rejects.toThrow(ForbiddenError);
+        mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [{ cityId: 'athens' }] });
+        await expect(requirePublicTranscript({ publicRecording: false }, 'athens', USER)).resolves.toBeUndefined();
     });
 });
