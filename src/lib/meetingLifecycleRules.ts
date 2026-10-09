@@ -10,6 +10,11 @@ export interface MeetingRecordState {
     kind: MeetingKind | null;
     sessionNumber: number | null;
     format: MeetingFormat | null;
+    closedToPublic: boolean;
+    youtubeUrl: string | null;
+    videoUrl: string | null;
+    audioUrl: string | null;
+    muxPlaybackId: string | null;
     postponedFromId: string | null;
     continuationOfId: string | null;
 }
@@ -29,6 +34,8 @@ export interface LifecycleContext {
     chainReachesSelf: boolean;
     continuationOf: { administrativeBodyId: string | null; continuationOfId: string | null; dateTime: Date } | 'missing' | null;
     continuations: Array<{ administrativeBodyId: string | null; dateTime: Date }>;
+    /** The meeting already has a transcript (speaker segments). */
+    hasTranscript: boolean;
 }
 
 export type LifecycleRuleCode =
@@ -50,6 +57,7 @@ export type LifecycleRuleCode =
     | 'partsOtherBody'
     | 'partsNotLater'
     | 'sessionNumberPositive'
+    | 'recordingExists'
     | 'reasonTooLong'
     | 'chainTooLong'
     | 'laterMeetingReleased'
@@ -175,6 +183,10 @@ export function hasPublicRecording(meeting: { format: MeetingFormat | null; clos
     return formatRules(meeting.format).publicRecording && !meeting.closedToPublic;
 }
 
+function hasMedia(meeting: Pick<MeetingRecordState, 'youtubeUrl' | 'videoUrl' | 'audioUrl' | 'muxPlaybackId'>): boolean {
+    return Boolean(meeting.youtubeUrl || meeting.videoUrl || meeting.audioUrl || meeting.muxPlaybackId);
+}
+
 /**
  * `hasPublicRecording` as a database filter. In SQL `format IN (…)` is not
  * true for a null format, so the null case is explicit.
@@ -262,6 +274,15 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     }
     if (ctx.continuations.some((part) => part.dateTime.getTime() <= next.dateTime.getTime())) {
         fail('partsNotLater', 'The first part must take place before its later parts.');
+    }
+
+    // A meeting closed to the public, or held by circulation, has no recording
+    // (#150). Once a meeting has media or a transcript, it cannot lose its
+    // public recording: the material is already in highlights, summaries,
+    // search and shared excerpts. Withdrawing published material is a
+    // separate step. A closed meeting cannot gain media either.
+    if (!hasPublicRecording(next) && (hasMedia(next) || ctx.hasTranscript)) {
+        fail('recordingExists', 'This meeting has a recording or a transcript, so it cannot be closed to the public or held by circulation.');
     }
 
     if (next.sessionNumber !== null && (!Number.isInteger(next.sessionNumber) || next.sessionNumber < 1)) {

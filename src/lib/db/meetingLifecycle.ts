@@ -109,7 +109,7 @@ async function showPredecessor(tx: Prisma.TransactionClient, cityId: string, pre
 }
 
 async function loadContext(client: Client, cityId: string, next: MeetingRecordState): Promise<LifecycleContext> {
-    const [body, postponedFrom, postponedFromTaken, postponedTo, continuationOf, continuations] = await Promise.all([
+    const [body, postponedFrom, postponedFromTaken, postponedTo, continuationOf, continuations, segment] = await Promise.all([
         next.administrativeBodyId
             ? client.administrativeBody.findFirst({ where: { id: next.administrativeBodyId, cityId }, select: { type: true } })
             : null,
@@ -127,6 +127,7 @@ async function loadContext(client: Client, cityId: string, next: MeetingRecordSt
             })
             : null,
         client.councilMeeting.findMany({ where: { cityId, continuationOfId: next.id }, select: { administrativeBodyId: true, dateTime: true } }),
+        client.speakerSegment.findFirst({ where: { cityId, meetingId: next.id }, select: { id: true } }),
     ]);
 
     const chainReachesSelf = postponedFrom
@@ -141,6 +142,7 @@ async function loadContext(client: Client, cityId: string, next: MeetingRecordSt
         chainReachesSelf,
         continuationOf: next.continuationOfId ? (continuationOf ?? 'missing') : null,
         continuations,
+        hasTranscript: segment !== null,
     };
 }
 
@@ -164,6 +166,11 @@ function newRecordState(data: NewMeetingRecord): MeetingRecordState {
         kind: data.kind ?? null,
         sessionNumber: data.sessionNumber ?? null,
         format: data.format ?? null,
+        closedToPublic: data.closedToPublic ?? false,
+        youtubeUrl: data.youtubeUrl ?? null,
+        videoUrl: null,
+        audioUrl: null,
+        muxPlaybackId: data.muxPlaybackId ?? null,
         postponedFromId: data.postponedFromId ?? null,
         continuationOfId: data.continuationOfId ?? null,
     };

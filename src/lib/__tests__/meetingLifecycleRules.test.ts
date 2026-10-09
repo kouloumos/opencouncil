@@ -20,6 +20,11 @@ function state(overrides: Partial<MeetingRecordState> = {}): MeetingRecordState 
         kind: 'regular',
         sessionNumber: null,
         format: 'inPerson',
+        closedToPublic: false,
+        youtubeUrl: null,
+        videoUrl: null,
+        audioUrl: null,
+        muxPlaybackId: null,
         postponedFromId: null,
         continuationOfId: null,
         ...overrides,
@@ -35,6 +40,7 @@ function context(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
         chainReachesSelf: false,
         continuationOf: null,
         continuations: [],
+        hasTranscript: false,
         ...overrides,
     };
 }
@@ -75,6 +81,26 @@ describe('validateMeetingRecord', () => {
 
     it('accepts an unstated kind and format on every body', () => {
         expect(codes(state({ kind: null, format: null }), context({ body: { type: 'community' } }))).toEqual([]);
+    });
+
+    describe('a recorded meeting keeps its public recording', () => {
+        it('refuses to close a meeting that has a transcript', () => {
+            expect(codes(state({ closedToPublic: true }), context({ hasTranscript: true }))).toEqual(['recordingExists']);
+        });
+
+        it('refuses to close a meeting that has media', () => {
+            expect(codes(state({ closedToPublic: true, muxPlaybackId: 'mux' }), context())).toEqual(['recordingExists']);
+            expect(codes(state({ closedToPublic: true, youtubeUrl: 'https://youtube.com/watch?v=x' }), context())).toEqual(['recordingExists']);
+        });
+
+        it('refuses a format without a recording on a recorded meeting', () => {
+            expect(codes(state({ format: 'byCirculation', audioUrl: 'https://x/a.mp3' }), context())).toEqual(['recordingExists']);
+        });
+
+        it('accepts a closed meeting with no recording, and a recorded meeting that stays public', () => {
+            expect(codes(state({ closedToPublic: true }), context())).toEqual([]);
+            expect(codes(state({ videoUrl: 'https://x/v.mp4' }), context({ hasTranscript: true }))).toEqual([]);
+        });
     });
 
     describe('postponement', () => {
