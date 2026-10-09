@@ -107,7 +107,7 @@ The SQL function `council_meeting_display_name` builds the same title for the No
 
 ### The archive
 
-The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The other new columns of an archive meeting stay at their defaults, and its stored name stays as an override. A later migration clears the `inPerson` format that the first one gave to the existing meetings. It keeps the format of a meeting that changed after the first migration. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
+The migration sets `kind = accountability` on the existing λογοδοσία meetings of a council, because the decision poller reads the kind. The kind and the format of an archive meeting stay null, and its stored name stays as an override. A later run of processAgenda over the archive will extract the kind, the session number and the format from each invitation.
 
 ## Sequence Diagram
 
