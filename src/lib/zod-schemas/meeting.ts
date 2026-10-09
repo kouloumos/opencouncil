@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
-import { SCHEDULE_STATUS_REASON_MAX_LENGTH } from '@/lib/meetingLifecycleRules';
+import { OFFERED_FORMATS, SCHEDULE_STATUS_REASON_MAX_LENGTH } from '@/lib/meetingLifecycleRules';
 
 /**
  * A name override. The name of a meeting is derived (src/lib/meetingName.ts),
@@ -52,7 +52,10 @@ export const meetingSchema = z.object({
     scheduleStatus: z.nativeEnum(MeetingScheduleStatus).optional(),
     scheduleStatusReason: optionalText(SCHEDULE_STATUS_REASON_MAX_LENGTH),
     sessionNumber: z.number().int().positive().nullable().optional(),
-    format: z.nativeEnum(MeetingFormat).nullable().optional(),
+    // By circulation waits for its page, as in the form and MCP.
+    format: z.nativeEnum(MeetingFormat)
+        .refine((format) => OFFERED_FORMATS.includes(format), { message: 'A meeting by circulation cannot be set yet.' })
+        .nullable().optional(),
     closedToPublic: z.boolean().optional(),
     place: optionalText(200),
     postponedFromId: z.string().min(1).nullable().optional(),

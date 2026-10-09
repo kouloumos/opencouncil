@@ -69,6 +69,14 @@ describe('meeting API routes', () => {
         expect(await put.json()).toMatchObject({ code: 'councilOnlyKind' })
     })
 
+    test('refuses a meeting by circulation, as the form and MCP do', async () => {
+        const created = await POST(request(`/api/cities/${CITY}/meetings`, {
+            date: '2026-03-19T16:00:00.000Z', administrativeBodyId: councilId, format: 'byCirculation',
+        }), cityParams)
+        expect(created.status).toBe(400)
+        expect(await prisma.councilMeeting.count({ where: { cityId: CITY } })).toBe(0)
+    })
+
     test('PUT keeps the fields that the request leaves out', async () => {
         await createMeeting(CITY, {
             id: 'm', dateTime: new Date('2026-03-12T16:00:00Z'), administrativeBodyId: councilId,

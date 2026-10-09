@@ -56,6 +56,11 @@ describe('meetingRequestFields', () => {
         expect(JSON.stringify(meetingRequestFields({ ...base, postponedFromId: 'none' }, { linkChanged: false }))).not.toContain('postponedFromId');
     });
 
+    it('does not send back a format that no form offers', () => {
+        expect(meetingRequestFields({ ...base, format: 'byCirculation' }, { linkChanged: false }).format).toBeUndefined();
+        expect(meetingRequestFields({ ...base, format: 'mixed' }, { linkChanged: false }).format).toBe('mixed');
+    });
+
     it('sends an unstated kind and format as null: «Από την πρόσκληση»', () => {
         const fields = meetingRequestFields({ ...base, kind: null, format: null }, { linkChanged: false });
         expect(fields.kind).toBeNull();

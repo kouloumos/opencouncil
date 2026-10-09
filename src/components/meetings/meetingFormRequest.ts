@@ -1,5 +1,5 @@
 import type { MeetingFormat, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
-import { takesPlace } from '@/lib/meetingLifecycleRules';
+import { OFFERED_FORMATS, takesPlace } from '@/lib/meetingLifecycleRules';
 
 /**
  * The id that the meeting form sends. PUT identifies the meeting by the URL,
@@ -35,6 +35,8 @@ export interface MeetingFormLifecycleValues {
  * reason belongs to a postponed or cancelled meeting only. The link to a
  * postponed meeting is sent only when the admin changed it: the page payload
  * of a meeting hides its link, so an untouched field may not hold the link.
+ * A format that no form offers (by circulation) is not sent back unchanged:
+ * the API refuses it, and the save must not fail over a field the admin left.
  */
 export function meetingRequestFields(values: MeetingFormLifecycleValues, { linkChanged }: { linkChanged: boolean }) {
     const text = (value: string | undefined) => value?.trim() || null;
@@ -46,7 +48,7 @@ export function meetingRequestFields(values: MeetingFormLifecycleValues, { linkC
         scheduleStatus: values.scheduleStatus,
         scheduleStatusReason: takesPlace(values) ? null : text(values.scheduleStatusReason),
         sessionNumber: number ? Number(number) : null,
-        format: values.format,
+        format: values.format === null || OFFERED_FORMATS.includes(values.format) ? values.format : undefined,
         closedToPublic: values.closedToPublic,
         place: text(values.place),
         postponedFromId: !linkChanged
