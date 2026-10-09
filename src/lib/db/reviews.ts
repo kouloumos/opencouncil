@@ -4,7 +4,7 @@ import prisma from './prisma';
 import { buildDateFilter } from './reviews/dateFilters';
 import { CUSTOMER_CITY_WHERE } from '../cityStatus';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { meetingLabel } from '@/lib/meetingName';
+import { meetingDisplayName, meetingLabel } from '@/lib/meetingName';
 
 // ============================================================================
 // SHARED PRISMA PATTERNS
@@ -998,7 +998,8 @@ export async function getMeetingsNeedingReview(filters: ReviewFilterOptions = {}
       cityId: m.cityId,
       cityName: m.city.name,
       administrativeBodyName: m.administrativeBody?.name ?? null,
-      meetingName: meetingLabel(m, 'el', m.city.timezone),
+      // The table shows the body and the date in their own lines.
+      meetingName: meetingDisplayName(m, 'el', m.city.timezone),
       meetingDate: m.dateTime,
       status,
       ...stats,

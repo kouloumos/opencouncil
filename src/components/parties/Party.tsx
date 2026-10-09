@@ -296,7 +296,8 @@ function SegmentsTab({
                                     }}
                                     speaker={contribution.speaker}
                                     contextHeader={{
-                                        meetingName: meetingLabel(contribution.subject.councilMeeting, 'el', timezone),
+                                        // The card prints the date next to it.
+                                        meetingName: meetingLabel(contribution.subject.councilMeeting, 'el', timezone, { date: false }),
                                         adminBodyName: contribution.subject.councilMeeting.administrativeBody?.name ?? null,
                                         meetingDate: contribution.subject.councilMeeting.dateTime,
                                         subjectName: contribution.subject.name,

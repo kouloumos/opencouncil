@@ -134,6 +134,17 @@ export function meetingLabelInCity(
 }
 
 /**
+ * `meetingLabel` with the date once, for a reader that must show the date: a
+ * feed item. A derived label carries the date, after the title or inside it
+ * («Συνεδρίαση 12/03/2026»). A name override may not, so the date follows it.
+ */
+export function meetingDatedLabel(meeting: MeetingNameFields, locale: string, timezone: string): string {
+    const label = meetingLabel(meeting, locale, timezone);
+    const date = meetingDate(meeting, locale, timezone);
+    return label.includes(date) ? label : `${label} · ${date}`;
+}
+
+/**
  * Whether a name is one that the platform derives for this meeting: its
  * label or its title, with or without the date. Such a name is no override.
  * The API returns the label in `name`, so a client that writes back the name

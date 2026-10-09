@@ -1,5 +1,5 @@
 import { MeetingKind } from '@prisma/client';
-import { isDerivedName, meetingDisplayName, meetingLabel, type MeetingNameFields } from '../meetingName';
+import { isDerivedName, meetingDatedLabel, meetingDisplayName, meetingLabel, type MeetingNameFields } from '../meetingName';
 
 const ATHENS = 'Europe/Athens';
 const council = { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' };
@@ -122,5 +122,14 @@ describe('isDerivedName', () => {
         expect(isDerivedName('3η Τακτική', named, 'el', ATHENS)).toBe(true);
         expect(isDerivedName('Ειδική για το Λιμάνι', named, 'el', ATHENS)).toBe(false);
         expect(isDerivedName('Δημοτικό Συμβούλιο · 3η Τακτική · 19/03/2026', regular, 'el', ATHENS)).toBe(false);
+    });
+});
+
+describe('meetingDatedLabel', () => {
+    it('prints the date once, also for a null kind and for an override', () => {
+        expect(meetingDatedLabel(meeting({ sessionNumber: 3 }), 'el', ATHENS)).toBe('Δημοτικό Συμβούλιο · 3η Τακτική · 12/03/2026');
+        expect(meetingDatedLabel(meeting({ kind: null }), 'el', ATHENS)).toBe('Δημοτικό Συμβούλιο · Συνεδρίαση 12/03/2026');
+        expect(meetingDatedLabel(meeting({ name: 'Ειδική για το Λιμάνι' }), 'el', ATHENS)).toBe('Ειδική για το Λιμάνι · 12/03/2026');
+        expect(meetingDatedLabel(meeting({ name: 'Δημοτικό Συμβούλιο 12/03/2026' }), 'el', ATHENS)).toBe('Δημοτικό Συμβούλιο 12/03/2026');
     });
 });

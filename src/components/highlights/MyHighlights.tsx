@@ -7,7 +7,7 @@ import { generateHighlightFileName } from "@/lib/export/download";
 import type { HighlightWithMeetingAndStatistics, MyHighlights as MyHighlightsData } from "@/lib/db/highlights";
 import { HighlightsGrid } from "./HighlightsGrid";
 import type { HighlightCardData } from "./HighlightCard";
-import { meetingLabelInCity } from '@/lib/meetingName';
+import { meetingNameInCity } from '@/lib/meetingName';
 
 function toCardData(highlight: HighlightWithMeetingAndStatistics): HighlightCardData {
     return {
@@ -95,7 +95,7 @@ export async function MyHighlights({ highlights, truncated }: MyHighlightsData) 
                         )}
                         <div className="min-w-0">
                             <h2 className="font-semibold truncate">
-                                {meetingLabelInCity(meeting, locale)}
+                                {meetingNameInCity(meeting, locale)}
                             </h2>
                             <p className="text-sm text-muted-foreground truncate">
                                 {[

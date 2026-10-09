@@ -28,7 +28,7 @@ import Link from "next/link";
 import { MeetingTimeline } from "@/components/meetings/MeetingTimeline";
 import { getPollingHistoryForMeeting } from "@/lib/tasks/pollDecisions";
 import { DEFAULT_TIMEZONE, formatNumericDate } from '@/lib/formatters/time';
-import { meetingLabel } from '@/lib/meetingName';
+import { meetingDisplayName } from '@/lib/meetingName';
 
 interface ExpandableMeetingRowProps {
     meeting: CouncilMeetingWithAdminBodyAndSubjects;
@@ -52,7 +52,8 @@ export function ExpandableMeetingRow({
     const [pollingFetched, setPollingFetched] = React.useState(false);
     const subjectCount = meeting.subjects.length;
     // The admin table spans cities and has no city timezone at hand.
-    const displayName = meetingLabel(meeting, 'el', DEFAULT_TIMEZONE);
+    // The row shows the date and the body in their own lines.
+    const displayName = meetingDisplayName(meeting, 'el', DEFAULT_TIMEZONE);
     const meetingDate = format(new Date(meeting.dateTime), "MMM dd, yyyy");
 
     const fetchCompleteMeetingData = async (): Promise<MeetingDataCore> => {

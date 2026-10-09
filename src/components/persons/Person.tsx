@@ -371,7 +371,8 @@ export default function PersonC({ city, person, parties, administrativeBodies, s
                                             }}
                                             speaker={contribution.speaker}
                                             contextHeader={{
-                                                meetingName: meetingLabel(contribution.subject.councilMeeting, locale, city.timezone),
+                                                // The card prints the date next to it.
+                                                meetingName: meetingLabel(contribution.subject.councilMeeting, locale, city.timezone, { date: false }),
                                                 adminBodyName: contribution.subject.councilMeeting.administrativeBody?.name ?? null,
                                                 meetingDate: contribution.subject.councilMeeting.dateTime,
                                                 subjectName: contribution.subject.name,
