@@ -202,7 +202,7 @@ describe('getBackoffState', () => {
 describe('takesNoDecisions', () => {
     it('reads the kind, not the name', () => {
         expect(takesNoDecisions({ kind: 'accountability' })).toBe(true);
-        expect(takesNoDecisions({ kind: 'annualReport' })).toBe(true);
+        expect(takesNoDecisions({ kind: 'activityReport' })).toBe(true);
         expect(takesNoDecisions({ kind: 'regular' })).toBe(false);
         expect(takesNoDecisions({ kind: 'budget' })).toBe(false);
     });
@@ -213,7 +213,7 @@ describe('takesNoDecisions', () => {
     });
 
     it('reads the kind of the first part for a later part', () => {
-        expect(takesNoDecisions({ kind: null, continuationOf: { kind: 'annualReport' } })).toBe(true);
+        expect(takesNoDecisions({ kind: null, continuationOf: { kind: 'activityReport' } })).toBe(true);
         expect(takesNoDecisions({ kind: null, continuationOf: { kind: 'regular' } })).toBe(false);
         expect(takesNoDecisions({ kind: null, continuationOf: { kind: null } })).toBe(false);
     });

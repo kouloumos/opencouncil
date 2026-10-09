@@ -48,7 +48,7 @@ describe('validateMeetingRecord', () => {
 
     it('keeps every special meeting for the council', () => {
         const committee = context({ body: { type: 'committee' } });
-        for (const kind of ['accountability', 'annualReport', 'budget', 'presidencyElection'] as const) {
+        for (const kind of ['accountability', 'activityReport', 'budget', 'presidencyElection'] as const) {
             expect(codes(state({ kind }), committee)).toEqual(['councilOnlyKind']);
             expect(codes(state({ kind }), context({ body: { type: 'community' } }))).toEqual(['councilOnlyKind']);
         }

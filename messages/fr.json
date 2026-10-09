@@ -371,7 +371,7 @@
         "regular": "Ordinaire",
         "urgent": "Extraordinaire",
         "accountability": "Spéciale : reddition de comptes",
-        "annualReport": "Spéciale : rapport annuel",
+        "activityReport": "Spéciale : bilan d’activité",
         "budget": "Spéciale : budget",
         "presidencyElection": "Spéciale : élection du bureau"
     },

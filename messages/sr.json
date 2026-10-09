@@ -352,7 +352,7 @@
             "regular": "Редовна",
             "urgent": "Хитна",
             "accountability": "Посебна: полагање рачуна",
-            "annualReport": "Посебна: годишњи извештај",
+            "activityReport": "Посебна: извештај о раду",
             "budget": "Посебна: буџет",
             "presidencyElection": "Посебна: избор председништва"
         },

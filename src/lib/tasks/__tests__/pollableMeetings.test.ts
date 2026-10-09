@@ -57,8 +57,8 @@ describe("partitionMeetingsForPolling", () => {
     it("skips an απολογισμός meeting and a later part of one", () => {
         const result = partitionMeetingsForPolling(
             [
-                { id: "m1", name: "Απολογισμός", kind: "annualReport", scheduleStatus: "scheduled" as const },
-                { id: "m2", name: "Απολογισμός (συνέχεια)", kind: null, continuationOf: { kind: "annualReport" }, scheduleStatus: "scheduled" as const },
+                { id: "m1", name: "Απολογισμός", kind: "activityReport", scheduleStatus: "scheduled" as const },
+                { id: "m2", name: "Απολογισμός (συνέχεια)", kind: null, continuationOf: { kind: "activityReport" }, scheduleStatus: "scheduled" as const },
             ],
             { m1: { linked: 0, eligible: 2 }, m2: { linked: 0, eligible: 2 } },
         );
@@ -166,7 +166,7 @@ describe("orderForPolling", () => {
 
     it("reads the kind of a first part that a filter hides from the selection", () => {
         const city = [
-            { id: "first", kind: "annualReport" as const, continuationOfId: null },
+            { id: "first", kind: "activityReport" as const, continuationOfId: null },
             { id: "second", kind: null, continuationOfId: "first" },
             { id: "regular-part", kind: null, continuationOfId: "gone" },
         ];

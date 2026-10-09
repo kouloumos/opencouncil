@@ -47,7 +47,7 @@ describe('findDecisionPollCandidates', () => {
         const { gte } = getPollableMeetingDateRange()
         const day = 24 * 60 * 60 * 1000
 
-        await pollableMeeting('apologismos', { name: null, kind: 'annualReport', administrativeBodyId })
+        await pollableMeeting('apologismos', { name: null, kind: 'activityReport', administrativeBodyId })
         await pollableMeeting('budget', { name: null, kind: 'budget', administrativeBodyId })
         const first = await createMeeting('c1', { id: 'logodosia-1', dateTime: new Date(gte.getTime() + day), kind: 'accountability', administrativeBodyId })
         const part = await createMeeting('c1', { id: 'logodosia-2', dateTime: new Date(gte.getTime() + 2 * day), kind: null, continuationOfId: first.id, administrativeBodyId })

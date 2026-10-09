@@ -114,7 +114,7 @@ export const MEETING_KINDS = {
     regular: { councilOnly: false, takesDecisions: true },
     urgent: { councilOnly: false, takesDecisions: true },
     accountability: { councilOnly: true, takesDecisions: false },
-    annualReport: { councilOnly: true, takesDecisions: false },
+    activityReport: { councilOnly: true, takesDecisions: false },
     budget: { councilOnly: true, takesDecisions: true },
     presidencyElection: { councilOnly: true, takesDecisions: true },
 } as const satisfies Record<MeetingKind, {

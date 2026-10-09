@@ -352,7 +352,7 @@
             "regular": "Regular",
             "urgent": "Urgent",
             "accountability": "Special: accountability",
-            "annualReport": "Special: annual report",
+            "activityReport": "Special: activity report",
             "budget": "Special: budget",
             "presidencyElection": "Special: presidency election"
         },

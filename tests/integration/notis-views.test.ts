@@ -34,6 +34,16 @@ const TITLE_MIGRATION_PATH = path.join(
     __dirname,
     '../../prisma/migrations/20261009120000_meeting_title/migration.sql',
 )
+const ACTIVITY_REPORT_MIGRATION_PATH = path.join(
+    __dirname,
+    '../../prisma/migrations/20261009140000_meeting_kind_activity_report/migration.sql',
+)
+
+/** A migration from before the kind value was renamed. `db push` creates the
+ *  enum with its current value names, so the old SQL names the value that way. */
+function historicalSql(migrationPath: string): string {
+    return fs.readFileSync(migrationPath, 'utf8').replaceAll("'annualReport'", "'activityReport'")
+}
 
 /** The consumer's half of the contract: the Prisma models Notis reads the
  *  views through. Kept in a separate file from the SQL that defines them,
@@ -84,14 +94,21 @@ async function applyNotisMigration() {
     // The meeting lifecycle migration redefines notis_meeting_events. The rest
     // of that migration adds columns that `db push` already created, so only
     // the derived-name function and the view are replayed.
-    for (const statement of splitSqlStatements(fs.readFileSync(LIFECYCLE_MIGRATION_PATH, 'utf8'))) {
+    for (const statement of splitSqlStatements(historicalSql(LIFECYCLE_MIGRATION_PATH))) {
         if (/CREATE OR REPLACE (FUNCTION council_meeting_display_name|VIEW "notis_meeting_events")/.test(statement)) {
             await prisma.$executeRawUnsafe(statement)
         }
     }
     // The title migration replaces that function and the view again.
-    for (const statement of splitSqlStatements(fs.readFileSync(TITLE_MIGRATION_PATH, 'utf8'))) {
+    for (const statement of splitSqlStatements(historicalSql(TITLE_MIGRATION_PATH))) {
         if (/CREATE OR REPLACE (FUNCTION council_meeting_display_name|VIEW "notis_meeting_events")|DROP FUNCTION council_meeting_display_name/.test(statement)) {
+            await prisma.$executeRawUnsafe(statement)
+        }
+    }
+    // The activity report migration replaces the function once more. `db push`
+    // already named the kind value.
+    for (const statement of splitSqlStatements(fs.readFileSync(ACTIVITY_REPORT_MIGRATION_PATH, 'utf8'))) {
+        if (/CREATE OR REPLACE FUNCTION council_meeting_display_name/.test(statement)) {
             await prisma.$executeRawUnsafe(statement)
         }
     }
