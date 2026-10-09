@@ -15,15 +15,20 @@ const MIGRATION = path.join(
 /** The test database is built with `prisma db push`, which knows nothing of
  *  the hand-written parts of the migration. Replay those parts: the named
  *  checks, and (on demand) the λογοδοσία kind backfill. */
-function migrationStatements(match: RegExp): string[] {
-    const sql = fs.readFileSync(MIGRATION, 'utf8')
+const MEMORY_CHECK_MIGRATION = path.join(
+    __dirname,
+    '../../prisma/migrations/20261009150000_postponement_memory_check/migration.sql',
+)
+
+function migrationStatements(match: RegExp, migration: string = MIGRATION): string[] {
+    const sql = fs.readFileSync(migration, 'utf8')
     return splitSqlStatements(sql)
         .map((s) => s.replace(/^\s*--.*$/gm, '').trim())
         .filter((s) => match.test(s))
 }
 
 async function addNamedChecks() {
-    for (const statement of migrationStatements(/CHECK \(/)) {
+    for (const statement of [...migrationStatements(/CHECK \(/), ...migrationStatements(/CHECK \(/, MEMORY_CHECK_MIGRATION)]) {
         await prisma.$executeRawUnsafe(statement)
     }
 }
@@ -58,6 +63,7 @@ describe('meeting lifecycle schema', () => {
             ORDER BY conname`
         expect(rows.map((r) => r.conname)).toEqual(expect.arrayContaining([
             'CouncilMeeting_continuation_owns_nothing',
+            'CouncilMeeting_hidden_by_postponement_not_released',
             'CouncilMeeting_not_own_continuationOf',
             'CouncilMeeting_not_own_postponedFrom',
             'CouncilMeeting_sessionNumber_positive',
@@ -68,6 +74,7 @@ describe('meeting lifecycle schema', () => {
         ['a session number of zero', { sessionNumber: 0 }],
         ['a postponement link to itself', { postponedFromId: 'm1' }],
         ['a continuation link to itself', { continuationOfId: 'm1' }],
+        ['a public meeting that a release hid', { released: true, hiddenByPostponement: true }],
     ])('the database refuses %s', async (_label, data) => {
         await createCity({ id: 'c1' })
         await expect(createMeeting('c1', { id: 'm1', ...data })).rejects.toThrow()
