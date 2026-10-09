@@ -7,6 +7,7 @@ import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import { createCityDirect } from '@/lib/db/citiesAdmin';
 import { populateCity, type CityPopulationData } from '@/lib/db/cityPopulate';
 import { createMeetingWithEffects, updateMeetingWithEffects, type MeetingDetailsEdit } from '@/lib/meetingWrites';
+import { pickRecordInput, type MeetingRecordInput } from '@/lib/meetingLifecycleRules';
 import { startMeetingTask, type MeetingTaskRequest } from '@/lib/tasks/startMeetingTask';
 import { constructPublicUrl, generatePresignedUrl } from '@/lib/s3';
 import { revalidateAfterResponse } from '@/lib/cache/afterResponse';
@@ -49,7 +50,8 @@ export async function mcpCreateMeeting(
         agendaUrl?: string;
         administrativeBodyId?: string;
         processAgenda: boolean;
-    }
+        postponedFromId?: string;
+    } & MeetingRecordInput
 ) {
     await requireCityAdmin(identity, args.cityId);
     await requireRealmCity(args.cityId);
@@ -65,6 +67,8 @@ export async function mcpCreateMeeting(
         agendaUrl: args.agendaUrl,
         administrativeBodyId: args.administrativeBodyId,
         processAgenda: args.processAgenda,
+        postponedFromId: args.postponedFromId,
+        ...pickRecordInput(args),
     });
 
     return {
@@ -92,7 +96,7 @@ export async function mcpUpdateMeeting(
         youtubeUrl?: string | null;
         agendaUrl?: string | null;
         administrativeBodyId?: string | null;
-    }
+    } & MeetingRecordInput
 ) {
     await requireCityAdmin(identity, args.cityId);
     // Realm-scoped, and an administrator of the city passes it for a draft.
@@ -101,13 +105,17 @@ export async function mcpUpdateMeeting(
         await requireCityBodies(args.cityId, [args.administrativeBodyId]);
     }
 
+    // Clearing the name clears its English form too, unless the call sets one:
+    // a derived name never shows an English override of the old name.
+    const nameEn = args.name_en !== undefined ? args.name_en : args.name === null ? null : undefined;
     const edit: MeetingDetailsEdit = {
         ...(args.name !== undefined && { name: args.name }),
-        ...(args.name_en !== undefined && { name_en: args.name_en }),
+        ...(nameEn !== undefined && { name_en: nameEn }),
         ...(args.dateTime !== undefined && { dateTime: new Date(args.dateTime) }),
         ...(args.youtubeUrl !== undefined && { youtubeUrl: args.youtubeUrl }),
         ...(args.agendaUrl !== undefined && { agendaUrl: args.agendaUrl }),
         ...(args.administrativeBodyId !== undefined && { administrativeBodyId: args.administrativeBodyId }),
+        ...pickRecordInput(args),
     };
     if (Object.keys(edit).length === 0) {
         throw new BadRequestError('Nothing to update: pass at least one field to change.');

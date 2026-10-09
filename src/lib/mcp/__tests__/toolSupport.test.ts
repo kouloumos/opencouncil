@@ -9,7 +9,7 @@ describe('run', () => {
         });
         expect(result).toEqual({
             isError: true,
-            content: [{ type: 'text', text: 'A later meeting of this postponement is public. Unrelease it first.' }],
+            content: [{ type: 'text', text: 'A later meeting of this postponement is public. Unrelease it first. (rule: laterMeetingReleased)' }],
         });
     });
 });

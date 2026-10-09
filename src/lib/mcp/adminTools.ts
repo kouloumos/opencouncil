@@ -1,6 +1,6 @@
 import { z } from 'zod4';
 import { z as z3 } from 'zod';
-import { AuthorityType } from '@prisma/client';
+import { AuthorityType, MeetingKind, MeetingScheduleStatus } from '@prisma/client';
 import type { McpServer, ServerContext } from '@modelcontextprotocol/server';
 import { identityFromContext } from './auth';
 import type { McpAdminAccess } from './adminAccess';
@@ -16,9 +16,35 @@ import { category, run, toolSchema } from './toolSupport';
 import { STARTABLE_MEETING_TASKS } from '@/lib/tasks/startableTasks';
 import { baseCityFields, cityIdSchema } from '@/lib/zod-schemas/city';
 import { cityPopulationSchema } from '@/lib/zod-schemas/cityPopulation';
+import { OFFERED_FORMATS, SCHEDULE_STATUS_REASON_MAX_LENGTH, type MEETING_RECORD_INPUT_KEYS } from '@/lib/meetingLifecycleRules';
 
 const isoDateTime = z.iso.datetime({ offset: true })
     .describe('ISO 8601 date and time with a UTC offset, e.g. "2026-10-05T18:00:00+03:00"');
+
+/**
+ * The record of a meeting, as the municipality announces it. Both meeting
+ * tools take the same fields; the write path checks the rules of the record.
+ * The link to a postponed meeting is not here: create_meeting adds it, and
+ * update_meeting never changes it, because a new link changes which meetings
+ * the public sees.
+ */
+const meetingRecordInput = {
+    kind: z.enum(MeetingKind).nullable().optional()
+        .describe('The kind that the invitation prints: regular (Τακτική), urgent (Έκτακτη), accountability '
+            + '(Ειδική Λογοδοσίας), annualReport, budget, presidencyElection. Defaults to regular on create. '
+            + 'accountability and annualReport belong to a council only. Null means unknown'),
+    sessionNumber: z.number().int().positive().nullable().optional()
+        .describe('The session number that the invitation prints, e.g. 3 for «3η Τακτική». Never compute it'),
+    scheduleStatus: z.enum(MeetingScheduleStatus).optional()
+        .describe('scheduled, postponed or cancelled. A postponed or cancelled meeting stays public with its status'),
+    scheduleStatusReason: z.string().max(SCHEDULE_STATUS_REASON_MAX_LENGTH).nullable().optional()
+        .describe('Why the meeting was postponed or cancelled, as the municipality says it'),
+    format: z.enum(OFFERED_FORMATS).optional().describe('How the meeting takes place. Defaults to inPerson'),
+    closedToPublic: z.boolean().optional()
+        .describe('The council decided to meet behind closed doors: no stream and no transcription'),
+    place: z.string().max(200).nullable().optional()
+        .describe('Where the meeting takes place, when it is not the usual hall of the body'),
+} satisfies Record<(typeof MEETING_RECORD_INPUT_KEYS)[number], z.ZodType>;
 
 /**
  * The admin suite. The access decides what is registered, and so what is
@@ -50,8 +76,9 @@ function registerMeetingAdminTools(server: McpServer) {
             inputSchema: z.object({
                 cityId: z.string().min(1),
                 name: z.string().min(2).optional()
-                    .describe('Omit it: the site derives the name from the body, the kind and the date. '
-                        + 'Set it only for a meeting that needs a special name, in the language of the city'),
+                    .describe('Omit it: the site derives the title from the kind and the session number, '
+                        + 'and shows the body and the date next to it. Set it only for a meeting that needs '
+                        + 'a special name, in the language of the city'),
                 name_en: z.string().min(2).optional()
                     .describe('The English form of a special name. Omit it, as name'),
                 dateTime: isoDateTime,
@@ -61,6 +88,10 @@ function registerMeetingAdminTools(server: McpServer) {
                     .describe('The body that meets (council, committee, community). See get_city'),
                 processAgenda: z.boolean().default(false)
                     .describe('Also queue the task that extracts the subjects from the agenda PDF. Needs agendaUrl'),
+                ...meetingRecordInput,
+                postponedFromId: z.string().min(1).optional()
+                    .describe('The id of the postponed meeting that this new meeting replaces. When this meeting '
+                        + 'is released, the postponed meeting is no longer public'),
             }),
         },
         (args, ctx: ServerContext) => run(() => mcpCreateMeeting(identityFromContext(ctx), args))
@@ -74,10 +105,12 @@ function registerMeetingAdminTools(server: McpServer) {
             _meta: category('admin'),
             description:
                 'Change the details of a meeting in a municipality that you administer: name, date, video URL, '
-                + 'agenda URL or administrative body. A field that you omit stays as it is. Pass null to clear '
-                + 'youtubeUrl, agendaUrl or administrativeBodyId, and to clear a special name, so that the site '
-                + 'derives the name again. It cannot release a meeting and it cannot '
-                + 'delete one. Confirm the change with the user before you call.',
+                + 'agenda URL, administrative body, kind, session number, status, format or place. A field that '
+                + 'you omit stays as it is. Pass null to clear youtubeUrl, agendaUrl or administrativeBodyId, and '
+                + 'to clear a special name (both languages), so that the site derives the name again. Mark a '
+                + 'meeting postponed or cancelled with scheduleStatus. It cannot link a meeting to a postponed '
+                + 'meeting, it cannot release a meeting and it cannot delete one. Confirm the change with the '
+                + 'user before you call.',
             inputSchema: z.object({
                 cityId: z.string().min(1),
                 meetingId: z.string().min(1),
@@ -87,6 +120,7 @@ function registerMeetingAdminTools(server: McpServer) {
                 youtubeUrl: z.url().nullable().optional(),
                 agendaUrl: z.url().nullable().optional(),
                 administrativeBodyId: z.string().min(1).nullable().optional(),
+                ...meetingRecordInput,
             }),
         },
         (args, ctx: ServerContext) => run(() => mcpUpdateMeeting(identityFromContext(ctx), args))

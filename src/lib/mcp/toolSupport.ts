@@ -22,9 +22,13 @@ export async function run(fn: () => Promise<unknown>): Promise<CallToolResult> {
     try {
         return json(await fn());
     } catch (error) {
-        // A broken lifecycle rule of a meeting explains itself, like an ApiError.
-        if (error instanceof ApiError || error instanceof LifecycleRuleError) {
+        if (error instanceof ApiError) {
             return errorResult(error.message);
+        }
+        // A broken lifecycle rule of a meeting explains itself, and its code
+        // names the rule, as the 422 of the REST API does.
+        if (error instanceof LifecycleRuleError) {
+            return errorResult(`${error.message} (rule: ${error.code})`);
         }
         console.error('MCP tool error:', error);
         return errorResult('Internal error');
