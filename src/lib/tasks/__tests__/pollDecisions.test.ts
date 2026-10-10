@@ -254,6 +254,7 @@ describe('getPollableMeetingDateRange', () => {
 
 describe('pollCadence', () => {
     const input = (over: Partial<Parameters<typeof pollCadence>[0]> = {}) => ({
+        noDecisions: false,
         canPoll: true,
         pollInFlight: false,
         ...over,
@@ -269,6 +270,10 @@ describe('pollCadence', () => {
 
     it('reports a poll in flight', () => {
         expect(pollCadence(input({ pollInFlight: true }))).toEqual({ kind: 'running' });
+    });
+
+    it('offers no poll for a meeting that takes no decisions, even one in flight', () => {
+        expect(pollCadence(input({ noDecisions: true, pollInFlight: true }))).toEqual({ kind: 'noDecisions' });
     });
 
     it('offers the poll in every other state', () => {

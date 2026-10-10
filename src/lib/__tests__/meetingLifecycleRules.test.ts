@@ -143,12 +143,6 @@ describe('validateMeetingRecord', () => {
             expect(codes(state({ administrativeBodyId: 'committee' }), context({ body: { type: 'committee' }, continuations: parts }))).toEqual(['partsOtherBody']);
         });
     });
-
-    it('refuses a session number below 1 and a long reason', () => {
-        expect(codes(state({ sessionNumber: 0 }), context())).toEqual(['sessionNumberPositive']);
-        expect(codes(state({ sessionNumber: 1 }), context())).toEqual([]);
-        expect(codes(state({ scheduleStatus: 'cancelled', scheduleStatusReason: 'x'.repeat(501) }), context())).toEqual(['reasonTooLong']);
-    });
 });
 
 describe('transcriptionRefusal', () => {

@@ -1,7 +1,7 @@
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
 import { localCalendarDate } from '../formatters/time';
-import { takesNoDecisions } from '@/lib/tasks/pollDecisionsBackoff';
+import { DECISION_KIND_SELECT, takesNoDecisions } from '@/lib/tasks/pollDecisionsBackoff';
 import { DECISION_ELIGIBLE_SUBJECT_WHERE } from './decisionEligibility';
 import { CUSTOMER_CITY_WHERE } from '../cityStatus';
 import { getConflictingCandidates } from './decisionCandidates';
@@ -74,8 +74,8 @@ type CityFacts = Prisma.CityGetPayload<{ select: typeof cityFactsSelect }>;
 type BodyFacts = CityFacts['administrativeBodies'][number];
 
 const meetingFactsSelect = {
-    id: true, cityId: true, administrativeBodyId: true, name: true, name_en: true, kind: true, sessionNumber: true, dateTime: true,
-    continuationOf: { select: { kind: true } },
+    id: true, cityId: true, administrativeBodyId: true, name: true, name_en: true, sessionNumber: true, dateTime: true,
+    ...DECISION_KIND_SELECT,
     administrativeBody: { select: { name: true, name_en: true } },
     subjects: {
         where: DECISION_ELIGIBLE_SUBJECT_WHERE,

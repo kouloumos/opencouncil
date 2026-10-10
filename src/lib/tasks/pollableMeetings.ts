@@ -15,22 +15,6 @@ export interface MeetingPollEligibility {
     skipReason: PollSkipReason | null;
 }
 
-/**
- * The kind of every meeting of the city, by id. A later part reads the kind
- * of its first part from it, even when a filter hides the first part.
- */
-export function kindsById(meetings: { id: string; kind: MeetingKind | null }[]): ReadonlyMap<string, MeetingKind | null> {
-    return new Map(meetings.map((m) => [m.id, m.kind]));
-}
-
-/** The first part of a later part, as `takesNoDecisions` reads it. */
-export function firstPartOf(
-    meeting: { continuationOfId: string | null },
-    kinds: ReadonlyMap<string, MeetingKind | null>,
-): { kind: MeetingKind | null } | null {
-    return meeting.continuationOfId ? { kind: kinds.get(meeting.continuationOfId) ?? null } : null;
-}
-
 export interface PollPartition {
     pollable: MeetingPollEligibility[];
     skipped: MeetingPollEligibility[];

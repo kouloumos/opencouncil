@@ -12,6 +12,7 @@ import {
     type MeetingRecordState,
 } from '@/lib/meetingLifecycleRules';
 import type { CouncilMeetingWithAdminBody } from './meetings';
+import { DECISION_KIND_SELECT } from '@/lib/tasks/pollDecisionsBackoff';
 
 type Client = Prisma.TransactionClient | PrismaClient;
 
@@ -39,7 +40,10 @@ const chainSelect = {
 } satisfies Prisma.CouncilMeetingSelect;
 type ChainRow = Prisma.CouncilMeetingGetPayload<{ select: typeof chainSelect }>;
 
-const withAdminBody = { administrativeBody: true } satisfies Prisma.CouncilMeetingInclude;
+const withAdminBody = {
+    administrativeBody: true,
+    continuationOf: DECISION_KIND_SELECT.continuationOf,
+} satisfies Prisma.CouncilMeetingInclude;
 
 function chainTooLong(): LifecycleRuleError {
     return new LifecycleRuleError('chainTooLong', `A postponement chain is longer than ${MAX_CHAIN_LENGTH} meetings.`);
@@ -189,7 +193,6 @@ export async function updateMeetingRecord(
     cityId: string,
     id: string,
     patch: Partial<MeetingRecordFields>,
-    { tx }: { tx?: Prisma.TransactionClient } = {},
 ): Promise<CouncilMeetingWithAdminBody> {
     const run = async (client: Prisma.TransactionClient) => {
         const current = await client.councilMeeting.findUnique({ where: { cityId_id: { cityId, id } } });
@@ -216,7 +219,7 @@ export async function updateMeetingRecord(
         }
         return meeting;
     };
-    return tx ? run(tx) : prisma.$transaction(run);
+    return prisma.$transaction(run);
 }
 
 /**

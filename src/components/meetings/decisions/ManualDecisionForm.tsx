@@ -36,7 +36,8 @@ export function ManualDecisionForm({ subjectLabel, uploadConfig, initial, onCont
     uploadConfig: UploadConfig;
     initial: ManualDecisionEntry | null;
     onContinue: (entry: ManualDecisionEntry) => void;
-    onUseAda: (ada: string) => void;
+    /** Absent when the meeting takes no decisions: no ΑΔΑ search can find one. */
+    onUseAda?: (ada: string) => void;
     onBack: () => void;
     /** Closes the panel. */
     onClose: () => void;
@@ -74,7 +75,7 @@ export function ManualDecisionForm({ subjectLabel, uploadConfig, initial, onCont
                         onUrlChange={field.onChange} config={uploadConfig} accept="application/pdf,.pdf" />
                 )} />
                 {errors.pdfUrl && <p className="text-xs text-destructive">{t('panel.manualPdfRequired')}</p>}
-                {pastedAda && (
+                {pastedAda && onUseAda && (
                     <p className="text-xs">
                         {t('panel.manualDiavgeiaLink', { ada: pastedAda })}{' '}
                         <QuietButton onClick={() => onUseAda(pastedAda)}>{t('panel.manualUseAda')}</QuietButton>

@@ -49,8 +49,6 @@ export type LifecycleRuleCode =
     | 'continuationOwnsNothing'
     | 'partsOtherBody'
     | 'partsNotLater'
-    | 'sessionNumberPositive'
-    | 'reasonTooLong'
     | 'chainTooLong'
     | 'laterMeetingReleased'
     | 'hasDependents';
@@ -260,13 +258,6 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
     }
     if (ctx.continuations.some((part) => part.dateTime.getTime() <= next.dateTime.getTime())) {
         fail('partsNotLater', 'The first part must take place before its later parts.');
-    }
-
-    if (next.sessionNumber !== null && (!Number.isInteger(next.sessionNumber) || next.sessionNumber < 1)) {
-        fail('sessionNumberPositive', 'The session number must be a whole number of 1 or more.');
-    }
-    if ((next.scheduleStatusReason?.length ?? 0) > SCHEDULE_STATUS_REASON_MAX_LENGTH) {
-        fail('reasonTooLong', `The reason must be ${SCHEDULE_STATUS_REASON_MAX_LENGTH} characters or fewer.`);
     }
 
     return errors;

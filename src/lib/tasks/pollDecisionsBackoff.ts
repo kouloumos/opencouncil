@@ -20,6 +20,12 @@ export function takesNoDecisions(meeting: { kind: MeetingKind | null; continuati
     return kind !== null && !MEETING_KINDS[kind].takesDecisions;
 }
 
+/** The fields `takesNoDecisions` reads. An `include` takes its `continuationOf`. */
+export const DECISION_KIND_SELECT = {
+    kind: true,
+    continuationOf: { select: { kind: true } },
+} satisfies Prisma.CouncilMeetingSelect;
+
 /**
  * The database form of `!takesNoDecisions`. `kind` is nullable, and in SQL
  * `kind NOT IN (…)` is not true for a null kind, so a bare `notIn` would drop
@@ -202,9 +208,12 @@ export function pendingPollTaskId(tasks: ReadonlyArray<{ id: string; status: str
 export type PollCadence =
     | { kind: 'ready' }
     | { kind: 'running' }
-    | { kind: 'blocked' };
+    | { kind: 'blocked' }
+    | { kind: 'noDecisions' };
 
 export interface PollCadenceInput {
+    /** The meeting takes no decisions (see takesNoDecisions): a poll can find none. */
+    noDecisions: boolean;
     /** False when the city has no Diavgeia organisation id, or a configured
      * unit entry does not parse — either way a poll cannot run at all. */
     canPoll: boolean;
@@ -213,16 +222,18 @@ export interface PollCadenceInput {
 }
 
 /**
- * Map a meeting's polling state onto the footer's three states.
+ * Map a meeting's polling state onto the footer's four states.
  *
  * The footer no longer names the cron's cadence, so the cron's own gates —
- * the pollable date window, the Λογοδοσία exclusion, the undecided-subject
- * clause and the backoff tier — are not restated here. They stay in
+ * the pollable date window, the undecided-subject clause and the backoff
+ * tier — are not restated here. They stay in
  * `pollDecisionsForRecentMeetings`'s query and in `shouldSkipPolling()`. A
- * meeting the cron skips still reads as `ready`, because a manual poll runs
- * whatever the cron does.
+ * meeting the cron skips for those reasons still reads as `ready`, because a
+ * manual poll runs whatever the cron does. A meeting that takes no decisions
+ * reads as `noDecisions`: no poll, by the cron or by hand, can find any.
  */
 export function pollCadence(input: PollCadenceInput): PollCadence {
+    if (input.noDecisions) return { kind: 'noDecisions' };
     if (!input.canPoll) return { kind: 'blocked' };
     if (input.pollInFlight) return { kind: 'running' };
     return { kind: 'ready' };

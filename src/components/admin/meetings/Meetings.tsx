@@ -13,7 +13,6 @@ import { BadgePicker, BadgePickerOption } from "@/components/ui/badge-picker";
 import { ExpandableMeetingRow } from "./ExpandableMeetingRow";
 import { BulkExportActions } from "./BulkExportActions";
 import { BulkPollDecisionsAction } from "./BulkPollDecisionsAction";
-import { kindsById } from "@/lib/tasks/pollableMeetings";
 import { StatsCard, StatsCardItem } from "@/components/ui/stats-card";
 import { meetingLabel } from '@/lib/meetingName';
 import { DEFAULT_TIMEZONE } from '@/lib/formatters/time';
@@ -56,8 +55,6 @@ export default function Meetings({ meetings, currentCityName, selectedCityId, de
     }, [meetings]);
 
     // Filter meetings based on search and administrative body
-    const kinds = useMemo(() => kindsById(meetings), [meetings]);
-
     const filteredMeetings = useMemo(() => {
         let filtered = meetings;
 
@@ -169,7 +166,6 @@ export default function Meetings({ meetings, currentCityName, selectedCityId, de
                             <BulkPollDecisionsAction
                                 selectedMeetingIds={selectedMeetingIds}
                                 meetings={filteredMeetings}
-                                kinds={kinds}
                                 decisionCounts={decisionCounts}
                                 selectedCityId={selectedCityId}
                                 cityHasDiavgeiaUid={cityHasDiavgeiaUid}

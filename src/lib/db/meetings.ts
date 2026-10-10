@@ -22,12 +22,14 @@ import { getCityRealm } from "./cityRealm";
 import { deleteMeetingRecord, setMeetingReleased } from "./meetingLifecycle";
 import { LifecycleRuleError, PUBLIC_RECORDING_WHERE, TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
 import { hideLinks } from "@/lib/meetingPublic";
+import { DECISION_KIND_SELECT } from "@/lib/tasks/pollDecisionsBackoff";
 // List reads and their payload types live in meetingsList.ts. Re-exported here
 // as types only, so callers of this module keep one import.
 export type { CouncilMeetingWithAdminBodyAndSubjects, CouncilMeetingWithSubjectPreview, MeetingListOptions } from './meetingsList';
 
 const meetingWithAdminBodyInclude = {
     administrativeBody: true,
+    continuationOf: DECISION_KIND_SELECT.continuationOf,
 } satisfies Prisma.CouncilMeetingInclude;
 
 export type CouncilMeetingWithAdminBody = Prisma.CouncilMeetingGetPayload<{

@@ -58,11 +58,12 @@ export function publicRecordFields(meeting: RecordSource, postponedFromDate: Dat
 type ApiMeetingSource = MeetingNameFields & RecordSource & {
     postponedFromId: string | null;
     continuationOfId: string | null;
+    continuationOf?: unknown;
     hiddenByPostponement?: boolean;
     administrativeBody?: (MeetingNameFields['administrativeBody'] & { place?: string | null }) | null;
 };
 
-type ReplacedKeys = 'postponedFromId' | 'continuationOfId' | 'hiddenByPostponement' | 'name' | 'name_en' | 'place';
+type ReplacedKeys = 'postponedFromId' | 'continuationOfId' | 'continuationOf' | 'hiddenByPostponement' | 'name' | 'name_en' | 'place';
 
 export type PublicApiMeeting<T extends ApiMeetingSource> = Omit<T, ReplacedKeys>
     & ReturnType<typeof publicRecordFields>
@@ -79,7 +80,7 @@ export function toPublicApiMeeting<T extends ApiMeetingSource>(
     { timezone, postponedFromDate }: { timezone: string; postponedFromDate: Date | null },
 ): PublicApiMeeting<T> {
     const {
-        postponedFromId: _postponed, continuationOfId: _continuation, hiddenByPostponement: _hidden,
+        postponedFromId: _postponed, continuationOfId: _continuation, continuationOf: _firstPart, hiddenByPostponement: _hidden,
         name: _name, name_en: _nameEn, place: _place, ...rest
     } = row;
     return {

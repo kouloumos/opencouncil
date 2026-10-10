@@ -1,4 +1,4 @@
-import { firstPartOf, kindsById, partitionMeetingsForPolling, interleaveByCity, orderForPolling } from "../pollableMeetings";
+import { partitionMeetingsForPolling, interleaveByCity, orderForPolling } from "../pollableMeetings";
 
 describe("partitionMeetingsForPolling", () => {
     it("marks a meeting with unlinked eligible subjects as pollable, not complete", () => {
@@ -162,20 +162,5 @@ describe("orderForPolling", () => {
         // Never succeeded (no firstPollAt) but attempted an hour ago.
         const result = orderForPolling([m("a", "failing", null, 0.04), m("b", "stale", 3, 3)]);
         expect(result.map(x => x.id)).toEqual(["stale", "failing"]);
-    });
-
-    it("reads the kind of a first part that a filter hides from the selection", () => {
-        const city = [
-            { id: "first", kind: "activityReport" as const, continuationOfId: null },
-            { id: "second", kind: null, continuationOfId: "first" },
-            { id: "regular-part", kind: null, continuationOfId: "gone" },
-        ];
-        const kinds = kindsById(city);
-        const selected = city.slice(1).map((m) => ({
-            id: m.id, name: m.id, kind: m.kind, continuationOf: firstPartOf(m, kinds), scheduleStatus: "scheduled" as const,
-        }));
-        const result = partitionMeetingsForPolling(selected, { second: { linked: 0, eligible: 1 }, "regular-part": { linked: 0, eligible: 1 } });
-        expect(result.skipped.map((m) => [m.meetingId, m.skipReason])).toEqual([["second", "noDecisions"]]);
-        expect(result.pollable.map((m) => m.meetingId)).toEqual(["regular-part"]);
     });
 });

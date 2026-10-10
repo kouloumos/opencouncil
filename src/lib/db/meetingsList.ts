@@ -7,6 +7,7 @@ import { AdministrativeBodyType, Prisma } from '@prisma/client';
 import prisma from "./prisma";
 import { meetingBodyTypeWhere } from "./meetingBodyFilter";
 import { TAKES_PLACE_WHERE } from "@/lib/meetingLifecycleRules";
+import { DECISION_KIND_SELECT } from "@/lib/tasks/pollDecisionsBackoff";
 
 const meetingWithSubjectsInclude = {
     subjects: {
@@ -21,6 +22,7 @@ const meetingWithSubjectsInclude = {
         },
     },
     administrativeBody: true,
+    continuationOf: DECISION_KIND_SELECT.continuationOf,
 } satisfies Prisma.CouncilMeetingInclude;
 
 export type CouncilMeetingWithAdminBodyAndSubjects = Prisma.CouncilMeetingGetPayload<{
