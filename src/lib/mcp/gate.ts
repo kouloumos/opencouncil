@@ -63,8 +63,6 @@ export async function requireVisibleMeeting(
             kind: true,
             sessionNumber: true,
             videoUrl: true,
-            format: true,
-            closedToPublic: true,
             administrativeBody: { select: { name: true, name_en: true, showUnreviewedTranscript: true } },
             taskStatuses: transcriptGateSelect.taskStatuses,
             city: { select: { timezone: true } },
@@ -89,9 +87,8 @@ export async function requireVisibleMeeting(
 
 /**
  * Readers get the transcript that the site shows them (transcriptIsPublic):
- * none for a meeting with no public recording, and none before the human
- * review where the body hides unreviewed transcripts. An editor of the city
- * still reads it.
+ * none before the human review where the body hides unreviewed transcripts.
+ * An editor of the city still reads it.
  */
 export async function requirePublicTranscript(
     meeting: { publicTranscript: boolean },
@@ -99,5 +96,5 @@ export async function requirePublicTranscript(
     identity: McpIdentity,
 ): Promise<void> {
     if (meeting.publicTranscript || await canSeeUnreleased(identity, cityId)) return;
-    throw new ForbiddenError('This meeting has no public transcript: it was closed to the public, held by circulation, or its transcript awaits review.');
+    throw new ForbiddenError('This meeting has no public transcript: its transcript awaits review.');
 }

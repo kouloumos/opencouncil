@@ -1,6 +1,4 @@
 import {
-    formatRules,
-    MEETING_FORMATS,
     transcriptionRefusal,
     validateMeetingRecord,
     type LifecycleContext,
@@ -20,11 +18,6 @@ function state(overrides: Partial<MeetingRecordState> = {}): MeetingRecordState 
         kind: 'regular',
         sessionNumber: null,
         format: 'inPerson',
-        closedToPublic: false,
-        youtubeUrl: null,
-        videoUrl: null,
-        audioUrl: null,
-        muxPlaybackId: null,
         postponedFromId: null,
         continuationOfId: null,
         ...overrides,
@@ -40,7 +33,6 @@ function context(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
         chainReachesSelf: false,
         continuationOf: null,
         continuations: [],
-        hasTranscript: false,
         ...overrides,
     };
 }
@@ -72,35 +64,8 @@ describe('validateMeetingRecord', () => {
         expect(codes(state({ format: 'byCirculation' }), context())).toEqual([]);
     });
 
-    it('gives every format without a recording a reason that readers see', () => {
-        for (const format of [...Object.keys(MEETING_FORMATS), null] as Array<keyof typeof MEETING_FORMATS | null>) {
-            const rules = formatRules(format);
-            expect([format, rules.noRecordingReason !== null]).toEqual([format, !rules.publicRecording]);
-        }
-    });
-
     it('accepts an unstated kind and format on every body', () => {
         expect(codes(state({ kind: null, format: null }), context({ body: { type: 'community' } }))).toEqual([]);
-    });
-
-    describe('a recorded meeting keeps its public recording', () => {
-        it('refuses to close a meeting that has a transcript', () => {
-            expect(codes(state({ closedToPublic: true }), context({ hasTranscript: true }))).toEqual(['recordingExists']);
-        });
-
-        it('refuses to close a meeting that has media', () => {
-            expect(codes(state({ closedToPublic: true, muxPlaybackId: 'mux' }), context())).toEqual(['recordingExists']);
-            expect(codes(state({ closedToPublic: true, youtubeUrl: 'https://youtube.com/watch?v=x' }), context())).toEqual(['recordingExists']);
-        });
-
-        it('refuses a format without a recording on a recorded meeting', () => {
-            expect(codes(state({ format: 'byCirculation', audioUrl: 'https://x/a.mp3' }), context())).toEqual(['recordingExists']);
-        });
-
-        it('accepts a closed meeting with no recording, and a recorded meeting that stays public', () => {
-            expect(codes(state({ closedToPublic: true }), context())).toEqual([]);
-            expect(codes(state({ videoUrl: 'https://x/v.mp4' }), context({ hasTranscript: true }))).toEqual([]);
-        });
     });
 
     describe('postponement', () => {
@@ -187,7 +152,7 @@ describe('validateMeetingRecord', () => {
 });
 
 describe('transcriptionRefusal', () => {
-    const held = { scheduleStatus: 'scheduled' as const, closedToPublic: false, format: 'inPerson' as const };
+    const held = { scheduleStatus: 'scheduled' as const, format: 'inPerson' as const };
 
     it('accepts a scheduled meeting with a public recording', () => {
         expect(transcriptionRefusal(held)).toBeNull();
@@ -198,7 +163,6 @@ describe('transcriptionRefusal', () => {
     it.each([
         [{ ...held, scheduleStatus: 'postponed' as const }, 'Meeting is postponed'],
         [{ ...held, scheduleStatus: 'cancelled' as const }, 'Meeting is cancelled'],
-        [{ ...held, closedToPublic: true }, 'closed to the public'],
         [{ ...held, format: 'byCirculation' as const }, 'byCirculation'],
     ])('refuses %o', (meeting, reason) => {
         expect(transcriptionRefusal(meeting)).toContain(reason);

@@ -41,7 +41,7 @@ const meetingRecordInput = {
         .describe('Why the meeting was postponed or cancelled, as the municipality says it'),
     format: z.enum(OFFERED_FORMATS).nullable().optional().describe('How the meeting takes place. Null (the default on create): not stated yet, the meeting is expected as usual'),
     closedToPublic: z.boolean().optional()
-        .describe('The council decided to meet behind closed doors: no stream and no transcription'),
+        .describe('The council decided to meet behind closed doors. Readers see this fact. The meeting is still recorded and transcribed'),
     place: z.string().max(200).nullable().optional()
         .describe('Where the meeting takes place, when it is not the usual hall of the body'),
 } satisfies Record<(typeof MEETING_RECORD_INPUT_KEYS)[number], z.ZodType>;

@@ -10,11 +10,6 @@ export interface MeetingRecordState {
     kind: MeetingKind | null;
     sessionNumber: number | null;
     format: MeetingFormat | null;
-    closedToPublic: boolean;
-    youtubeUrl: string | null;
-    videoUrl: string | null;
-    audioUrl: string | null;
-    muxPlaybackId: string | null;
     postponedFromId: string | null;
     continuationOfId: string | null;
 }
@@ -34,8 +29,6 @@ export interface LifecycleContext {
     chainReachesSelf: boolean;
     continuationOf: { administrativeBodyId: string | null; continuationOfId: string | null; dateTime: Date } | 'missing' | null;
     continuations: Array<{ administrativeBodyId: string | null; dateTime: Date }>;
-    /** The meeting already has a transcript (speaker segments). */
-    hasTranscript: boolean;
 }
 
 export type LifecycleRuleCode =
@@ -57,7 +50,6 @@ export type LifecycleRuleCode =
     | 'partsOtherBody'
     | 'partsNotLater'
     | 'sessionNumberPositive'
-    | 'recordingExists'
     | 'reasonTooLong'
     | 'chainTooLong'
     | 'laterMeetingReleased'
@@ -101,11 +93,11 @@ export const SCHEDULE_STATUSES = {
 } as const satisfies Record<MeetingScheduleStatus, { takesPlace: boolean }>;
 
 export const MEETING_FORMATS = {
-    inPerson: { publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: false, councilOnly: false, offeredInForm: true },
-    teleconference: { publicRecording: true, noRecordingReason: null, showsPlace: false, namedInFacts: true, councilOnly: false, offeredInForm: true },
-    mixed: { publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    inPerson: { publicRecording: true, showsPlace: true, namedInFacts: false, councilOnly: false, offeredInForm: true },
+    teleconference: { publicRecording: true, showsPlace: false, namedInFacts: true, councilOnly: false, offeredInForm: true },
+    mixed: { publicRecording: true, showsPlace: true, namedInFacts: true, councilOnly: false, offeredInForm: true },
     // Offered in no form yet: the by-circulation page is a follow-up.
-    byCirculation: { publicRecording: false, noRecordingReason: 'byCirculation', showsPlace: false, namedInFacts: false, councilOnly: true, offeredInForm: false },
+    byCirculation: { publicRecording: false, showsPlace: false, namedInFacts: false, councilOnly: true, offeredInForm: false },
 } as const satisfies Record<MeetingFormat, FormatRules & { offeredInForm: boolean }>;
 
 /**
@@ -114,7 +106,7 @@ export const MEETING_FORMATS = {
  * row does not name it. processAgenda reads the format from the invitation.
  */
 export const UNSTATED_FORMAT = {
-    publicRecording: true, noRecordingReason: null, showsPlace: true, namedInFacts: false, councilOnly: false,
+    publicRecording: true, showsPlace: true, namedInFacts: false, councilOnly: false,
 } as const satisfies FormatRules;
 
 /** The rules of a format, stated or not. Every reader of a format asks this. */
@@ -125,8 +117,6 @@ export function formatRules(format: MeetingFormat | null): FormatRules {
 interface FormatRules {
     /** The meeting can have a stream and a transcript. */
     publicRecording: boolean;
-    /** Why a reader sees no recording, for a format without one: the presentation and the strip say so. */
-    noRecordingReason: 'byCirculation' | null;
     /** The meeting page shows where the meeting takes place. */
     showsPlace: boolean;
     /** The facts row of the meeting page names the format (meetingStage.facts.format). */
@@ -176,15 +166,12 @@ export const TAKES_PLACE_WHERE = {
 } satisfies Prisma.CouncilMeetingWhereInput;
 
 /**
- * The meeting has a recording that the public can watch: no stream or
- * transcript otherwise. A meeting of unstated format can have one.
+ * The format of the meeting has a recording: no stream or transcript
+ * otherwise. A meeting of unstated format can have one. A meeting closed to
+ * the public is still recorded: that fact gates nothing.
  */
-export function hasPublicRecording(meeting: { format: MeetingFormat | null; closedToPublic: boolean }): boolean {
-    return formatRules(meeting.format).publicRecording && !meeting.closedToPublic;
-}
-
-function hasMedia(meeting: Pick<MeetingRecordState, 'youtubeUrl' | 'videoUrl' | 'audioUrl' | 'muxPlaybackId'>): boolean {
-    return Boolean(meeting.youtubeUrl || meeting.videoUrl || meeting.audioUrl || meeting.muxPlaybackId);
+export function hasPublicRecording(meeting: { format: MeetingFormat | null }): boolean {
+    return formatRules(meeting.format).publicRecording;
 }
 
 /**
@@ -192,7 +179,6 @@ function hasMedia(meeting: Pick<MeetingRecordState, 'youtubeUrl' | 'videoUrl' | 
  * true for a null format, so the null case is explicit.
  */
 export const PUBLIC_RECORDING_WHERE = {
-    closedToPublic: false,
     OR: [
         ...(UNSTATED_FORMAT.publicRecording ? [{ format: null }] : []),
         { format: { in: keysWhere(MEETING_FORMATS, (format) => format.publicRecording) } },
@@ -276,15 +262,6 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
         fail('partsNotLater', 'The first part must take place before its later parts.');
     }
 
-    // A meeting closed to the public, or held by circulation, has no recording
-    // (#150). Once a meeting has media or a transcript, it cannot lose its
-    // public recording: the material is already in highlights, summaries,
-    // search and shared excerpts. Withdrawing published material is a
-    // separate step. A closed meeting cannot gain media either.
-    if (!hasPublicRecording(next) && (hasMedia(next) || ctx.hasTranscript)) {
-        fail('recordingExists', 'This meeting has a recording or a transcript, so it cannot be closed to the public or held by circulation.');
-    }
-
     if (next.sessionNumber !== null && (!Number.isInteger(next.sessionNumber) || next.sessionNumber < 1)) {
         fail('sessionNumberPositive', 'The session number must be a whole number of 1 or more.');
     }
@@ -297,12 +274,11 @@ export function validateMeetingRecord(next: MeetingRecordState, ctx: LifecycleCo
 
 /**
  * Why a meeting takes no transcription, or null when it does. A postponed or
- * cancelled meeting did not take place on its date, and a meeting that is
- * closed to the public or held by circulation has no public recording.
+ * cancelled meeting did not take place on its date, and a meeting held by
+ * circulation has no recording.
  */
-export function transcriptionRefusal(meeting: Pick<CouncilMeeting, 'scheduleStatus' | 'closedToPublic' | 'format'>): string | null {
+export function transcriptionRefusal(meeting: Pick<CouncilMeeting, 'scheduleStatus' | 'format'>): string | null {
     if (!takesPlace(meeting)) return `Meeting is ${meeting.scheduleStatus}`;
-    if (meeting.closedToPublic) return 'Meeting is closed to the public: it has no recording to transcribe';
     if (!hasPublicRecording(meeting)) return `Meeting is held as ${meeting.format}: it has no recording to transcribe`;
     return null;
 }

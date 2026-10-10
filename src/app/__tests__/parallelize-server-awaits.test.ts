@@ -174,7 +174,7 @@ describe('PR1: server-side awaits run concurrently', () => {
         authD.resolve(false);
         dataD.resolve({
             city: { id: 'athens', name: 'Athens', highlightCreationPermission: 'ADMIN' },
-            meeting: { name: 'm', updatedAt: new Date(), administrativeBody: null, muxPlaybackId: null, format: 'inPerson', closedToPublic: false },
+            meeting: { name: 'm', updatedAt: new Date(), administrativeBody: null, muxPlaybackId: null },
             transcriptHiddenForReview: false,
             transcript: [],
             speakerTags: [],
@@ -226,7 +226,7 @@ describe('PR1: server-side awaits run concurrently', () => {
         authD.resolve(false);
         dataD.resolve({
             city: { id: 'athens', name: 'Athens', highlightCreationPermission: 'ADMIN' },
-            meeting: { name: 'm', updatedAt: new Date(), administrativeBody: null, muxPlaybackId: null, format: 'inPerson', closedToPublic: false },
+            meeting: { name: 'm', updatedAt: new Date(), administrativeBody: null, muxPlaybackId: null },
             transcriptHiddenForReview: false,
             transcript: [],
             speakerTags: [],

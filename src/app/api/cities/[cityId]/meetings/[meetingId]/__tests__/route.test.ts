@@ -2,16 +2,15 @@
 // The single-meeting GET has no auth. The new meeting of a postponement must
 // not name the meeting that it replaced, which readers can no longer see.
 jest.mock('@/lib/getMeetingData', () => ({ getMeetingDataCore: jest.fn() }));
-jest.mock('@/lib/auth', () => ({ withUserAuthorizedToEdit: jest.fn(), isUserAuthorizedToEdit: jest.fn().mockResolvedValue(false) }));
+jest.mock('@/lib/auth', () => ({ withUserAuthorizedToEdit: jest.fn() }));
 jest.mock('@/lib/meetingWrites', () => ({ updateMeetingWithEffects: jest.fn() }));
 
 import { GET } from '../route';
 import { getMeetingDataCore } from '@/lib/getMeetingData';
-import { isUserAuthorizedToEdit } from '@/lib/auth';
 
 const mockCore = getMeetingDataCore as jest.MockedFunction<typeof getMeetingDataCore>;
 
-function meetingData(postponedFromId: string | null, closedToPublic = false) {
+function meetingData(postponedFromId: string | null) {
     return {
         meeting: {
             id: 'mar19_2026',
@@ -21,7 +20,7 @@ function meetingData(postponedFromId: string | null, closedToPublic = false) {
             kind: 'regular',
             dateTime: new Date('2026-03-19T16:00:00Z'),
             format: 'inPerson',
-            closedToPublic,
+            closedToPublic: false,
             youtubeUrl: 'https://youtu.be/x',
             videoUrl: 'https://cdn/v.mp4',
             audioUrl: null,
@@ -51,25 +50,5 @@ describe('GET /api/cities/[cityId]/meetings/[meetingId]', () => {
             name_en: 'Municipal Council · Regular Meeting · 19/03/2026',
             postponedFromDate: '2026-03-12T16:00:00.000Z',
         });
-    });
-
-    it('returns no transcript for a meeting that is closed to the public', async () => {
-        mockCore.mockResolvedValue(meetingData(null, true));
-        const response = await GET({} as Request, { params: Promise.resolve({ cityId: 'chania', meetingId: 'mar19_2026' }) });
-        const body = await response.json();
-        expect(body.transcript).toEqual([]);
-        expect(body.speakerTags).toEqual([]);
-        expect(body.meeting).toMatchObject({ youtubeUrl: null, videoUrl: null, muxPlaybackId: null });
-        mockCore.mockResolvedValue(meetingData(null, false));
-        const open = await (await GET({} as Request, { params: Promise.resolve({ cityId: 'chania', meetingId: 'mar19_2026' }) })).json();
-        expect(open.transcript).toHaveLength(1);
-    });
-
-    it('keeps the transcript of a closed meeting for an editor, who exports it', async () => {
-        (isUserAuthorizedToEdit as jest.Mock).mockResolvedValueOnce(true);
-        mockCore.mockResolvedValue(meetingData(null, true));
-        const body = await (await GET({} as Request, { params: Promise.resolve({ cityId: 'chania', meetingId: 'mar19_2026' }) })).json();
-        expect(body.transcript).toHaveLength(1);
-        expect(body.meeting.muxPlaybackId).toBe('mux1');
     });
 });

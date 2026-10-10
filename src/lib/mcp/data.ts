@@ -1,6 +1,6 @@
 import prisma from '@/lib/db/prisma';
 import { Prisma, DiscussionStatus, type AdministrativeBodyType, type CouncilMeeting, type MeetingScheduleStatus } from '@prisma/client';
-import { hasPublicRecording, takesPlace } from '@/lib/meetingLifecycleRules';
+import { takesPlace } from '@/lib/meetingLifecycleRules';
 import { searchInRealm } from '@/lib/search/core';
 import { openDateRange } from '@/lib/search/dateRange';
 import { getCities, getCity, getListedCityAtPoint } from '@/lib/db/cities';
@@ -386,8 +386,7 @@ export async function mcpGetMeeting(cityId: string, meetingId: string, identity:
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
         ...publicRecordFields(meeting, await originalScheduledDate(cityId, meetingId)),
-        // A reader gets no stream of a meeting with no public recording.
-        youtubeUrl: hasPublicRecording(meeting) || visible.editor !== false && await canSeeUnreleased(identity, cityId) ? meeting.youtubeUrl : null,
+        youtubeUrl: meeting.youtubeUrl,
         agendaUrl: meeting.agendaUrl,
         hasTranscript: transcribed,
         ...(tasks && { tasks: tasks.map(mcpTaskSummary) }),

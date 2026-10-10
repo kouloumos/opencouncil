@@ -30,8 +30,6 @@ function row(released: boolean) {
         name_en: null,
         kind: 'regular',
         videoUrl: null,
-        format: 'inPerson',
-        closedToPublic: false,
         administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council', showUnreviewedTranscript: true },
         taskStatuses: [],
         city: { timezone: 'Europe/Athens' },
@@ -115,9 +113,7 @@ describe('the transcript of a visible meeting', () => {
         mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [] });
     });
 
-    it('is not public when the meeting is closed, or when its body waits for the review', async () => {
-        mockMeetingFindFirst.mockResolvedValue({ ...row(true), closedToPublic: true });
-        expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(false);
+    it('is not public when its body waits for the review', async () => {
         const unreviewed = { ...row(true), administrativeBody: { ...row(true).administrativeBody, showUnreviewedTranscript: false } };
         mockMeetingFindFirst.mockResolvedValue(unreviewed);
         expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(false);
@@ -132,11 +128,11 @@ describe('requirePublicTranscript', () => {
         mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [] });
     });
 
-    it('lets everyone read the transcript of a meeting with a public recording', async () => {
+    it('lets everyone read a public transcript', async () => {
         await expect(requirePublicTranscript({ publicTranscript: true }, 'athens', null)).resolves.toBeUndefined();
     });
 
-    it('withholds the transcript of a closed meeting from readers, not from editors', async () => {
+    it('withholds a transcript that is not public from readers, not from editors', async () => {
         await expect(requirePublicTranscript({ publicTranscript: false }, 'athens', null)).rejects.toThrow(ForbiddenError);
         await expect(requirePublicTranscript({ publicTranscript: false }, 'athens', USER)).rejects.toThrow(ForbiddenError);
         mockUserFindUnique.mockResolvedValue({ isSuperAdmin: false, administers: [{ cityId: 'athens' }] });

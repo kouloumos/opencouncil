@@ -9,7 +9,7 @@ import {
 } from '@/lib/db/meetingLifecycle'
 import { LifecycleRuleError } from '@/lib/meetingLifecycleRules'
 import { resetDatabase } from '../helpers/test-db'
-import { createAdministrativeBody, createCity, createMeeting, createSpeakerSegment, createSpeakerTag } from '../helpers/factories'
+import { createAdministrativeBody, createCity, createMeeting } from '../helpers/factories'
 
 const CITY = 'c1'
 const MARCH = (day: number) => new Date(Date.UTC(2026, 2, day, 16))
@@ -276,22 +276,5 @@ describe('meeting lifecycle module', () => {
         await createMeeting(CITY, { id: 'm', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', released: true })
         await updateMeetingRecord(CITY, 'm', { scheduleStatus: 'cancelled', scheduleStatusReason: 'Λόγω απεργίας' })
         expect(await visibility('m')).toEqual({ m: true })
-    })
-
-    describe('a recorded meeting keeps its public recording', () => {
-        test('a meeting with a transcript cannot be closed to the public', async () => {
-            await createMeeting(CITY, { id: 'm', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', released: true })
-            const tag = await createSpeakerTag()
-            await createSpeakerSegment('m', CITY, { speakerTagId: tag.id })
-            const closed = await updateMeetingRecord(CITY, 'm', { closedToPublic: true }).catch((e) => e)
-            expect(ruleCode(closed)).toBe('recordingExists')
-        })
-
-        test('a closed meeting cannot gain a video link, and a meeting with no recording can be closed', async () => {
-            await createMeeting(CITY, { id: 'm', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular' })
-            await updateMeetingRecord(CITY, 'm', { closedToPublic: true })
-            const linked = await updateMeetingRecord(CITY, 'm', { youtubeUrl: 'https://www.youtube.com/watch?v=x' }).catch((e) => e)
-            expect(ruleCode(linked)).toBe('recordingExists')
-        })
     })
 })

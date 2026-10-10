@@ -40,7 +40,7 @@ export function EmbedMeetingCard({ meeting, locale, showSubjects, baseUrl, cityT
     const remainingCount = Math.max(0, meeting.subjects.length - 3);
 
     // A postponed or cancelled meeting has no stream, and neither has a
-    // meeting that is closed to the public or held by circulation.
+    // meeting held by circulation.
     const liveUrl = isUpcoming && !meeting.youtubeUrl && takesPlace(meeting) && hasPublicRecording(meeting)
         ? meeting.administrativeBody?.youtubeChannelUrl
         : null;

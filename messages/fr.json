@@ -398,7 +398,7 @@
         "byCirculation": "Par consultation écrite"
     },
     "closedToPublic": "À huis clos",
-    "closedToPublicDescription": "Sans diffusion publique ni transcription.",
+    "closedToPublicDescription": "Les lecteurs voient que la séance s’est tenue à huis clos.",
     "place": "Lieu",
     "placeDescription": "Seulement s’il diffère de la salle de l’organe.",
     "nameOverrideDescription": "Laissez vide : le nom est construit à partir de l’organe, du type et de la date. Remplissez-le seulement pour une séance qui a besoin de son propre nom.",

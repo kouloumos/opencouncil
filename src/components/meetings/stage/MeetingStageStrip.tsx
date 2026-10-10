@@ -56,7 +56,7 @@ export function MeetingStageStrip({ presentation, stage, deadline }: { presentat
 
     const date = new Date(meeting.dateTime);
     const timezone = city.timezone;
-    // A meeting with no public recording has no stream to point to, also before it starts.
+    // A meeting by circulation has no stream to point to, also before it starts.
     const channel = hasPublicRecording(meeting) ? meeting.administrativeBody?.youtubeChannelUrl ?? null : null;
     const video = meeting.youtubeUrl ?? null;
     const explainHref = presentationExplainHref(city.realm, presentation);
@@ -159,7 +159,7 @@ export function MeetingStageStrip({ presentation, stage, deadline }: { presentat
             break;
         }
         case 'noRecording':
-            text = t(`strip.${presentation.type === 'noRecording' ? presentation.reason : 'closedToPublic'}`);
+            text = t('strip.byCirculation');
             actions = [agendaPill];
             break;
     }

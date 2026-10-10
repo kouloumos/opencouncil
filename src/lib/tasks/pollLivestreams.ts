@@ -192,7 +192,7 @@ export async function pollLivestreamsForRecentMeetings(
             dateTime: { gte: windowStart, lte: windowEnd },
             administrativeBody: { youtubeChannelUrl: { not: null } },
             // A postponed meeting in the window would take the stream of its
-            // new meeting. A meeting with no public recording has no stream.
+            // new meeting. A meeting by circulation has no stream.
             ...TAKES_PLACE_WHERE,
             ...PUBLIC_RECORDING_WHERE,
         },

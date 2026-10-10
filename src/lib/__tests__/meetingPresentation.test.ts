@@ -26,7 +26,6 @@ const scheduled: MeetingPresentationFields = {
     scheduleStatus: 'scheduled',
     scheduleStatusReason: null,
     format: 'inPerson',
-    closedToPublic: false,
 };
 
 function signals(overrides: Partial<MeetingStageSignals> = {}): MeetingStageSignals {
@@ -66,22 +65,11 @@ describe('publicMeetingPresentation', () => {
         expect(publicMeetingPresentation(cancelled, signals(), at(8 * DAY)).type).toBe('cancelled');
     });
 
-    it('shows a closed meeting as held without a recording once it has started', () => {
-        const closed = { ...scheduled, closedToPublic: true };
-        expect(publicMeetingPresentation(closed, signals(), at(-DAY))).toEqual({ type: 'stage', stage: 'upcoming' });
-        expect(publicMeetingPresentation(closed, signals(), at(13 * HOUR))).toEqual({ type: 'noRecording', reason: 'closedToPublic' });
-        expect(publicMeetingPresentation(closed, signals(), at(8 * DAY))).toEqual({ type: 'noRecording', reason: 'closedToPublic' });
-    });
-
-    it('shows a closed meeting as held without a recording even when a transcript exists', () => {
-        const closed = { ...scheduled, closedToPublic: true };
-        const transcribed = signals({ transcribed: true, summarized: true });
-        expect(publicMeetingPresentation(closed, transcribed, at(8 * DAY))).toEqual({ type: 'noRecording', reason: 'closedToPublic' });
-    });
-
-    it('shows a meeting by circulation as held without a recording', () => {
+    it('shows a meeting by circulation as held without a recording once it has started', () => {
         const byCirculation = { ...scheduled, format: 'byCirculation' as const };
-        expect(publicMeetingPresentation(byCirculation, signals(), at(2 * HOUR))).toEqual({ type: 'noRecording', reason: 'byCirculation' });
+        expect(publicMeetingPresentation(byCirculation, signals(), at(-DAY))).toEqual({ type: 'stage', stage: 'upcoming' });
+        expect(publicMeetingPresentation(byCirculation, signals(), at(2 * HOUR))).toEqual({ type: 'noRecording' });
+        expect(publicMeetingPresentation(byCirculation, signals(), at(8 * DAY))).toEqual({ type: 'noRecording' });
     });
 });
 
@@ -91,14 +79,14 @@ describe('presentation helpers', () => {
             expect(presentationKey({ type: 'stage', stage })).toBe(stage);
         }
         expect(presentationKey({ type: 'cancelled', reason: null })).toBe('cancelled');
-        expect(presentationKey({ type: 'noRecording', reason: 'closedToPublic' })).toBe('noRecording');
+        expect(presentationKey({ type: 'noRecording' })).toBe('noRecording');
     });
 
     it('promises nothing for a postponed, cancelled or unrecorded meeting', () => {
         for (const p of [
             { type: 'postponed', reason: null },
             { type: 'cancelled', reason: null },
-            { type: 'noRecording', reason: 'byCirculation' },
+            { type: 'noRecording' },
         ] as const) {
             expect(presentationPendingKind(p)).toBeNull();
             expect(msUntilPresentationChange(p, MEETING, at(0))).toBeNull();

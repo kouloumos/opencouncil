@@ -1,6 +1,6 @@
 import type { MeetingFormat, MeetingScheduleStatus, Realm } from '@prisma/client';
 import { hasExplainPage } from '@/lib/explain/availability';
-import { formatRules, hasPublicRecording } from '@/lib/meetingLifecycleRules';
+import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
 import {
     msUntilStageChange,
     pendingKind,
@@ -14,13 +14,13 @@ import {
  * What a reader sees for a meeting: its stage (lib/meetingStage.ts), or a
  * fact that replaces the stage. A postponed or cancelled meeting shows that at
  * every age, so it never reads as waiting or as held without material. A
- * meeting that was held with no recording (closed to the public, or by
- * circulation) never promises a video or a transcript.
+ * meeting held by circulation has no recording, so it never promises a video
+ * or a transcript.
  */
 export type PublicMeetingPresentation =
     | { type: 'postponed'; reason: string | null }
     | { type: 'cancelled'; reason: string | null }
-    | { type: 'noRecording'; reason: 'byCirculation' | 'closedToPublic' }
+    | { type: 'noRecording' }
     | { type: 'stage'; stage: PublicMeetingStage };
 
 /** The meeting columns that the presentation reads besides the stage signals. */
@@ -28,7 +28,6 @@ export interface MeetingPresentationFields {
     scheduleStatus: MeetingScheduleStatus;
     scheduleStatusReason: string | null;
     format: MeetingFormat | null;
-    closedToPublic: boolean;
 }
 
 export function publicMeetingPresentation(
@@ -49,10 +48,7 @@ export function publicMeetingPresentation(
     const stage = publicMeetingStage(signals, now);
     // A meeting that has not started reads as upcoming; the strip offers it no
     // channel. Once it starts, it never promises a video or a transcript.
-    if (!hasPublicRecording(fields) && stage !== 'upcoming') {
-        const reason = fields.closedToPublic ? 'closedToPublic' : formatRules(fields.format).noRecordingReason;
-        if (reason) return { type: 'noRecording', reason };
-    }
+    if (!hasPublicRecording(fields) && stage !== 'upcoming') return { type: 'noRecording' };
     return { type: 'stage', stage };
 }
 

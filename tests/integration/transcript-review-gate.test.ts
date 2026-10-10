@@ -12,15 +12,15 @@ import {
 const CITY = 'c1'
 const MARCH = (day: number) => new Date(Date.UTC(2026, 2, day, 16))
 
-describe('transcript of a closed meeting, as an anonymous reader', () => {
+describe('an unreviewed transcript that the body hides, as an anonymous reader', () => {
     let subjectId: string
     let utteranceIds: string[]
 
     beforeEach(async () => {
         await resetDatabase(prisma)
         await createCity({ id: CITY })
-        const councilId = (await createAdministrativeBody(CITY, { type: 'council' })).id
-        await createMeeting(CITY, { id: 'm', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', released: true, closedToPublic: true })
+        const councilId = (await createAdministrativeBody(CITY, { type: 'council', showUnreviewedTranscript: false })).id
+        await createMeeting(CITY, { id: 'm', dateTime: MARCH(12), administrativeBodyId: councilId, kind: 'regular', released: true })
         subjectId = (await createSubject('m', CITY, { name: 'Subject' })).id
         const tag = await createSpeakerTag()
         const segment = await createSpeakerSegment('m', CITY, { speakerTagId: tag.id, startTimestamp: 0, endTimestamp: 60 })
@@ -54,8 +54,8 @@ describe('transcript of a closed meeting, as an anonymous reader', () => {
     })
 
     test('voting-utterances gives no utterance of another meeting', async () => {
-        // A public subject whose vote is tagged on an utterance of the closed meeting.
-        const councilId = (await prisma.councilMeeting.findUniqueOrThrow({ where: { cityId_id: { cityId: CITY, id: 'm' } } })).administrativeBodyId
+        // A public subject whose vote is tagged on an utterance of the unreviewed meeting.
+        const councilId = (await createAdministrativeBody(CITY, { type: 'council', name: 'Open', name_en: 'Open' })).id
         await createMeeting(CITY, { id: 'open', dateTime: MARCH(19), administrativeBodyId: councilId, kind: 'regular', released: true })
         const openSubject = (await createSubject('open', CITY, { name: 'Open subject' })).id
         await prisma.utterance.update({ where: { id: utteranceIds[3] }, data: { discussionSubjectId: openSubject, discussionStatus: 'VOTE' } })
@@ -86,8 +86,6 @@ describe('TRANSCRIPT_PUBLIC_WHERE', () => {
         await createMeeting(CITY, { id: 'public', administrativeBodyId: open, released: true })
         await createMeeting(CITY, { id: 'no-body', administrativeBodyId: null, released: true, format: null })
         await createMeeting(CITY, { id: 'draft', administrativeBodyId: open, released: false })
-        await createMeeting(CITY, { id: 'closed', administrativeBodyId: open, released: true, closedToPublic: true })
-        await createMeeting(CITY, { id: 'circulation', administrativeBodyId: open, released: true, format: 'byCirculation' })
         await createMeeting(CITY, { id: 'unreviewed', administrativeBodyId: reviewed, released: true })
         await createMeeting(CITY, { id: 'reviewed', administrativeBodyId: reviewed, released: true })
         await createTaskStatus('reviewed', CITY, { type: 'humanReview', status: 'succeeded' })
@@ -95,7 +93,7 @@ describe('TRANSCRIPT_PUBLIC_WHERE', () => {
         const ids = (await prisma.councilMeeting.findMany({ where: { cityId: CITY, ...TRANSCRIPT_PUBLIC_WHERE }, select: { id: true } }))
             .map((m) => m.id).sort()
         expect(ids).toEqual(['no-body', 'public', 'reviewed'])
-        for (const id of ['public', 'no-body', 'closed', 'circulation', 'unreviewed', 'reviewed']) {
+        for (const id of ['public', 'no-body', 'unreviewed', 'reviewed']) {
             const meeting = await getPublicMeeting(CITY, id, 'greece')
             expect([id, transcriptIsPublic(meeting!)]).toEqual([id, ids.includes(id)])
         }

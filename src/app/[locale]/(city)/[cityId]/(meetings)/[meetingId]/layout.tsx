@@ -30,8 +30,6 @@ import { getLocalizedName } from '@/lib/formatters/name';
 import { buildOgImageUrl } from '@/lib/og/locale';
 import { getRealm } from '@/lib/realm.server';
 import { hasExplainPage } from '@/lib/explain/availability';
-import { hasPublicRecording } from '@/lib/meetingLifecycleRules';
-import { withoutMedia } from '@/lib/meetingPublic';
 import { meetingDisplayName, meetingLabel } from '@/lib/meetingName';
 
 export async function generateImageMetadata(
@@ -168,15 +166,9 @@ export default async function CouncilMeetingPage(
 
     console.log(`Got meeting data for ${cityId} ${meetingId}: ${data.meeting.updatedAt}`);
 
-    // A meeting with no public recording shows readers no transcript and no
-    // media, also when they exist from before it was marked closed.
-    const recordingWithheld = !hasPublicRecording(data.meeting) && !editable;
-    const transcriptWithheld = (data.transcriptHiddenForReview && !editable) || recordingWithheld;
-    const meetingData = {
-        ...data,
-        ...(transcriptWithheld && { transcript: [], speakerTags: [] }),
-        ...(recordingWithheld && { meeting: withoutMedia(data.meeting) }),
-    };
+    const meetingData = (data.transcriptHiddenForReview && !editable)
+        ? { ...data, transcript: [], speakerTags: [] }
+        : data;
 
     const highlightCreationAllowed = editable || (
         !!currentUser &&
@@ -193,7 +185,7 @@ export default async function CouncilMeetingPage(
         link: `/${cityId}/meetings?filters=${encodeURIComponent(tCommon(`adminBodyType_${adminBody.type}`))}&body=${encodeURIComponent(adminBody.name)}`
     } : null;
 
-    const hasPlayback = Boolean(meetingData.meeting.muxPlaybackId || meetingData.meeting.videoUrl || meetingData.meeting.audioUrl);
+    const hasPlayback = Boolean(data.meeting.muxPlaybackId || data.meeting.videoUrl || data.meeting.audioUrl);
 
 
     return (

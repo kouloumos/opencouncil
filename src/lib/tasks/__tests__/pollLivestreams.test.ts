@@ -140,13 +140,12 @@ describe('pollLivestreamsForRecentMeetings', () => {
         expect(mockMeetingFindMany).not.toHaveBeenCalled();
     });
 
-    it('never takes a postponed, cancelled or unrecorded meeting as a candidate', async () => {
+    it('never takes a postponed, cancelled or by-circulation meeting as a candidate', async () => {
         mockMeetingFindMany.mockResolvedValue([]);
         await pollLivestreamsForRecentMeetings();
         // A postponed meeting in the window would take the stream of its new meeting.
         expect(mockMeetingFindMany.mock.calls[0][0].where).toMatchObject({
             scheduleStatus: { in: ['scheduled'] },
-            closedToPublic: false,
             // A meeting of unstated format can have a stream.
             OR: [{ format: null }, { format: { in: ['inPerson', 'teleconference', 'mixed'] } }],
         });

@@ -18,7 +18,7 @@ import { getMeetingStatus } from "@/lib/meetingStatus";
 import { getBatchStatisticsForSubjects, Statistics } from "@/lib/statistics";
 import { createCache } from "./index";
 import { getCityCoverage } from "@/lib/db/coverage";
-import { publicRow } from '@/lib/meetingPublic';
+import { hideLinks } from '@/lib/meetingPublic';
 
 /**
  * How long a time-filtered meeting query may go stale.
@@ -96,7 +96,7 @@ export async function getCityWithGeometryCached(cityId: string) {
  */
 export async function getCouncilMeetingsForCityPublicCached(cityId: string, options: CachedMeetingListOptions = {}) {
   return createCache(
-    async () => (await getCouncilMeetingsForCity(cityId, { ...options, includeUnreleased: false })).map(publicRow),
+    async () => (await getCouncilMeetingsForCity(cityId, { ...options, includeUnreleased: false })).map(hideLinks),
     ['city', cityId, 'meetings', MEETING_PREVIEW_CACHE_VERSION, 'onlyReleased', ...meetingListKey(options)],
     {
       tags: ['city', `city:${cityId}`, `city:${cityId}:meetings`],
@@ -148,7 +148,7 @@ export async function getCouncilMeetingsPreviewCached(cityId: string, options: C
     // A reader who is not an editor gets the public rows, with no link to another meeting.
     async () => {
       const meetings = await getCouncilMeetingsWithSubjectPreview(cityId, { ...options, includeUnreleased });
-      return includeUnreleased ? meetings : meetings.map(publicRow);
+      return includeUnreleased ? meetings : meetings.map(hideLinks);
     },
     ['city', cityId, 'meetingPreviews', MEETING_PREVIEW_CACHE_VERSION, includeUnreleased ? 'withUnreleased' : 'onlyReleased', ...meetingListKey(options)],
     {
@@ -161,7 +161,7 @@ export async function getCouncilMeetingsPreviewCached(cityId: string, options: C
 /** Public (no-auth) counterpart, safe for static pages. */
 export async function getCouncilMeetingsPreviewPublicCached(cityId: string, options: CachedMeetingListOptions = {}) {
   return createCache(
-    async () => (await getCouncilMeetingsWithSubjectPreview(cityId, { ...options, includeUnreleased: false })).map(publicRow),
+    async () => (await getCouncilMeetingsWithSubjectPreview(cityId, { ...options, includeUnreleased: false })).map(hideLinks),
     ['city', cityId, 'meetingPreviews', MEETING_PREVIEW_CACHE_VERSION, 'onlyReleased', ...meetingListKey(options)],
     {
       tags: ['city', `city:${cityId}`, `city:${cityId}:meetings`],

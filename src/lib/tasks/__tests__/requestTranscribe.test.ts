@@ -13,7 +13,7 @@ const internal = requestTranscribeInternal as jest.Mock;
 
 describe('requestTranscribe', () => {
     it.each([
-        new ConflictError('Meeting is closed to the public: it has no recording to transcribe'),
+        new ConflictError('Meeting is held as byCirculation: it has no recording to transcribe'),
         new PipelineBusyError('transcribe', 'processAgenda'),
         new TaskAlreadyExistsError('transcribe', 'already_running'),
     ])('returns the refusal %p as a value, so production shows its message', async (error) => {
