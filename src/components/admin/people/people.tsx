@@ -230,6 +230,7 @@ export default function People({ people, consents, currentCityName, qrEligibleId
                                                     personId={person.id}
                                                     personName={person.name}
                                                     voicePrint={(person.voicePrints && person.voicePrints[0]) || null}
+                                                    consentGiven={person.id in consents}
                                                 />
                                             </div>
                                         </TableCell>
