@@ -25,6 +25,9 @@ const nextConfig = {
     // misses — without this the standalone output (nix previews, Dockerfile)
     // 500s on every OG image. Prod (buildpack, full node_modules) is unaffected.
     outputFileTracingIncludes: {
+        // src/i18n/request.ts reads the modular catalogs from disk, which file
+        // tracing cannot see. A serverless deployment (Vercel) needs them traced.
+        '/**': ['./messages/**/*.json'],
         '/api/og': ['./node_modules/next/dist/compiled/@vercel/og/**/*'],
         '/api/share/story': ['./node_modules/next/dist/compiled/@vercel/og/**/*'],
     },
