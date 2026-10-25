@@ -22,11 +22,11 @@ const speakerSegmentWithRelationsInclude = {
     utterances: true,
     speakerTag: {
         include: {
-            person: {
+            speaker: { include: { person: {
                 include: {
                     roles: roleWithRelationsInclude
                 }
-            }
+            } } }
         }
     },
     summary: true,
@@ -490,12 +490,12 @@ export async function getLatestSegmentsForSpeaker(
     const skip = (page - 1) * pageSize;
 
     const meetingFilter: Prisma.CouncilMeetingWhereInput = {
-        ...(includeUnreleased ? {} : { released: true }),
+        ...(includeUnreleased ? {} : { transcript: { released: true } }),
         ...(administrativeBodyType ? { administrativeBody: { type: administrativeBodyType } } : {}),
         // Exclude meetings where transcript is hidden for review
         NOT: {
             administrativeBody: { showUnreviewedTranscript: false },
-            taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } }
+            transcript: { taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } } }
         }
     };
 
@@ -510,7 +510,7 @@ export async function getLatestSegmentsForSpeaker(
                 }
             }
         },
-        meeting: meetingFilter
+        transcript: { councilMeeting: meetingFilter }
     };
 
     if (topicId) {
@@ -525,18 +525,18 @@ export async function getLatestSegmentsForSpeaker(
         prisma.speakerSegment.findMany({
             where: whereClause,
             include: {
-                meeting: {
+                transcript: { include: { councilMeeting: {
                     include: {
                         city: true
                     }
-                },
+                } } },
                 speakerTag: {
                     include: {
-                        person: {
+                        speaker: { include: { person: {
                             include: {
                                 roles: roleWithRelationsInclude
                             }
-                        }
+                        } } }
                     }
                 },
                 utterances: true,
@@ -544,9 +544,9 @@ export async function getLatestSegmentsForSpeaker(
             },
             orderBy: [
                 {
-                    meeting: {
+                    transcript: { councilMeeting: {
                         dateTime: 'desc'
-                    }
+                    } }
                 },
                 {
                     startTimestamp: 'desc'
@@ -561,12 +561,14 @@ export async function getLatestSegmentsForSpeaker(
     ]);
 
     const results = segments
+        // Every segment here is of a meeting: the filter above asks for one.
+        .flatMap(({ transcript, ...segment }) => transcript.councilMeeting ? [{ ...segment, meeting: transcript.councilMeeting }] : [])
         .map(segment => ({
             id: segment.id,
             startTimestamp: segment.startTimestamp,
             endTimestamp: segment.endTimestamp,
             meeting: segment.meeting,
-            person: segment.speakerTag?.person || null,
+            person: segment.speakerTag?.speaker?.person || null,
             text: segment.utterances.map(u => u.text).join(' '),
             summary: segment.summary ? { text: segment.summary.text } : null
         }))
@@ -589,12 +591,12 @@ export async function getLatestSegmentsForParty(
     const skip = (page - 1) * pageSize;
 
     const meetingFilter: Prisma.CouncilMeetingWhereInput = {
-        ...(includeUnreleased ? {} : { released: true }),
+        ...(includeUnreleased ? {} : { transcript: { released: true } }),
         ...(administrativeBodyType ? { administrativeBody: { type: administrativeBodyType } } : {}),
         // Exclude meetings where transcript is hidden for review
         NOT: {
             administrativeBody: { showUnreviewedTranscript: false },
-            taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } }
+            transcript: { taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } } }
         }
     };
 
@@ -602,13 +604,13 @@ export async function getLatestSegmentsForParty(
         prisma.speakerSegment.findMany({
             where: {
                 speakerTag: {
-                    person: {
+                    speaker: { person: {
                         roles: {
                             some: {
                                 partyId: partyId
                             }
                         }
-                    }
+                    } }
                 },
                 utterances: {
                     some: {
@@ -617,17 +619,17 @@ export async function getLatestSegmentsForParty(
                         }
                     }
                 },
-                meeting: meetingFilter
+                transcript: { councilMeeting: meetingFilter }
             },
             include: {
-                meeting: {
+                transcript: { include: { councilMeeting: {
                     include: {
                         city: true
                     }
-                },
+                } } },
                 speakerTag: {
                     include: {
-                        person: {
+                        speaker: { include: { person: {
                             include: {
                                 roles: {
                                     where: {
@@ -636,7 +638,7 @@ export async function getLatestSegmentsForParty(
                                     include: roleWithRelationsInclude.include
                                 }
                             }
-                        }
+                        } } }
                     }
                 },
                 utterances: true,
@@ -644,9 +646,9 @@ export async function getLatestSegmentsForParty(
             },
             orderBy: [
                 {
-                    meeting: {
+                    transcript: { councilMeeting: {
                         dateTime: 'desc'
-                    }
+                    } }
                 },
                 {
                     startTimestamp: 'desc'
@@ -658,13 +660,13 @@ export async function getLatestSegmentsForParty(
         prisma.speakerSegment.count({
             where: {
                 speakerTag: {
-                    person: {
+                    speaker: { person: {
                         roles: {
                             some: {
                                 partyId: partyId
                             }
                         }
-                    }
+                    } }
                 },
                 utterances: {
                     some: {
@@ -673,24 +675,26 @@ export async function getLatestSegmentsForParty(
                         }
                     }
                 },
-                meeting: meetingFilter
+                transcript: { councilMeeting: meetingFilter }
             }
         })
     ]);
 
     const results = segments
+        // Every segment here is of a meeting: the filter above asks for one.
+        .flatMap(({ transcript, ...segment }) => transcript.councilMeeting ? [{ ...segment, meeting: transcript.councilMeeting }] : [])
         .filter(segment => {
             // Safely check for minimum text length
             const text = segment.utterances.map(u => u.text).join(' ');
             // Safe check for person and roles
-            const hasPerson = segment.speakerTag?.person != null;
-            const hasRoles = Array.isArray(segment.speakerTag?.person?.roles);
+            const hasPerson = segment.speakerTag?.speaker?.person != null;
+            const hasRoles = Array.isArray(segment.speakerTag?.speaker?.person?.roles);
             // Only include segments with at least 100 characters and a person with roles
             return text.length >= 100 && hasPerson && hasRoles;
         })
         .flatMap(segment => {
             const text = segment.utterances.map(u => u.text).join(' ');
-            const person = segment.speakerTag?.person;
+            const person = segment.speakerTag?.speaker?.person;
 
             // At this point we know person exists thanks to our filter
             // But TypeScript might not recognize this, so we add a safety check
