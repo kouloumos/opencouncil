@@ -10,7 +10,7 @@ import { meetingSummarySelect, type MeetingSummary } from '@/lib/db/types/meetin
  */
 export async function getMeetingSummary(cityId: string, meetingId: string): Promise<MeetingSummary | null> {
     const meeting = await prisma.councilMeeting.findUnique({
-        where: { cityId_id: { cityId, id: meetingId }, released: true },
+        where: { cityId_id: { cityId, id: meetingId }, transcript: { released: true } },
         select: meetingSummarySelect,
     });
     if (!meeting) return null;
@@ -23,7 +23,7 @@ export async function getMeetingSummary(cityId: string, meetingId: string): Prom
             _max: { endTimestamp: true },
         }),
         prisma.person.count({
-            where: { speakerTags: { some: { speakerSegments: { some: { cityId, meetingId } } } } },
+            where: { speaker: { speakerTags: { some: { speakerSegments: { some: { cityId, meetingId } } } } } },
         }),
         subjectIds.length > 0
             ? prisma.utterance.groupBy({

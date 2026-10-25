@@ -24,7 +24,7 @@ export async function getAdjacentMeetings(cityId: string, meetingId: string, { i
     const scope: Prisma.CouncilMeetingWhereInput = {
         cityId,
         administrativeBodyId: current.administrativeBodyId,
-        ...(includeUnreleased ? {} : { released: true }),
+        ...(includeUnreleased ? {} : { transcript: { released: true } }),
     };
     const select = { id: true, ...meetingNameSelect } satisfies Prisma.CouncilMeetingSelect;
     const [previous, next] = await Promise.all([

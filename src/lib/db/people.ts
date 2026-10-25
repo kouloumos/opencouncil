@@ -210,16 +210,20 @@ export async function getPeopleWithVoicePrintsForCity(cityId: string): Promise<P
             where: { cityId },
             include: {
                 roles: roleWithRelationsInclude,
-                voicePrints: {
-                    orderBy: {
-                        createdAt: 'desc'
+                speaker: {
+                    select: {
+                        voicePrints: {
+                            orderBy: {
+                                createdAt: 'desc'
+                            },
+                            take: 1 // Only get the most recent voiceprint
+                        },
                     },
-                    take: 1 // Only get the most recent voiceprint
                 },
                 _count: { select: { administrators: { where: { user: peopleOnly } } } }
             }
         });
-        return people;
+        return people.map(({ speaker, ...person }) => ({ ...person, voicePrints: speaker.voicePrints }));
     } catch (error) {
         console.error('Error fetching people with voiceprints for city:', error);
         throw new Error('Failed to fetch people with voiceprints for city');

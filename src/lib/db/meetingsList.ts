@@ -12,7 +12,7 @@ import { DECISION_KIND_SELECT } from "@/lib/tasks/pollDecisionsBackoff";
 import { publicAdministrativeBodyRelation } from "./types/administrativeBody";
 import { matchesEveryTerm, normalizeText, searchTerms } from "@/lib/utils";
 import { meetingLabel } from "@/lib/meetingName";
-import { meetingNameSelect } from "./types/meeting";
+import { meetingNameSelect, meetingTranscriptRelation, meetingTranscriptSelect, withTranscriptFields, type WithTranscriptFields } from "./types/meeting";
 
 const meetingWithSubjectsInclude = {
     subjects: {
@@ -28,11 +28,12 @@ const meetingWithSubjectsInclude = {
     },
     administrativeBody: publicAdministrativeBodyRelation,
     continuationOf: DECISION_KIND_SELECT.continuationOf,
+    transcript: meetingTranscriptRelation,
 } satisfies Prisma.CouncilMeetingInclude;
 
-export type CouncilMeetingWithAdminBodyAndSubjects = Prisma.CouncilMeetingGetPayload<{
+export type CouncilMeetingWithAdminBodyAndSubjects = WithTranscriptFields<Prisma.CouncilMeetingGetPayload<{
     include: typeof meetingWithSubjectsInclude
-}>;
+}>>;
 
 // Cache keys over this projection carry MEETING_PREVIEW_CACHE_VERSION, which
 // lives in lib/db/types/meeting.ts so client components can read it too.
@@ -62,20 +63,25 @@ const meetingWithSubjectPreviewInclude = {
         },
     },
     administrativeBody: publicAdministrativeBodyRelation,
-    // The public stage (lib/meetingStage.ts) reads which pipeline tasks have
-    // succeeded. Whether segments exist at all — an imported transcript has no
-    // task row — is counted per listed meeting below, not as a relation
-    // `_count` here: Prisma compiles that into a GROUP BY over every segment
-    // of the city, whatever the list's limit.
-    taskStatuses: {
-        where: { status: 'succeeded', type: { in: ['transcribe', 'summarize'] } },
-        select: { type: true },
+    transcript: {
+        select: {
+            ...meetingTranscriptSelect,
+            // The public stage (lib/meetingStage.ts) reads which pipeline tasks have
+            // succeeded. Whether segments exist at all — an imported transcript has no
+            // task row — is counted per listed meeting below, not as a relation
+            // `_count` here: Prisma compiles that into a GROUP BY over every segment
+            // of the city, whatever the list's limit.
+            taskStatuses: {
+                where: { status: 'succeeded', type: { in: ['transcribe', 'summarize'] } },
+                select: { type: true },
+            },
+        },
     },
 } satisfies Prisma.CouncilMeetingInclude;
 
-export type CouncilMeetingWithSubjectPreview = Prisma.CouncilMeetingGetPayload<{
+export type CouncilMeetingWithSubjectPreview = WithTranscriptFields<Prisma.CouncilMeetingGetPayload<{
     include: typeof meetingWithSubjectPreviewInclude
-}> & {
+}>> & {
     _count: { speakerSegments: number };
 };
 
@@ -170,10 +176,11 @@ function meetingListQuery(
 
 export async function getCouncilMeetingsForCity(cityId: string, options: MeetingListOptions = {}): Promise<CouncilMeetingWithAdminBodyAndSubjects[]> {
     try {
-        return await prisma.councilMeeting.findMany({
+        const meetings = await prisma.councilMeeting.findMany({
             ...meetingListQuery(cityId, options),
             include: meetingWithSubjectsInclude,
         });
+        return meetings.map(withTranscriptFields);
     } catch (error) {
         console.error('Error fetching council meetings for city:', error);
         throw new Error('Failed to fetch council meetings for city');
@@ -196,7 +203,7 @@ export async function getCouncilMeetingsWithSubjectPreview(cityId: string, optio
             include: meetingWithSubjectPreviewInclude,
         });
         const segments = await countSpeakerSegments(cityId, meetings.map(meeting => meeting.id));
-        return meetings.map(meeting => ({ ...meeting, _count: { speakerSegments: segments.get(meeting.id) ?? 0 } }));
+        return meetings.map(meeting => ({ ...withTranscriptFields(meeting), _count: { speakerSegments: segments.get(meeting.id) ?? 0 } }));
     } catch (error) {
         console.error('Error fetching council meeting previews for city:', error);
         throw new Error('Failed to fetch council meetings for city');

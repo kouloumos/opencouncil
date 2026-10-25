@@ -3,7 +3,7 @@
 // the links carry. The meeting API routes call it after they authorize the
 // request, so it does no auth of its own (the MCP admin tools reach it too).
 import "server-only";
-import { CouncilMeeting, Prisma, PrismaClient } from '@prisma/client';
+import { CouncilMeeting, Prisma, PrismaClient, Transcript } from '@prisma/client';
 import prisma from "./prisma";
 import {
     LifecycleRuleError,
@@ -27,14 +27,14 @@ export type MeetingRecordFields = Pick<CouncilMeeting,
 
 export type NewMeetingRecord = Partial<MeetingRecordFields>
     & Pick<CouncilMeeting, 'cityId' | 'id' | 'dateTime'>
-    & Partial<Pick<CouncilMeeting, 'released' | 'muxPlaybackId'>>;
+    & Partial<Pick<Transcript, 'released' | 'muxPlaybackId'>>;
 
 /** A walk along a postponement chain stops here. A longer chain is a data error, not a history. */
 const MAX_CHAIN_LENGTH = 50;
 
 const chainSelect = {
     id: true,
-    released: true,
+    transcript: { select: { released: true } },
     scheduleStatus: true,
     administrativeBodyId: true,
     dateTime: true,
@@ -81,13 +81,17 @@ async function walkForward(client: Client, cityId: string, startId: string): Pro
  */
 async function hideChainFrom(tx: Prisma.TransactionClient, cityId: string, fromId: string) {
     const earlier = await walkBack(tx, cityId, fromId);
-    const shown = earlier.filter((row) => row.released).map((row) => row.id);
+    const shown = earlier.filter((row) => row.transcript.released).map((row) => row.id);
     if (shown.length > 0) {
+        // Only a row that is still public: a concurrent unrelease by an
+        // admin must not be remembered as a hide.
         await tx.councilMeeting.updateMany({
-            // Only a row that is still public: a concurrent unrelease by an
-            // admin must not be remembered as a hide.
-            where: { cityId, id: { in: shown }, released: true },
-            data: { released: false, hiddenByPostponement: true },
+            where: { cityId, id: { in: shown }, transcript: { released: true } },
+            data: { hiddenByPostponement: true },
+        });
+        await tx.transcript.updateMany({
+            where: { workspaceId: cityId, id: { in: shown }, released: true },
+            data: { released: false },
         });
     }
 }
@@ -99,12 +103,18 @@ async function hideChainFrom(tx: Prisma.TransactionClient, cityId: string, fromI
  */
 async function showPredecessor(tx: Prisma.TransactionClient, cityId: string, predecessorId: string) {
     for (const row of await walkBack(tx, cityId, predecessorId)) {
-        if (row.released) return;
+        if (row.transcript.released) return;
         if (row.hiddenByPostponement && row.scheduleStatus === 'postponed') {
-            await tx.councilMeeting.updateMany({
+            const { count } = await tx.councilMeeting.updateMany({
                 where: { cityId, id: row.id, hiddenByPostponement: true },
-                data: { released: true, hiddenByPostponement: false },
+                data: { hiddenByPostponement: false },
             });
+            if (count > 0) {
+                await tx.transcript.update({
+                    where: { workspaceId_id: { workspaceId: cityId, id: row.id } },
+                    data: { released: true },
+                });
+            }
             return;
         }
     }
@@ -178,8 +188,14 @@ function newRecordState(data: NewMeetingRecord): MeetingRecordState {
 export async function createMeetingRecord(data: NewMeetingRecord): Promise<CouncilMeetingWithAdminBody> {
     return prisma.$transaction(async (tx) => {
         await assertValid(tx, data.cityId, newRecordState(data));
-        const meeting = await tx.councilMeeting.create({ data, include: meetingWithAdminBodyInclude });
-        if (meeting.released && meeting.postponedFromId) {
+        // A database trigger creates the transcript of a new meeting. Create
+        // it first here, with the release state and the media of the meeting.
+        const { released, muxPlaybackId, ...meetingData } = data;
+        await tx.transcript.create({
+            data: { workspaceId: data.cityId, id: data.id, name: data.id, released, muxPlaybackId },
+        });
+        const meeting = await tx.councilMeeting.create({ data: meetingData, include: meetingWithAdminBodyInclude });
+        if (meeting.transcript.released && meeting.postponedFromId) {
             await hideChainFrom(tx, data.cityId, meeting.postponedFromId);
         }
         return meeting;
@@ -200,7 +216,10 @@ export async function updateMeetingRecord(
     { tx }: { tx?: Prisma.TransactionClient } = {},
 ): Promise<CouncilMeetingWithAdminBody> {
     const run = async (client: Prisma.TransactionClient) => {
-        const current = await client.councilMeeting.findUnique({ where: { cityId_id: { cityId, id } } });
+        const current = await client.councilMeeting.findUnique({
+            where: { cityId_id: { cityId, id } },
+            include: { transcript: { select: { released: true } } },
+        });
         if (!current) throw new Error(`Meeting ${cityId}/${id} not found`);
 
         const merged = { ...current, ...definedOnly(patch) };
@@ -216,7 +235,7 @@ export async function updateMeetingRecord(
         // meeting of its chain is public, the same as a release would: the
         // meetings before it are hidden, and the old predecessor is shown.
         if (relinked) {
-            const publicAtOrAfter = current.released || (await walkForward(client, cityId, id)).some((row) => row.released);
+            const publicAtOrAfter = current.transcript.released || (await walkForward(client, cityId, id)).some((row) => row.transcript.released);
             if (publicAtOrAfter) {
                 if (current.postponedFromId) await showPredecessor(client, cityId, current.postponedFromId);
                 if (merged.postponedFromId) await hideChainFrom(client, cityId, merged.postponedFromId);
@@ -241,22 +260,27 @@ export async function setMeetingReleased(cityId: string, id: string, released: b
 
         if (released) {
             const later = await walkForward(tx, cityId, id);
-            if (later.some((row) => row.released)) {
+            if (later.some((row) => row.transcript.released)) {
                 throw new LifecycleRuleError('laterMeetingReleased', 'A later meeting of this postponement is public. Unrelease it first.');
             }
             if (current.postponedFromId) await hideChainFrom(tx, cityId, current.postponedFromId);
-        } else if (current.released && current.postponedFromId) {
+        } else if (current.transcript.released && current.postponedFromId) {
             await showPredecessor(tx, cityId, current.postponedFromId);
         }
 
+        const changed = current.transcript.released !== released;
+        await tx.transcript.update({
+            where: { workspaceId_id: { workspaceId: cityId, id } },
+            data: { released },
+        });
         // A change of visibility by the admin replaces the memory of a hide.
         // A repeated call changes nothing, so the memory stays.
         const meeting = await tx.councilMeeting.update({
             where: { cityId_id: { cityId, id } },
-            data: { released, ...(current.released !== released && { hiddenByPostponement: false }) },
+            data: changed ? { hiddenByPostponement: false } : {},
             include: meetingWithAdminBodyInclude,
         });
-        return { meeting, changed: current.released !== released };
+        return { meeting, changed };
     });
 }
 
@@ -270,7 +294,7 @@ export async function deleteMeetingRecord(cityId: string, id: string): Promise<v
         await prisma.$transaction(async (tx) => {
             const current = await tx.councilMeeting.findUnique({ where: { cityId_id: { cityId, id } }, select: chainSelect });
             if (!current) throw new Error(`Meeting ${cityId}/${id} not found`);
-            if (current.released && current.postponedFromId) await showPredecessor(tx, cityId, current.postponedFromId);
+            if (current.transcript.released && current.postponedFromId) await showPredecessor(tx, cityId, current.postponedFromId);
             await tx.councilMeeting.delete({ where: { cityId_id: { cityId, id } } });
         });
     } catch (error) {
