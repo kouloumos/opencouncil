@@ -90,7 +90,7 @@ export async function getCouncilMeeting(cityId: string, id: string): Promise<Cou
     try {
         const meeting = await getCouncilMeetingDirect(cityId, id);
 
-        if (meeting && !meeting.released && !(await isUserAuthorizedToEdit({ cityId, councilMeetingId: id }))) {
+        if (meeting && !meeting.transcript.released && !(await isUserAuthorizedToEdit({ cityId, councilMeetingId: id }))) {
             return null;
         }
         return meeting;
@@ -131,7 +131,7 @@ const meetingByYouTubeVideoSelect = {
  */
 export async function findCouncilMeetingByYouTubeVideoId(videoId: string) {
     const candidates = await prisma.councilMeeting.findMany({
-        where: { released: true, youtubeUrl: { contains: videoId } },
+        where: { transcript: { released: true }, youtubeUrl: { contains: videoId } },
         orderBy: [{ dateTime: 'desc' }, { createdAt: 'desc' }],
         select: meetingByYouTubeVideoSelect,
     });
@@ -216,7 +216,7 @@ export async function getMeetingDataForOG(cityId: string, meetingId: string) {
         const data = await prisma.councilMeeting.findUnique({
             where: {
                 cityId_id: { cityId, id: meetingId },
-                released: true
+                transcript: { released: true }
             },
             // The `_en` columns come along because the OG image renders in the
             // locale of the page that embeds it, English included.
@@ -276,7 +276,7 @@ export async function getLatestReleasedMeetingIdForCity(cityId: string): Promise
     const now = new Date();
 
     const upcoming = await prisma.councilMeeting.findFirst({
-        where: { cityId, released: true, dateTime: { gt: now }, ...TAKES_PLACE_WHERE },
+        where: { cityId, transcript: { released: true }, dateTime: { gt: now }, ...TAKES_PLACE_WHERE },
         orderBy: { dateTime: 'asc' },
         select: { id: true },
     });
@@ -284,7 +284,7 @@ export async function getLatestReleasedMeetingIdForCity(cityId: string): Promise
     if (upcoming) return upcoming.id;
 
     const latest = await prisma.councilMeeting.findFirst({
-        where: { cityId, released: true, ...TAKES_PLACE_WHERE },
+        where: { cityId, transcript: { released: true }, ...TAKES_PLACE_WHERE },
         orderBy: { dateTime: 'desc' },
         select: { id: true },
     });
@@ -340,12 +340,12 @@ export async function getMeetingUploadLists(last30Days: boolean = false): Promis
                     PUBLIC_RECORDING_WHERE,
                     {
                         NOT: {
-                            taskStatuses: {
+                            transcript: { taskStatuses: {
                                 some: {
                                     type: 'transcribe',
                                     status: 'succeeded'
                                 }
-                            }
+                            } }
                         }
                     },
                     buildDateFilter(last30Days)
