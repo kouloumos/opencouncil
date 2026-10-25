@@ -31,11 +31,11 @@ function role(overrides: Record<string, unknown>) {
 function highlightWith(language: string, roles: Record<string, unknown>[]) {
     return {
         id: 'h1', meetingId: 'm1', cityId: 'c1',
-        meeting: { videoUrl: 'https://v/x.mp4', dateTime: MEETING_DATE, city: { language } },
+        meeting: { transcript: { videoUrl: 'https://v/x.mp4' }, dateTime: MEETING_DATE, city: { language } },
         highlightedUtterances: [{
             utterance: {
                 id: 'u1', startTimestamp: 1, endTimestamp: 2, text: 'x',
-                speakerSegment: { speakerTag: { label: 'S0', person: { id: 'p1', name: 'A', roles } } },
+                speakerSegment: { speakerTag: { label: 'S0', speaker: { person: { id: 'p1', name: 'A', roles } } } },
             },
         }],
     };

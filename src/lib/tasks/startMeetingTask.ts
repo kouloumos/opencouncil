@@ -41,13 +41,13 @@ export async function startMeetingTask(
         select: {
             youtubeUrl: true,
             agendaUrl: true,
-            _count: { select: { speakerSegments: true } },
+            transcript: { select: { _count: { select: { speakerSegments: true } } } },
         },
     });
     if (!meeting) throw new NotFoundError('Meeting not found');
 
     const force = request.force ?? false;
-    const transcribed = meeting._count.speakerSegments > 0;
+    const transcribed = meeting.transcript._count.speakerSegments > 0;
 
     try {
         switch (request.type) {

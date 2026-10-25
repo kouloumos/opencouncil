@@ -17,7 +17,7 @@ const VOICEPRINT_DURATION = 30;
 const voiceprintCandidateTagInclude = {
     speakerSegments: {
         include: {
-            meeting: {
+            transcript: {
                 select: {
                     taskStatuses: {
                         where: { type: 'humanReview', status: 'succeeded' },
@@ -46,7 +46,7 @@ type VoiceprintCandidateTag = Prisma.SpeakerTagGetPayload<{ include: typeof voic
 function isVoiceprintSource(tag: VoiceprintCandidateTag): boolean {
     if (tag.personSetBy !== 'transcript') return true;
     return tag.speakerSegments.some(segment =>
-        segment.meeting.taskStatuses.some(review => review.createdAt > tag.createdAt)
+        segment.transcript.taskStatuses.some(review => review.createdAt > tag.createdAt)
     );
 }
 
@@ -54,7 +54,7 @@ function isVoiceprintSource(tag: VoiceprintCandidateTag): boolean {
 function voiceprintSourceSegments(tags: VoiceprintCandidateTag[]): SpeakerSegment[] {
     return tags
         .filter(isVoiceprintSource)
-        .flatMap(tag => tag.speakerSegments.map(({ meeting: _meeting, ...segment }) => segment));
+        .flatMap(tag => tag.speakerSegments.map(({ transcript: _transcript, ...segment }) => segment));
 }
 
 /**
@@ -79,22 +79,22 @@ export async function findEligiblePeopleForVoiceprintGeneration(cityId: string, 
         where: {
             cityId,
             ...(personIds && { id: { in: personIds } }),
-            voicePrints: {
+            speaker: { voicePrints: {
                 none: {}
-            }
+            } }
         },
         select: {
             id: true,
             name: true,
-            speakerTags: {
+            speaker: { select: { speakerTags: {
                 include: voiceprintCandidateTagInclude
-            }
+            } } }
         }
     });
 
     // Filter to only those with a usable segment longer than VOICEPRINT_DURATION
     const eligiblePeople = peopleWithoutVoiceprints.filter(person =>
-        voiceprintSourceSegments(person.speakerTags).some(segment =>
+        voiceprintSourceSegments(person.speaker.speakerTags).some(segment =>
             segment.endTimestamp - segment.startTimestamp >= VOICEPRINT_DURATION
         )
     );
@@ -178,7 +178,7 @@ export async function requestGenerateVoiceprint(personId: string) {
 
     await withUserAuthorizedToEdit({ cityId: segment.cityId });
 
-    const mediaUrl = meeting.audioUrl || meeting.videoUrl;
+    const mediaUrl = meeting.transcript.audioUrl || meeting.transcript.videoUrl;
     if (!mediaUrl) {
         throw new Error("Meeting media URL not found");
     }
@@ -212,9 +212,9 @@ export async function findLongestSpeakerSegmentForPerson(personId: string): Prom
         const person = await prisma.person.findUnique({
             where: { id: personId },
             include: {
-                speakerTags: {
+                speaker: { include: { speakerTags: {
                     include: voiceprintCandidateTagInclude,
-                },
+                } } },
             },
         });
 
@@ -223,7 +223,7 @@ export async function findLongestSpeakerSegmentForPerson(personId: string): Prom
         }
 
         // Every segment of the tags whose audio may be used
-        const allSegments = voiceprintSourceSegments(person.speakerTags);
+        const allSegments = voiceprintSourceSegments(person.speaker.speakerTags);
 
         if (allSegments.length === 0) {
             return null;

@@ -125,7 +125,7 @@ export async function sendTranscriptToMunicipality(
                 type: 'transcriptSent',
                 status: 'succeeded',
                 requestBody: JSON.stringify({ recipientEmails: contactEmails }),
-                councilMeeting: { connect: { cityId_id: { cityId, id: meetingId } } },
+                transcript: { connect: { workspaceId_id: { workspaceId: cityId, id: meetingId } } },
             },
         });
 

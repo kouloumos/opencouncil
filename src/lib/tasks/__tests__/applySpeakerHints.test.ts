@@ -106,7 +106,7 @@ type Run = { type: 'transcribe' | 'humanReview'; createdAt: Date };
 const TRANSCRIBED: Run = { type: 'transcribe', createdAt: at('10:00') };
 
 function setup(tags: Tag[], { people = ['anna', 'babis'], reviewed = false, runs, realm = 'greece' }: { people?: string[]; reviewed?: boolean; runs?: Run[]; realm?: string } = {}) {
-  mockTaskFindUnique.mockResolvedValue({ cityId: 'city-1', councilMeetingId: 'meeting-1', councilMeeting: { city: { realm } } });
+  mockTaskFindUnique.mockResolvedValue({ id: 'task-1', cityId: 'city-1', councilMeetingId: 'meeting-1', transcript: { councilMeeting: { city: { realm } } } });
   mockTagFindMany.mockResolvedValue(tags);
   mockPersonFindMany.mockResolvedValue(people.map(id => ({ id })));
   mockTaskFindMany.mockResolvedValue(runs ?? [TRANSCRIBED, ...(reviewed ? [{ type: 'humanReview' as const, createdAt: at('12:00') }] : [])]);

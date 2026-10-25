@@ -27,13 +27,13 @@ const mockUtteranceUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
 const mockTransaction = jest.fn().mockResolvedValue([]);
 const mockTaskStatusFindUnique = jest.fn().mockResolvedValue({
   id: TASK_ID,
-  councilMeeting: {
+  transcript: { councilMeeting: {
     id: MEETING_ID,
     cityId: CITY_ID,
     city: { name_en: 'TestCity' },
     name: 'Test Meeting',
     administrativeBody: null,
-  },
+  } },
 });
 const mockTopicFindMany = jest.fn().mockResolvedValue([]);
 

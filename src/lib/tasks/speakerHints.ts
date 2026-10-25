@@ -10,6 +10,7 @@ import prisma from '@/lib/db/prisma';
 import { SpeakerHint, UnlistedSpeakerHint } from '@/lib/apiTypes';
 import { AUTOMATIC_SOURCES, isReviewerAssignment, reconcileSpeakerIdentifications, MethodIdentification } from '@/lib/speakerIdentifications';
 import { buildUnknownSpeakerLabel, isUnknownSpeakerLabel, lastUnknownSpeakerIndex } from '@/lib/utils/unknownSpeakerLabel';
+import { withCouncilMeeting } from './taskMeeting';
 
 /**
  * The tags isReviewerAssignment leaves open, as a query, built from the same
@@ -141,12 +142,12 @@ export async function applySpeakerHints(
 ): Promise<void> {
     const task = await prisma.taskStatus.findUnique({
         where: { id: taskId },
-        select: { cityId: true, councilMeetingId: true, councilMeeting: { select: { city: { select: { realm: true } } } } },
+        select: { id: true, cityId: true, councilMeetingId: true, transcript: { select: { councilMeeting: { select: { city: { select: { realm: true } } } } } } },
     });
     if (!task) {
         throw new Error('Task not found');
     }
-    const { cityId, councilMeetingId: meetingId } = task;
+    const { cityId, councilMeetingId: meetingId, councilMeeting } = withCouncilMeeting(task);
 
     const [tags, people, pipelineRuns] = await Promise.all([
         prisma.speakerTag.findMany({
@@ -176,7 +177,7 @@ export async function applySpeakerHints(
         unlistedSpeakerHints.filter(hint => !hintByTagId.has(hint.speakerTagId)).map(hint => [hint.speakerTagId, hint])
     );
 
-    const unknownLabels = unknownSpeakerLabels(tags.map(tag => tag.label), task.councilMeeting.city.realm);
+    const unknownLabels = unknownSpeakerLabels(tags.map(tag => tag.label), councilMeeting.city.realm);
 
     let stored = 0;
     let assigned = 0;

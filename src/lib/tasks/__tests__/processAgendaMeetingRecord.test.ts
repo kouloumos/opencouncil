@@ -42,21 +42,21 @@ describe('handleProcessAgendaResult: the meeting record', () => {
     beforeEach(() => { jest.clearAllMocks(); mockApply.mockResolvedValue({ written: {}, problems: [] }); });
 
     it("refuses another city's agenda before the subjects are saved", async () => {
-        mockFindTask.mockResolvedValue({ id: 't', councilMeeting: councilMeeting('greece') });
+        mockFindTask.mockResolvedValue({ id: 't', transcript: { councilMeeting: councilMeeting('greece') } });
         await expect(handleProcessAgendaResult('t', v7(inAgenda({ municipality: 'ΔΗΜΟΣ ΖΩΓΡΑΦΟΥ' })))).rejects.toThrow('the agenda is from ΔΗΜΟΣ ΖΩΓΡΑΦΟΥ');
         expect(mockSave).not.toHaveBeenCalled();
         expect(mockApply).not.toHaveBeenCalled();
     });
 
     it('saves an agenda of another body and passes the difference to the alert', async () => {
-        mockFindTask.mockResolvedValue({ id: 't', councilMeeting: councilMeeting('greece') });
+        mockFindTask.mockResolvedValue({ id: 't', transcript: { councilMeeting: councilMeeting('greece') } });
         await expect(handleProcessAgendaResult('t', v7(inAgenda({ bodyName: 'Δημοτική Επιτροπή', ofThisBody: false })))).resolves.toBeUndefined();
         expect(mockSave).toHaveBeenCalled();
         expect(mockApply.mock.calls[0][3]).toEqual(["body: the agenda calls Δημοτική Επιτροπή, not this meeting's body"]);
     });
 
     it('neither checks nor applies outside Greece, and still reports the agenda', async () => {
-        mockFindTask.mockResolvedValue({ id: 't', councilMeeting: councilMeeting('serbia') });
+        mockFindTask.mockResolvedValue({ id: 't', transcript: { councilMeeting: councilMeeting('serbia') } });
         await expect(handleProcessAgendaResult('t', v7(inAgenda({ municipality: 'ΔΗΜΟΣ ΖΩΓΡΑΦΟΥ' })))).resolves.toBeUndefined();
         expect(mockSave).toHaveBeenCalled();
         expect(mockApply).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe('handleProcessAgendaResult: the meeting record', () => {
     });
 
     it('sends the task alert of a success, with what the invitation states and what was written', async () => {
-        mockFindTask.mockResolvedValue({ id: 't', councilMeeting: councilMeeting('greece') });
+        mockFindTask.mockResolvedValue({ id: 't', transcript: { councilMeeting: councilMeeting('greece') } });
         mockApply.mockResolvedValue({ written: { format: 'byCirculation', sessionNumber: 12 }, problems: [] });
         const read = inAgenda({ format: 'byCirculation', formatEvidence: 'δια περιφοράς' });
         await handleProcessAgendaResult('t', { ...v7(read), subjects: [{ name: 'Θέμα', agendaItemIndex: 1 }] as ProcessAgendaResult['subjects'] });
@@ -81,7 +81,7 @@ describe('handleProcessAgendaResult: the meeting record', () => {
     });
 
     it('does not fail the task when applying the record throws after the subjects are saved', async () => {
-        mockFindTask.mockResolvedValue({ id: 't', councilMeeting: councilMeeting('greece') });
+        mockFindTask.mockResolvedValue({ id: 't', transcript: { councilMeeting: councilMeeting('greece') } });
         mockApply.mockRejectedValue(new Error('connection reset'));
         await expect(handleProcessAgendaResult('t', v7(inAgenda()))).resolves.toBeUndefined();
         expect(mockSave).toHaveBeenCalled();

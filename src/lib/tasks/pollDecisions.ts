@@ -1260,7 +1260,7 @@ async function pollMeetingsWithNewCandidates(cityId: string, meetingIds: string[
                 ...AWAITING_DECISIONS_MEETING_WHERE,
                 cityId,
                 id: { in: meetingIds },
-                taskStatuses: { none: { type: 'pollDecisions', status: { in: ['pending', 'processing'] } } },
+                transcript: { taskStatuses: { none: { type: 'pollDecisions', status: { in: ['pending', 'processing'] } } } },
             },
             select: { id: true },
         });
