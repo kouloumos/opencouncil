@@ -237,11 +237,11 @@ export default function AdminActions({
                 return;
             }
             const updatedMeeting = result.meeting;
-            setIsReleased(updatedMeeting.released);
+            setIsReleased(updatedMeeting.transcript.released);
             setIsReleaseDialogOpen(false);
             toast({
-                title: updatedMeeting.released ? t('toasts.meetingReleased.title') : t('toasts.meetingUnreleased.title'),
-                description: updatedMeeting.released ? t('toasts.meetingReleased.description') : t('toasts.meetingUnreleased.description'),
+                title: updatedMeeting.transcript.released ? t('toasts.meetingReleased.title') : t('toasts.meetingUnreleased.title'),
+                description: updatedMeeting.transcript.released ? t('toasts.meetingReleased.description') : t('toasts.meetingUnreleased.description'),
             });
         } catch (error) {
             console.error('Error toggling meeting release:', error);

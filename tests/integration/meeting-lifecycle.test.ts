@@ -15,7 +15,7 @@ const CITY = 'c1'
 const MARCH = (day: number) => new Date(Date.UTC(2026, 2, day, 16))
 
 async function released(id: string) {
-    const row = await prisma.councilMeeting.findUniqueOrThrow({ where: { cityId_id: { cityId: CITY, id } }, select: { released: true } })
+    const row = await prisma.transcript.findUniqueOrThrow({ where: { workspaceId_id: { workspaceId: CITY, id } }, select: { released: true } })
     return row.released
 }
 
@@ -231,7 +231,7 @@ describe('meeting lifecycle module', () => {
             // X is a released meeting that the admin links to B later.
             await createMeeting(CITY, { id: 'x', dateTime: MARCH(26), administrativeBodyId: councilId, kind: 'ordinary', released: true })
             // An admin released A again by hand, outside the module.
-            await prisma.councilMeeting.update({ where: { cityId_id: { cityId: CITY, id: 'a' } }, data: { released: true } })
+            await prisma.transcript.update({ where: { workspaceId_id: { workspaceId: CITY, id: 'a' } }, data: { released: true } })
 
             await updateMeetingRecord(CITY, 'x', { postponedFromId: 'b' })
             expect(await visibility('a', 'b', 'x')).toEqual({ a: false, b: false, x: true })

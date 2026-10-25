@@ -3,9 +3,10 @@ import { CouncilMeetingWithAdminBody } from "@/lib/db/meetings";
 import { CityWithGeometry } from "@/lib/db/cities";
 import { formatDateTime } from "@/lib/formatters/time";
 import { meetingLabel } from '@/lib/meetingName';
+import type { WithTranscriptFields } from '@/lib/db/types/meeting';
 
 interface MeetingInfoSlideProps {
-    meeting: CouncilMeetingWithAdminBody;
+    meeting: WithTranscriptFields<CouncilMeetingWithAdminBody>;
     city: CityWithGeometry;
     agendaCount: number;
 }

@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { CouncilMeeting, Utterance as UtteranceType } from "@prisma/client";
 import { usePlaybackSpeed } from './options/OptionsContext';
 import { revealUtterance } from '@/lib/utils/scrollAnchor';
+import type { MeetingTranscriptFields } from '@/lib/db/types/meeting';
 
 /**
  * VIDEO PLAYBACK ARCHITECTURE OVERVIEW:
@@ -42,7 +43,7 @@ interface VideoContextType {
     playerRef: React.MutableRefObject<HTMLVideoElement | null>;
     isSeeking: boolean;
     setIsPlaying: (isPlaying: boolean) => void;
-    meeting: CouncilMeeting;
+    meeting: CouncilMeeting & MeetingTranscriptFields;
     onTimeUpdate: (time: SyntheticEvent<HTMLVideoElement, Event>) => void;
     onSeeked: () => void;
     onSeeking: () => void;
@@ -91,7 +92,7 @@ export const useVideoActions = () => {
 
 interface VideoProviderProps {
     children: React.ReactNode;
-    meeting: CouncilMeeting;
+    meeting: CouncilMeeting & MeetingTranscriptFields;
     utterances: UtteranceType[];
 }
 

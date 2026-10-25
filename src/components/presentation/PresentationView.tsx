@@ -12,9 +12,10 @@ import { SubjectWithRelations } from "@/lib/db/subject";
 import MeetingInfoSlide from "./MeetingInfoSlide";
 import SlideHeader from "./SlideHeader";
 import SubjectSlide from "./SubjectSlide";
+import type { WithTranscriptFields } from '@/lib/db/types/meeting';
 
 interface PresentationViewProps {
-    meeting: CouncilMeetingWithAdminBody;
+    meeting: WithTranscriptFields<CouncilMeetingWithAdminBody>;
     city: CityWithGeometry;
     agendaSubjects: SubjectWithRelations[];
     backHref: string;

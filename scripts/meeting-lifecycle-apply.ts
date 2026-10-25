@@ -127,11 +127,11 @@ async function lockState(tx: Prisma.TransactionClient, cityId: string, id: strin
     await tx.$queryRaw`SELECT id FROM "CouncilMeeting" WHERE "cityId" = ${cityId} AND (id = ${id} OR "postponedFromId" = ${id}) FOR UPDATE`;
     const row = await tx.councilMeeting.findUnique({
         where: { cityId_id: { cityId, id } },
-        select: { scheduleStatus: true, kind: true, urgent: true, sessionNumber: true, format: true, released: true },
+        select: { scheduleStatus: true, kind: true, urgent: true, sessionNumber: true, format: true, transcript: { select: { released: true } } },
     });
     if (!row) return null;
     const link = await tx.councilMeeting.findFirst({ where: { cityId, postponedFromId: id }, select: { id: true } });
-    const { released, ...fields } = row;
+    const { transcript: { released }, ...fields } = row;
     return { state: { ...fields, postponedTo: link?.id ?? null }, released };
 }
 
@@ -188,9 +188,9 @@ async function main() {
                 if (differs(current, reviewed(row)).length > 0) return 'changed-since-report';
                 // The rules hide a postponed meeting once its new meeting is public.
                 const newMeeting = wanted.postponedTo && wanted.postponedTo !== current.postponedTo
-                    ? await tx.councilMeeting.findUnique({ where: { cityId_id: { cityId: row.cityId, id: wanted.postponedTo } }, select: { released: true } })
+                    ? await tx.councilMeeting.findUnique({ where: { cityId_id: { cityId: row.cityId, id: wanted.postponedTo } }, select: { transcript: { select: { released: true } } } })
                     : null;
-                const hides = locked.released && newMeeting?.released ? ' (its new meeting is public, so it is unreleased)' : '';
+                const hides = locked.released && newMeeting?.transcript.released ? ' (its new meeting is public, so it is unreleased)' : '';
                 console.log(`${row.cityId}/${row.id}: ${changes.map((field) => `${field} ${JSON.stringify(current[field])} → ${JSON.stringify(wanted[field])}`).join('; ')}${hides}`);
                 if (!argv.apply) return 'would-apply';
                 // The status first: a new meeting can only follow a postponed one.

@@ -48,13 +48,13 @@ export async function POST(request: NextRequest) {
             },
             include: {
                 administrativeBody: { select: { name: true, name_en: true } },
-                speakerSegments: {
+                transcript: { include: { speakerSegments: {
                     select: {
                         utterances: {
                             select: { startTimestamp: true, endTimestamp: true },
                         },
                     },
-                },
+                } } },
                 meetingOperator: {
                     include: {
                         user: { select: { name: true } },
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
         });
 
         const reportMeetings: ReportMeeting[] = meetings.map(m => {
-            const durationMs = m.speakerSegments.length > 0
-                ? calculateMeetingDurationMs(m)
+            const durationMs = m.transcript.speakerSegments.length > 0
+                ? calculateMeetingDurationMs(m.transcript)
                 : null;
 
             return {

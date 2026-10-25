@@ -77,7 +77,7 @@ function describeRights(user: TestUserState): string {
     if (user.administers.length === 0) return 'no admin rights';
     return user.administers
         .map((a) => {
-            if (a.city) return `city ${a.cityId}`;
+            if (a.workspace?.city) return `city ${a.cityId}`;
             if (a.party) return `party ${a.party.name} (${a.party.cityId})`;
             if (a.person) return `person ${a.person.name} (${a.person.cityId})`;
             return `body ${a.administrativeBody?.name} (${a.administrativeBody?.cityId})`;

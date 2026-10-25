@@ -30,7 +30,7 @@ export async function GET() {
         city: CUSTOMER_CITY_WHERE
       },
       include: {
-        taskStatuses: {
+        transcript: { include: { taskStatuses: {
           where: {
             type: { in: ['transcribe', 'fixTranscript', 'humanReview'] },
             status: 'succeeded'
@@ -49,7 +49,7 @@ export async function GET() {
               }
             }
           }
-        }
+        } } }
       }
     });
 
@@ -65,7 +65,7 @@ export async function GET() {
 
     for (const meeting of meetings) {
       // Calculate meeting duration from utterances using shared utility
-      const meetingDurationMs = calculateMeetingDurationMs(meeting);
+      const meetingDurationMs = calculateMeetingDurationMs(meeting.transcript);
 
       if (meetingDurationMs === 0) {
         continue; // Skip meetings without duration
@@ -81,10 +81,10 @@ export async function GET() {
       }
 
       // Check task statuses
-      const hasTranscribe = meeting.taskStatuses.some(
+      const hasTranscribe = meeting.transcript.taskStatuses.some(
         t => t.type === 'transcribe' && t.status === 'succeeded'
       );
-      const hasHumanReview = meeting.taskStatuses.some(
+      const hasHumanReview = meeting.transcript.taskStatuses.some(
         t => t.type === 'humanReview' && t.status === 'succeeded'
       );
 

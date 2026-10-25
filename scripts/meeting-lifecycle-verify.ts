@@ -39,7 +39,7 @@ async function main() {
     const meetings = await prisma.councilMeeting.findMany({
         select: {
             cityId: true, id: true, name: true, kind: true, urgent: true, sessionNumber: true, format: true, scheduleStatus: true, continuationOfId: true,
-            postponedFromId: true, released: true,
+            postponedFromId: true, transcript: { select: { released: true } },
             administrativeBody: { select: { name: true, type: true } },
             city: { select: { realm: true } },
             _count: { select: { subjects: true } },
@@ -52,7 +52,7 @@ async function main() {
     console.log(`status: ${tally(meetings, (m) => m.scheduleStatus)}`);
     const linked = new Set(meetings.filter((m) => m.postponedFromId).map((m) => `${m.cityId}/${m.postponedFromId}`));
     const postponed = meetings.filter((m) => m.scheduleStatus === 'postponed');
-    console.log(`postponed: ${postponed.filter((m) => linked.has(`${m.cityId}/${m.id}`)).length} with a new meeting, ${postponed.filter((m) => !linked.has(`${m.cityId}/${m.id}`)).length} without; ${postponed.filter((m) => !m.released).length} unreleased`);
+    console.log(`postponed: ${postponed.filter((m) => linked.has(`${m.cityId}/${m.id}`)).length} with a new meeting, ${postponed.filter((m) => !linked.has(`${m.cityId}/${m.id}`)).length} without; ${postponed.filter((m) => !m.transcript.released).length} unreleased`);
     console.log(`urgent: ${meetings.filter((m) => m.urgent).length}`);
     console.log(`number: ${meetings.filter((m) => m.sessionNumber !== null).length} set`);
     // A stored name shows only on a meeting without a kind (#150).
