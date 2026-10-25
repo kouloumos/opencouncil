@@ -26,7 +26,7 @@ describe('findCouncilMeetingByYouTubeVideoId', () => {
         await findCouncilMeetingByYouTubeVideoId(ID);
 
         expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: { released: true, youtubeUrl: { contains: ID } },
+            where: { transcript: { released: true }, youtubeUrl: { contains: ID } },
             orderBy: [{ dateTime: 'desc' }, { createdAt: 'desc' }],
         }));
     });

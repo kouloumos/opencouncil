@@ -112,13 +112,17 @@ export async function ensureSerbianFixture(db: PrismaClient, log: (line: string)
         name: 'Седница Скупштине града Београда',
         name_en: 'Session of the City Assembly of Belgrade',
         dateTime: new Date('2026-06-15T10:00:00+02:00'),
-        released: true,
         administrativeBodyId: 'seed-sr-skupstina',
     }
     await db.councilMeeting.upsert({
         where: { cityId_id: { cityId: 'beograd', id: 'seed-sr-jun-2026' } },
         update: meeting,
         create: { cityId: 'beograd', id: 'seed-sr-jun-2026', ...meeting },
+    })
+    // A database trigger creates the meeting's transcript unreleased.
+    await db.transcript.update({
+        where: { workspaceId_id: { workspaceId: 'beograd', id: 'seed-sr-jun-2026' } },
+        data: { released: true },
     })
 
     // Segment 1: stored in Cyrillic. Segment 2: stored in Latin.

@@ -87,14 +87,15 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
         prisma.councilMeeting.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
         // There is no releasedAt column, so this counts meetings created this
         // week that are currently released — not release events this week.
-        prisma.councilMeeting.count({ where: { createdAt: { gte: sevenDaysAgo }, released: true } }),
+        prisma.councilMeeting.count({ where: { createdAt: { gte: sevenDaysAgo }, transcript: { released: true } } }),
         prisma.$queryRaw<Array<{ total_hours: number }>>`
             SELECT COALESCE(SUM(meeting_hours), 0) as total_hours
             FROM (
                 SELECT (MAX(ss."endTimestamp") - MIN(ss."startTimestamp")) / 3600.0 as meeting_hours
                 FROM "CouncilMeeting" cm
                 JOIN "SpeakerSegment" ss ON ss."meetingId" = cm.id AND ss."cityId" = cm."cityId"
-                WHERE cm.released = true AND cm."createdAt" >= ${sevenDaysAgo}
+                JOIN "Transcript" t ON t."workspaceId" = cm."cityId" AND t.id = cm.id
+                WHERE t.released = true AND cm."createdAt" >= ${sevenDaysAgo}
                 GROUP BY cm.id, cm."cityId"
             ) meetings
         `,

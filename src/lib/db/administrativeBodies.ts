@@ -80,7 +80,7 @@ export async function getAdministrativeBodiesWithPublicMeetings(cityId: string):
         return await prisma.administrativeBody.findMany({
             where: {
                 cityId,
-                meetings: { some: { released: true } },
+                meetings: { some: { transcript: { released: true } } },
             },
             select: publicAdministrativeBodySelect,
             orderBy: [

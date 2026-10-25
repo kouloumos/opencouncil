@@ -60,7 +60,7 @@ export const highlightWithMeetingInclude = {
             sessionNumber: true,
             urgent: true,
             dateTime: true,
-            released: true,
+            transcript: { select: { released: true } },
             administrativeBody: { select: { name: true, name_en: true } },
             city: { select: { id: true, name: true, name_en: true, logoImage: true, timezone: true } }
         }

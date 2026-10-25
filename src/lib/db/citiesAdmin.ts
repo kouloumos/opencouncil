@@ -49,7 +49,7 @@ export const CITY_COUNT_SELECT = {
         parties: true,
         councilMeetings: {
             where: {
-                released: true
+                transcript: { released: true }
             }
         }
     }

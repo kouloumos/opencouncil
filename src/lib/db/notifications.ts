@@ -13,6 +13,7 @@ import { phoneBelongsToAnotherUser, setAccountPhone } from "./phoneVerification"
 import { NotFoundError, notAuthorizedError } from "@/lib/api/errors";
 import { publicAdministrativeBodyRelation, publicAdministrativeBodySelect } from "./types/administrativeBody";
 import { peopleOnly } from "./types/user";
+import { meetingTranscriptRelation } from "./types/meeting";
 import { sendPetitionReceivedAdminAlert, sendUserOnboardedAdminAlert, sendNotificationSignupAdminAlert } from "@/lib/discord";
 import { matchUsersToSubjects } from "@/lib/notifications/matching";
 import { generateEmailContent } from "@/lib/notifications/content";
@@ -708,6 +709,7 @@ export async function calculateProximityMatches(
 export const meetingForNotificationsInclude = {
     administrativeBody: { select: { ...publicAdministrativeBodySelect, notificationBehavior: true } },
     city: true,
+    transcript: meetingTranscriptRelation,
 } satisfies Prisma.CouncilMeetingInclude;
 
 export type MeetingForNotifications = Prisma.CouncilMeetingGetPayload<{ include: typeof meetingForNotificationsInclude }>;

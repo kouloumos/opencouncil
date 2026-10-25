@@ -39,7 +39,7 @@ function buildMeetingFilter(
         // that haven't passed human review.
         NOT: {
             administrativeBody: { showUnreviewedTranscript: false },
-            taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } },
+            transcript: { taskStatuses: { none: { type: 'humanReview', status: 'succeeded' } } },
         },
     };
 }

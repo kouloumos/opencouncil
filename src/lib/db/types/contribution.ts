@@ -18,7 +18,7 @@ export const contributionSubjectSelect = {
     withdrawn: true,
     topic: true,
     councilMeeting: {
-        include: { administrativeBody: publicAdministrativeBodyRelation },
+        include: { administrativeBody: publicAdministrativeBodyRelation, transcript: { select: { released: true } } },
     },
 } satisfies Prisma.SubjectSelect;
 
