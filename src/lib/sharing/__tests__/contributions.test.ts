@@ -8,7 +8,7 @@ const findReferences = prisma.utterance.findMany as jest.Mock;
 const findFirst = prisma.utterance.findFirst as jest.Mock;
 const fixture = {
     id: 'contribution', text: 'Πρόταση [πηγή](REF:UTTERANCE:u1) και [άγνωστη](REF:UTTERANCE:bad).', speakerId: null, speakerName: 'Άννα', speaker: null,
-    subject: { id: 'subject', name: 'Πλατεία', councilMeeting: { id: 'meeting', cityId: 'city', administrativeBody: { showUnreviewedTranscript: true }, taskStatuses: [] } },
+    subject: { id: 'subject', name: 'Πλατεία', councilMeeting: { id: 'meeting', cityId: 'city', administrativeBody: { showUnreviewedTranscript: true }, transcript: { taskStatuses: [] } } },
 };
 
 describe('public contribution references', () => {
@@ -17,7 +17,7 @@ describe('public contribution references', () => {
     });
     it('enforces release and realm and resolves zero-timestamp sources without a matched person', async () => {
         const result = await getPublicContribution('contribution', 'greece', 'en');
-        expect(findContribution.mock.calls[0][0].where).toEqual({ id: 'contribution', subject: { councilMeeting: { released: true, city: { ...PUBLIC_CITY_WHERE, realm: 'greece' } } } });
+        expect(findContribution.mock.calls[0][0].where).toEqual({ id: 'contribution', subject: { councilMeeting: { transcript: { released: true }, city: { ...PUBLIC_CITY_WHERE, realm: 'greece' } } } });
         expect(result?.referenceLinks).toEqual({ u1: '/en/city/meeting/transcript?t=0#u1' });
         expect(result?.playbackUrl).toBe('/en/city/meeting/transcript?t=0');
         expect(result?.subjectUrl).toBe('/en/city/meeting/subjects/subject?contribution=contribution#contribution-contribution');

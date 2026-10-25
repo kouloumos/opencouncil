@@ -7,6 +7,7 @@ import { getPeopleForCity } from '@/lib/db/people';
 import { renderDocx } from '@/components/meetings/docx/CouncilMeetingDocx';
 import { getRoleTitles } from '@/i18n/roleTitles';
 import { NotFoundError } from '@/lib/api/errors';
+import { withTranscriptFields } from '@/lib/db/types/meeting';
 
 /**
  * Generate a DOCX buffer for a meeting transcript on the server side.
@@ -37,7 +38,7 @@ export async function generateMeetingDocxBuffer(
 
     const doc = await renderDocx({
         city,
-        meeting,
+        meeting: withTranscriptFields(meeting),
         transcript,
         people,
     }, await getRoleTitles(city.language));

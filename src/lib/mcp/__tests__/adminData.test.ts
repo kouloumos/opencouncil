@@ -126,7 +126,7 @@ describe('meeting tools authorize before they write', () => {
         asCityAdmin('argos');
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'argos', name: 'n', name_en: 'n', dateTime: new Date(), youtubeUrl: null,
-            agendaUrl: null, administrativeBody: null, released: false,
+            agendaUrl: null, administrativeBody: null, transcript: { released: false },
         });
         await mcpUpdateMeeting(ADMIN_TOKEN, { cityId: 'argos', meetingId: 'm1', agendaUrl: null });
         expect(updateMeetingWithEffects).toHaveBeenCalledWith('argos', 'm1', { agendaUrl: null });
@@ -136,7 +136,7 @@ describe('meeting tools authorize before they write', () => {
         asCityAdmin('argos');
         (createMeetingWithEffects as jest.Mock).mockResolvedValue({ meeting: {
             id: 'oct05_2026', cityId: 'argos', name: null, name_en: null, kind: 'ordinary', urgent: false,
-            dateTime: new Date('2026-10-05T15:00:00Z'), released: false,
+            dateTime: new Date('2026-10-05T15:00:00Z'), transcript: { released: false },
             administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
         } });
         const result = await mcpCreateMeeting(ADMIN_TOKEN, { cityId: 'argos', dateTime: '2026-10-05T18:00:00+03:00', processAgenda: false });
@@ -154,7 +154,7 @@ describe('meeting tools authorize before they write', () => {
         mockCityFindUnique.mockResolvedValue({ timezone: 'Europe/Warsaw' });
         (createMeetingWithEffects as jest.Mock).mockResolvedValue({ meeting: {
             id: 'oct20_2026', cityId: 'krakow', name: null, name_en: null, kind: null, urgent: false,
-            dateTime: new Date('2026-10-20T15:00:00Z'), released: false,
+            dateTime: new Date('2026-10-20T15:00:00Z'), transcript: { released: false },
             administrativeBody: { name: 'Rada Miasta Krakowa', name_en: 'Kraków City Council' },
         } });
         const result = await mcpCreateMeeting(ADMIN_TOKEN, { cityId: 'krakow', dateTime: '2026-10-20T17:00:00+02:00', processAgenda: false });
@@ -167,7 +167,7 @@ describe('meeting tools authorize before they write', () => {
         (requireVisibleMeeting as jest.Mock).mockResolvedValue({ released: false, administrativeBodyId: null, editor: true, locale: 'en' });
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'krakow', name: null, name_en: null, kind: 'ordinary', urgent: false,
-            dateTime: new Date('2026-10-20T15:00:00Z'), youtubeUrl: null, agendaUrl: null, released: false,
+            dateTime: new Date('2026-10-20T15:00:00Z'), youtubeUrl: null, agendaUrl: null, transcript: { released: false },
             administrativeBody: { name: 'Rada Miasta Krakowa', name_en: 'Kraków City Council' },
         });
         mockCityFindUnique.mockResolvedValue({ timezone: 'Europe/Warsaw' });
@@ -180,7 +180,7 @@ describe('meeting tools authorize before they write', () => {
         asCityAdmin('argos');
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'argos', name: null, name_en: null, kind: 'ordinary', urgent: true,
-            dateTime: new Date('2026-10-05T15:00:00Z'), youtubeUrl: null, agendaUrl: null, released: false,
+            dateTime: new Date('2026-10-05T15:00:00Z'), youtubeUrl: null, agendaUrl: null, transcript: { released: false },
             administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council' },
         });
         const result = await mcpUpdateMeeting(ADMIN_TOKEN, { cityId: 'argos', meetingId: 'm1', urgent: true });
@@ -199,12 +199,12 @@ describe('an administrator of one body', () => {
     beforeEach(() => {
         asBodyAdmin('council', 'argos');
         (createMeetingWithEffects as jest.Mock).mockResolvedValue({
-            meeting: { id: 'new', cityId: 'argos', name: 'n', dateTime: new Date(), administrativeBody: { name: 'Council' }, released: false },
+            meeting: { id: 'new', cityId: 'argos', name: 'n', dateTime: new Date(), administrativeBody: { name: 'Council' }, transcript: { released: false } },
             processAgendaStatus: null,
         });
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'argos', name: 'n', name_en: 'n', dateTime: new Date(), youtubeUrl: null,
-            agendaUrl: null, administrativeBody: { name: 'Council' }, released: false,
+            agendaUrl: null, administrativeBody: { name: 'Council' }, transcript: { released: false },
         });
         (startMeetingTask as jest.Mock).mockResolvedValue({
             id: 't1', type: 'transcribe', status: 'pending', stage: null, percentComplete: null,
@@ -253,7 +253,7 @@ describe('a city administrator and the body of a meeting', () => {
         asCityAdmin('argos');
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'argos', name: 'n', name_en: 'n', dateTime: new Date(), youtubeUrl: null,
-            agendaUrl: null, administrativeBody: null, released: false,
+            agendaUrl: null, administrativeBody: null, transcript: { released: false },
         });
         await mcpUpdateMeeting(ADMIN_TOKEN, { cityId: 'argos', meetingId: 'm1', administrativeBodyId: 'committee' });
         await mcpUpdateMeeting(ADMIN_TOKEN, { cityId: 'argos', meetingId: 'm1', administrativeBodyId: null });
@@ -589,7 +589,7 @@ describe('an administrator of two bodies', () => {
         });
         (updateMeetingWithEffects as jest.Mock).mockResolvedValue({
             id: 'm1', cityId: 'argos', name: 'n', name_en: 'n', dateTime: new Date(), youtubeUrl: null,
-            agendaUrl: null, administrativeBody: { name: 'Committee' }, released: false,
+            agendaUrl: null, administrativeBody: { name: 'Committee' }, transcript: { released: false },
         });
     });
 

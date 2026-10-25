@@ -16,8 +16,8 @@ export const ALL_UNRELEASED: UnreleasedScope = { all: true };
 /** The `CouncilMeeting` filter that hides what the scope does not reach. */
 export function unreleasedMeetingWhere(scope: UnreleasedScope = NO_UNRELEASED): Prisma.CouncilMeetingWhereInput {
     if (scope.all) return {};
-    if (scope.bodyIds.length === 0) return { released: true };
-    return { OR: [{ released: true }, { administrativeBodyId: { in: scope.bodyIds } }] };
+    if (scope.bodyIds.length === 0) return { transcript: { released: true } };
+    return { OR: [{ transcript: { released: true } }, { administrativeBodyId: { in: scope.bodyIds } }] };
 }
 
 /** A cache-key fragment: two viewers with different scopes never share an entry. */

@@ -37,7 +37,7 @@ describe('Statistics', () => {
           startTimestamp: 0,
           endTimestamp: 30,
           speakerTag: {
-            person: {
+            speaker: { person: {
               id: 'person-1',
               name: 'John Doe',
               role: 'Mayor',
@@ -46,7 +46,7 @@ describe('Statistics', () => {
                 id: 'party-1',
                 name: 'Party A'
               }
-            }
+            } }
           },
           topicLabels: [
             {
@@ -69,9 +69,9 @@ describe('Statistics', () => {
           where: expect.objectContaining({
             meetingId: 'meeting-1',
             cityId: 'city-1',
-            meeting: expect.objectContaining({
-              released: true
-            }),
+            transcript: { councilMeeting: expect.objectContaining({
+              transcript: { released: true }
+            }) },
             NOT: {
               summary: {
                 type: "procedural"
@@ -164,10 +164,10 @@ describe('Statistics', () => {
 
       expect(prisma.speakerSegment.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
-          meeting: expect.objectContaining({
-            released: true,
+          transcript: { councilMeeting: expect.objectContaining({
+            transcript: { released: true },
             administrativeBodyId: 'admin-body-1'
-          })
+          }) }
         })
       }));
     });
@@ -428,7 +428,11 @@ describe('Statistics', () => {
       id,
       startTimestamp: start,
       endTimestamp: end,
-      speakerTag: { person: { id: personId, name: personId, roles: [] } },
+      // The person both where getStatisticsForTranscript reads it and where the query returns it.
+      speakerTag: {
+        person: { id: personId, name: personId, roles: [] },
+        speaker: { person: { id: personId, name: personId, roles: [] } },
+      },
       topicLabels: []
     });
 

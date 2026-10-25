@@ -3,9 +3,9 @@ import { unreleasedMeetingWhere, unreleasedCacheKey, NO_UNRELEASED, ALL_UNRELEAS
 describe('unreleasedMeetingWhere', () => {
     it('opens the drafts of the held bodies only, on top of the released meetings', () => {
         expect(unreleasedMeetingWhere(ALL_UNRELEASED)).toEqual({});
-        expect(unreleasedMeetingWhere(NO_UNRELEASED)).toEqual({ released: true });
+        expect(unreleasedMeetingWhere(NO_UNRELEASED)).toEqual({ transcript: { released: true } });
         expect(unreleasedMeetingWhere({ all: false, bodyIds: ['youth'] }))
-            .toEqual({ OR: [{ released: true }, { administrativeBodyId: { in: ['youth'] } }] });
+            .toEqual({ OR: [{ transcript: { released: true } }, { administrativeBodyId: { in: ['youth'] } }] });
     });
 });
 

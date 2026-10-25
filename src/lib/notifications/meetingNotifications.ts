@@ -69,7 +69,7 @@ export async function notifySubscribersOnRelease(cityId: string, meetingId: stri
     await guarded(cityId, meetingId, 'release', async () => {
         const meeting = await getMeetingForNotifications(cityId, meetingId);
         // This runs after the response: the admin may have hidden the meeting again.
-        if (!meeting.released) return;
+        if (!meeting.transcript.released) return;
         const { email } = await releaseNews(meeting, new Date());
         if (!email.phase || email.outcome.kind === 'none') return;
         await createAndAnnounce(meeting, email.phase, email.outcome.kind === 'sends');
@@ -116,7 +116,7 @@ async function releaseNews(meeting: MeetingForNotifications, at: Date): Promise<
 
 function meetingFacts(meeting: MeetingForNotifications): Parameters<typeof notificationOutcome>[0] {
     return {
-        released: meeting.released,
+        released: meeting.transcript.released,
         dateTime: meeting.dateTime,
         scheduleStatus: meeting.scheduleStatus,
         notificationBehavior: meeting.administrativeBody?.notificationBehavior,

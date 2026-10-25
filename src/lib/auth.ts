@@ -1,5 +1,5 @@
 import "server-only";
-import { type City, type Party, type Person, type CouncilMeeting, type AdministrativeBody } from "@prisma/client";
+import { type City, type Party, type Person, type CouncilMeeting, type AdministrativeBody, type Workspace } from "@prisma/client";
 import { cache } from "react";
 import { auth } from "@/auth";
 import prisma from "@/lib/db/prisma";
@@ -18,7 +18,7 @@ const currentUser = cache(async () => {
         include: {
             administers: {
                 include: {
-                    city: true,
+                    workspace: { include: { city: true } },
                     party: true,
                     person: true,
                     administrativeBody: publicAdministrativeBodyRelation,
@@ -52,6 +52,11 @@ export type AuthorizationScope = {
     personId?: Person["id"],
     councilMeetingId?: CouncilMeeting["id"],
     administrativeBodyId?: AdministrativeBody["id"],
+    /**
+     * A workspace, of a city or not. Its admins are the Administers rows on
+     * its id, the same rows as the admins of the city with that id.
+     */
+    workspaceId?: Workspace["id"],
 };
 
 type CurrentUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>;
@@ -107,12 +112,17 @@ export function personIsOwnedByBodyAdmin(
 }
 
 async function checkUserAuthorization({
-    cityId,
+    cityId: cityIdParam,
     partyId,
     personId,
     councilMeetingId,
     administrativeBodyId,
+    workspaceId,
 }: AuthorizationScope) {
+    if (cityIdParam && workspaceId && cityIdParam !== workspaceId) {
+        throw new Error("cityId and workspaceId must name the same workspace");
+    }
+    const cityId = cityIdParam ?? workspaceId;
     const definedParams = [partyId, personId].filter(Boolean);
     const hasCityId = Boolean(cityId);
     const hasCouncilMeetingId = Boolean(councilMeetingId);
