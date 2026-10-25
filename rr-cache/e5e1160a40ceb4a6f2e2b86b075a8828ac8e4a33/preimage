@@ -1,0 +1,1776 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  extensions = [postgis]
+}
+
+// ============================================================================
+// SCHEMA ARCHITECTURE OVERVIEW
+// ============================================================================
+//
+// This schema uses a layered inheritance pattern where specialized models
+// extend generic base models through explicit foreign key relationships:
+//
+// WORKSPACE LAYER:
+//   Workspace (base) ──extends──> City (specialized)
+//   - City.id = Workspace.id (same ID, explicit FK)
+//
+// TRANSCRIPT LAYER:
+//   Transcript (base) ──extends──> CouncilMeeting (specialized)
+//   - CouncilMeeting.cityId = Transcript.workspaceId
+//
+// SPEAKER LAYER:
+//   Speaker (base) ──extends──> Person (specialized)
+//   - Person.cityId = Speaker.workspaceId
+//
+// ============================================================================
+
+model Workspace {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  administrators Administers[]
+  transcripts    Transcript[]
+  speakers       Speaker[]
+  city           City?
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String   // Αθήνα
+  name_en   String   // Athens
+  name_municipality String // Δήμος Αθηναίων
+  name_municipality_en String // Municipality of Athens
+  logoImage String?
+  timezone  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status CityStatus @default(pending)
+  authorityType AuthorityType @default(municipality)
+  wikipediaId String?
+  geometry Unsupported("geometry")?
+  supportsNotifications Boolean @default(false)
+  consultationsEnabled Boolean @default(false)
+  peopleOrdering PeopleOrdering @default(default)
+  highlightCreationPermission HighlightCreationPermission @default(ADMINS_ONLY)
+  diavgeiaUid String?
+  language CityLanguage @default(el)
+  realm  Realm      @default(greece)
+  population Int?     // Used to determine platform pricing tier
+
+  workspace Workspace @relation(fields: [id], references: [id], onDelete: Cascade)
+  parties        Party[]
+  persons        Person[]
+  councilMeetings CouncilMeeting[]
+  administrativeBodies AdministrativeBody[]
+  
+  petitions Petition[]
+  notificationPreferences NotificationPreference[]
+  notifications Notification[]
+
+  roles Role[]
+
+  // City message relation
+  message CityMessage?
+
+  // Consultations relation
+  consultations Consultation[]
+  consultationComments ConsultationComment[]
+  pendingConsultationComments PendingConsultationComment[]
+
+  @@index([status])
+  @@index([realm])
+}
+
+enum AuthorityType {
+  municipality
+  region
+}
+
+// Content language of a city (metadata; does not auto-switch the UI locale).
+enum CityLanguage {
+  el
+  fr
+  sr
+}
+
+// Tenant/grouping a city belongs to (e.g. the Greek vs. French deployment).
+enum Realm {
+  greece
+  france
+  cyprus
+  serbia
+}
+
+/// Where a city stands with us. Collapses the old (status, officialSupport) pair:
+/// publication and customer-status were two fields that disagreed about what
+/// "supported" meant, which made "visible but not a customer" inexpressible.
+///
+/// DECLARATION ORDER IS LOAD-BEARING. City lists sort `status: 'desc'`, which is
+/// Postgres enum declaration order, so this order is what puts customers first
+/// (see CITY_ORDER_BY in src/lib/db/cities.ts and citiesAdmin.ts). Appending a
+/// value changes that sort.
+enum CityStatus {
+  /// Not published anywhere. Petitionable. The default for imported δήμοι.
+  pending
+  /// Published everywhere a customer city is — landing map, directory, search,
+  /// MCP, sitemap — but not a customer: no official-support badge, and still
+  /// petitionable. Policy is one per realm, set by hand — nothing enforces it
+  /// yet; the guard is a follow-up.
+  demo
+  /// A customer municipality: published, badged, and counted in customer stats.
+  supported
+}
+
+enum PeopleOrdering {
+  default
+  partyRank
+}
+
+enum HighlightCreationPermission {
+  EVERYONE
+  ADMINS_ONLY
+}
+
+enum AdministrativeBodyType {
+  council      // Συμβούλιο (π.χ. Δημοτικό Συμβούλιο)
+  committee    // Επιτροπή (π.χ. Δημοτική Επιτροπή)
+  community    // Κοινότητα (π.χ. 5η Δημοτική Κοινότητα)
+}
+
+/// Whether the announced meeting is still expected. Whether it was held stays
+/// derived from what the record holds (lib/meetingStage.ts).
+enum MeetingScheduleStatus {
+  scheduled
+  postponed
+  cancelled
+}
+
+/// The kind of meeting that the invitation names. A null kind means that the
+/// record states no single kind: its invitation is not read yet, or it holds
+/// several meetings (its legacy stored name says which). Urgency is not a kind:
+/// see `urgent`. See MEETING_KINDS.
+enum MeetingKind {
+  ordinary           // Τακτική
+  special            // Ειδική, for another purpose; council only
+  accountability     // Ειδική Συνεδρίαση Λογοδοσίας, council only
+  activityReport     // Ειδική Συνεδρίαση Απολογισμού Πεπραγμένων, council only
+  budget             // Ειδική Συνεδρίαση Προϋπολογισμού, council only
+  presidencyElection // Ειδική Συνεδρίαση Εκλογής Προεδρείου, council only
+  financialAccounts  // Οικονομικές Καταστάσεις (invitations print «Ειδική»), council only
+}
+
+enum MeetingFormat {
+  inPerson
+  remote
+  hybrid
+  byCirculation
+}
+
+enum NotificationBehavior {
+  NOTIFICATIONS_DISABLED
+  NOTIFICATIONS_AUTO
+  NOTIFICATIONS_APPROVAL
+}
+
+model AdministrativeBody {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "5η Δημοτική Κοινότητα"
+  name_en   String   // e.g. "5th Municipal Community"
+  type      AdministrativeBodyType
+  notificationBehavior NotificationBehavior @default(NOTIFICATIONS_APPROVAL)
+  showUnreviewedTranscript Boolean @default(true)
+  youtubeChannelUrl String?
+  contactEmails String[] @default([]) // Emails for receiving transcripts
+  diavgeiaUnitIds String[] @default([]) // Diavgeia scopes to poll, each `unit[:signer]` (e.g., ["81689"], ["84655:100010590"]). The signer separates bodies that share one unit.
+  /// What this body's decision documents state and how: roll-call layout, what the present
+  /// list means, what attendance changes are pinned to, whether per-vote absence is printed.
+  /// Shape: DecisionConventions in src/lib/decisionConventions.ts. Written by the import of
+  /// fixtures/body-conventions.json or by a person in admin; read by extraction and by the minutes.
+  decisionConventions Json?
+  place     String?  // the hall the body sits in as a rule; a meeting's own place overrides it
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+  meetings  CouncilMeeting[]
+
+  roles Role[]
+  administrators Administers[]
+
+  @@index([cityId])
+}
+
+model Party {
+  id        String   @id @default(cuid())
+  name      String
+  name_en   String
+  name_short String
+  name_short_en String
+  colorHex  String
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
+
+  roles Role[]
+
+  administrators Administers[]
+
+  @@index([cityId])
+}
+
+model Speaker {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  speakerTags SpeakerTag[]
+  voicePrints VoicePrint[]
+  person      Person?
+  
+  @@index([workspaceId])
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  name  String
+  name_en String
+  name_short String
+  name_short_en String
+  image     String?
+
+  roles Role[]
+
+  activeFrom DateTime?
+  activeTo DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profileUrl String?
+
+<<<<<<<
+  speaker Speaker @relation(fields: [id], references: [id], onDelete: Cascade)
+=======
+  voicePrintConsents VoicePrintConsent[]
+
+  speakerTags SpeakerTag[]
+  speakerIdentifications SpeakerIdentification[]
+  voicePrints VoicePrint[]
+>>>>>>>
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
+
+  administrators Administers[]
+  subjectsIntroduced Subject[]
+  speakerContributions SpeakerContribution[]
+  subjectAttendance SubjectAttendance[]
+  subjectVotes SubjectVote[]
+  meetingAttendance MeetingAttendance[]
+  attendanceEvents AttendanceEvent[]
+
+  @@index([cityId])
+}
+
+model CouncilMeeting {
+  id        String   @default(cuid())
+  name      String?  // legacy, written by nothing; read only when kind is null (lib/meetingName.ts)
+  name_en   String?
+  dateTime  DateTime
+  youtubeUrl String?
+  agendaUrl String?
+<<<<<<<
+=======
+  videoUrl String?
+  audioUrl String?
+  muxPlaybackId String?
+  // Google Calendar event ID on the shared OpenCouncil calendar; set when the
+  // event is created at meeting creation. Meetings from before this field
+  // existed keep null and are never synced (their events stay manual).
+  calendarEventId String?
+>>>>>>>
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+<<<<<<<
+  scheduleStatus       MeetingScheduleStatus @default(scheduled)
+  scheduleStatusReason String?
+  kind                 MeetingKind?
+  // Convened urgently (έκτακτη; the law says κατεπείγουσα), for any body and
+  // any kind. The first part of a continued meeting holds it.
+  urgent               Boolean @default(false)
+  // The official number, as the municipality prints it. Not unique: a
+  // cancelled meeting keeps its number, and the new meeting after a
+  // postponement reuses it.
+  sessionNumber        Int?
+  // Null: nobody has stated the format, and nobody has read it from the
+  // invitation yet.
+  format               MeetingFormat?
+  closedToPublic       Boolean @default(false)
+  place                String? // overrides administrativeBody.place
+
+  // "A was postponed to B", "B was postponed from A". One new meeting for each
+  // postponed meeting. The composite key keeps both ends in one city.
+  postponedFromId String?
+  postponedFrom   CouncilMeeting? @relation("Postponement", fields: [cityId, postponedFromId], references: [cityId, id], onDelete: NoAction, onUpdate: NoAction)
+  postponedTo     CouncilMeeting? @relation("Postponement")
+  // The release of a later meeting of the chain unreleased this meeting. Only
+  // such a meeting becomes public again when the later meeting stops being
+  // public: a postponed draft stays a draft.
+  hiddenByPostponement Boolean @default(false)
+
+  // A later day of the same meeting points to its first part.
+  continuationOfId String?
+  continuationOf   CouncilMeeting?  @relation("Continuation", fields: [cityId, continuationOfId], references: [cityId, id], onDelete: NoAction, onUpdate: NoAction)
+  continuations    CouncilMeeting[] @relation("Continuation")
+
+=======
+  transcript Transcript @relation(fields: [cityId, id], references: [workspaceId, id], onDelete: Cascade)
+>>>>>>>
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId String
+
+  administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: SetNull)
+  administrativeBodyId String?
+
+  highlights Highlight[]
+  subjects Subject[]
+  meetingAttendance MeetingAttendance[]
+  attendanceEvents AttendanceEvent[]
+
+  notifications Notification[]
+  meetingOperator MeetingOperator?
+
+  @@id([cityId, id])
+  @@unique([cityId, id])
+
+  @@unique([cityId, postponedFromId])
+  @@index([cityId, continuationOfId])
+  @@index([dateTime])
+  @@index([cityId, dateTime])
+  @@index([administrativeBodyId])
+}
+
+<<<<<<<
+model MeetingOperator {
+  id        String   @id @default(cuid())
+
+  meeting      CouncilMeeting @relation(fields: [meetingCityId, meetingId], references: [cityId, id], onDelete: Cascade)
+  meetingCityId String
+  meetingId    String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([meetingCityId, meetingId])
+=======
+model Transcript {
+  id          String         @default(cuid())
+  workspaceId String
+  name        String
+  videoUrl    String?
+  audioUrl    String?
+  muxPlaybackId String?
+  released    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  councilMeeting  CouncilMeeting?
+  taskStatuses    TaskStatus[]
+  speakerSegments SpeakerSegment[]
+  
+  @@id([workspaceId, id])
+  @@unique([workspaceId, id])
+  @@index([released])
+>>>>>>>
+}
+
+model TaskStatus {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("pending")
+  stage     String?
+  percentComplete Float?
+  type      String
+  requestBody String
+  responseBody String?
+  failureReason String?
+
+  version Int?
+
+  transcript   Transcript @relation(fields: [transcriptId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  transcriptId String
+  workspaceId  String
+
+  decisions Decision[]
+  subjectAttendance SubjectAttendance[]
+  subjectVotes SubjectVote[]
+  meetingAttendance MeetingAttendance[]
+  attendanceEvents AttendanceEvent[]
+
+  @@index([transcriptId, workspaceId])
+}
+
+/// Who recorded a consent period. PERSON: the person, from their own
+/// account. ADMIN: a superadmin, for a consent the person gave outside the
+/// app (on paper, for example). Only a superadmin can close an ADMIN period.
+enum VoicePrintConsentSource {
+  PERSON
+  ADMIN
+}
+
+/// A period in which a person consents to a voiceprint, as Role is a period
+/// in which a person holds a seat. The account that gave it is the user: for
+/// a PERSON period, an account that held an Administers row for the person
+/// at the time; for an ADMIN period, the superadmin who recorded a consent
+/// given on paper. A withdrawal sets withdrawnAt and never deletes: Art. 7 GDPR asks
+/// us to show who consented and that the consent was in force while a
+/// voiceprint was processed. A partial unique index in the migration keeps
+/// at most one open period per person. A check constraint keeps a period
+/// from ending before it starts.
+///
+/// Its own table, not a column on Person: every public read of a person
+/// carries the whole row, and consent is not public. A deleted person drops
+/// its periods with its voiceprints. A deleted account keeps the periods,
+/// with the user set to null: the proof outlives the account.
+/// Recorded only for now: nothing reads it before generation or transcription.
+model VoicePrintConsent {
+  id          String                  @id @default(cuid())
+  personId    String
+  person      Person                  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  /// The account that recorded the period: the person's own for PERSON, the
+  /// superadmin's for ADMIN.
+  userId      String?
+  user        User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  source      VoicePrintConsentSource @default(PERSON)
+  givenAt     DateTime                @default(now())
+  withdrawnAt DateTime?
+
+  @@index([personId, givenAt])
+}
+
+model VoicePrint {
+  id                  String    @id @default(cuid())
+  embedding           String    @db.Text
+  sourceAudioUrl      String    // URL to the audio source used for the voiceprint
+  startTimestamp      Float     // Start time of the extracted audio in the original media
+  endTimestamp        Float     // End time of the extracted audio in the original media
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  speaker             Speaker   @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+  speakerId           String
+  
+  // Reference to the speaker segment used to generate this voiceprint
+  sourceSegment       SpeakerSegment @relation(fields: [sourceSegmentId], references: [id], onDelete: Cascade)
+  sourceSegmentId     String
+  
+  @@index([speakerId])
+  @@index([sourceSegmentId])
+}
+
+model SpeakerTag {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  label           String?
+
+<<<<<<<
+  person Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+  personId String?
+  // Who decided personId. Null on a tag nobody has assigned. An automatic pass
+  // never reassigns a reviewer's tag (see isReviewerAssignment in src/lib/speakerIdentifications.ts).
+  personSetBy SpeakerAssignmentSource?
+
+  // What each method says about who this speaker is. Kept off the tag: the tag
+  // is public, the opinions are for reviewers.
+  identifications SpeakerIdentification[]
+=======
+  speaker Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speakerId String?
+>>>>>>>
+
+  speakerSegments SpeakerSegment[]
+
+  @@index([speakerId])
+}
+
+enum SpeakerAssignmentSource {
+  voiceprint // the voiceprint match alone
+  transcript // the transcript identification alone
+  both       // the two methods agreed
+  user       // a reviewer; automatic passes never overwrite it
+}
+
+/// One method's opinion on who a diarization speaker is. A row stays as the
+/// method gave it, whatever the tag's personId ends up holding, so a reviewer
+/// can see where the methods disagree.
+///
+/// Private. Nothing here reaches a reader: the one read that leaves the server
+/// is getSpeakerIdentificationsForMeeting, which requires edit rights.
+model SpeakerIdentification {
+  id String @id @default(cuid())
+
+  speakerTag   SpeakerTag @relation(fields: [speakerTagId], references: [id], onDelete: Cascade)
+  speakerTagId String
+  method       SpeakerIdentificationMethod
+  person       Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId     String
+
+  /// Whether the method would act on this opinion by itself. The task server
+  /// decides, as it decides whether a voiceprint matched; nothing here
+  /// thresholds a number. False marks a suggestion for a reviewer.
+  actionable   Boolean
+  /// The kind of cue a transcript identification rests on, as the task names it.
+  evidenceKind String?
+  /// 0–100, the method's own score. For a reviewer to read.
+  confidence   Float?
+  /// The decisive transcript line(s) with their timestamp.
+  evidence     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([speakerTagId, method])
+  @@index([personId])
+}
+
+enum SpeakerIdentificationMethod {
+  voiceprint // the transcribe task matched the voice to a stored voiceprint
+  transcript // the fixTranscript task read who is speaking from the text alone
+}
+
+model SpeakerSegment {
+  id              String   @id @default(cuid())
+  startTimestamp  Float
+  endTimestamp    Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  transcript   Transcript @relation(fields: [transcriptId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  transcriptId String
+  workspaceId  String
+
+  speakerTag SpeakerTag @relation(fields: [speakerTagId], references: [id], onDelete: Cascade)
+  speakerTagId String
+
+  utterances Utterance[]
+
+  topicLabels TopicLabel[]
+  summary Summary?
+
+  usedForVoiceprints VoicePrint[]
+
+  @@index([transcriptId, workspaceId, startTimestamp])
+  @@index([speakerTagId])
+}
+
+enum SpeakerSegmentType {
+  procedural
+  substantive
+}
+
+model Utterance {
+  id              String   @id @default(cuid())
+  startTimestamp  Float
+  endTimestamp    Float
+  text            String
+  drift           Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Transcription confidence scores from the transcribe task (version 4+).
+  // Null for utterances imported from older task results.
+  // The scores describe the text as the ASR transcribed it. fixTranscript and
+  // user edits rewrite text and keep the scores, so join on lastModifiedBy to
+  // tell scored-as-transcribed utterances from corrected ones.
+  confidence        Float? // arithmetic mean of word confidences
+  minWordConfidence Float? // confidence of the least confident word
+  totalConfidence   Float? // product of word confidences ≈ P(every word is right)
+
+  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegmentId String
+  uncertain Boolean @default(false)
+  lastModifiedBy LastModifiedBy?
+
+  // Discussion status tracking (from summarize task)
+  discussionStatus DiscussionStatus?
+  discussionSubject Subject? @relation(fields: [discussionSubjectId], references: [id], onDelete: SetNull)
+  discussionSubjectId String?
+
+  words Word[]
+  highlightedUtterances HighlightedUtterance[]
+  utteranceEdits UtteranceEdit[]
+
+  @@index([speakerSegmentId, startTimestamp])
+  @@index([discussionSubjectId])
+  @@index([discussionStatus])
+}
+
+enum DiscussionStatus {
+  ATTENDANCE
+  SUBJECT_DISCUSSION
+  PROCEDURAL_VOTE
+  VOTE
+  OTHER
+}
+
+enum LastModifiedBy {
+  user
+  task
+}
+
+model Word {
+  id              String   @id @default(cuid())
+  text            String
+  startTimestamp  Float
+  endTimestamp    Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  confidence      Float    @default(1)
+
+  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  utteranceId String
+
+  @@index([utteranceId, startTimestamp])
+}
+
+model TopicLabel {
+  id        String   @id  @default(cuid())
+
+  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegmentId String
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  topicId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([speakerSegmentId, topicId])
+}
+
+model Topic {
+  id          String   @id  @default(cuid())
+  name        String
+  name_en     String
+  colorHex    String
+  icon        String?
+  description String   @default("")
+  deprecated  Boolean  @default(false)
+  realm       Realm    @default(greece)  // Tenant the topic taxonomy belongs to
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  topicLabels TopicLabel[]
+  subjects Subject[]
+
+  // Add relation to notification preferences
+  notificationPreferences NotificationPreference[] @relation("NotificationTopic")
+
+  @@index([realm])
+}
+
+model Summary {
+  id        String   @id  @default(cuid())
+  text      String
+
+  speakerSegment SpeakerSegment @relation(fields: [speakerSegmentId], references: [id], onDelete: Cascade)
+  speakerSegmentId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  type SpeakerSegmentType?
+
+  @@index([speakerSegmentId])
+}
+
+model Subject {
+  id        String   @id  @default(cuid())
+  name      String
+  description String
+
+  cityId String
+  councilMeetingId String
+
+  agendaItemIndex Int?
+  // The item as written on the official agenda. processAgenda sets it; summarize never touches
+  // it. Null for non-agenda subjects, rows that predate the field, or an item with no printed text.
+  agendaItemTitle String?
+  // The 1-based order of the agenda section the item sits under, and the section
+  // heading as printed. Null when the agenda is one numbered list. processAgenda
+  // sets both; summarize never touches them. (issue 366)
+  //
+  // A municipality sometimes publishes several invitations in one PDF — Sparta
+  // bundles a Δημοτική Επιτροπή sitting with one per κληροδότημα committee. Those
+  // are separate meetings sharing a document, and the section then stands in for
+  // one of them: the title is the body from the letterhead, not an agenda heading.
+  // Keeping them as sections is what makes agendaItemIndex unambiguous; splitting
+  // the meeting record itself is the real fix and is not done here.
+  agendaSectionIndex Int?
+  agendaSectionTitle String?
+  nonAgendaReason NonAgendaReason?
+  withdrawn       Boolean          @default(false)
+  topicId String?
+  locationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personId String?
+  introducedBy Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  councilMeeting CouncilMeeting @relation(fields: [cityId, councilMeetingId], references: [cityId, id], onDelete: Cascade)
+  topic Topic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  highlights Highlight[]
+
+  contributions SpeakerContribution[]
+
+  context String?
+  contextCitationUrls String[]
+
+  // NEW: Notification importance fields
+  topicImportance     String? // 'doNotNotify' | 'normal' | 'high'
+  proximityImportance String? // 'none' | 'near' | 'wide'
+
+  notifications NotificationSubject[]
+
+  // Utterances tagged with this subject during discussion
+  discussionUtterances Utterance[]
+
+  // Reference to primary subject if this was discussed as part of a group
+  discussedInId String?
+  discussedIn Subject? @relation("GroupedSubjects", fields: [discussedInId], references: [id], onDelete: SetNull)
+  groupedSubjects Subject[] @relation("GroupedSubjects")
+
+  decision Decision?
+  attendance SubjectAttendance[]
+  votes SubjectVote[]
+  anchoredEvents AttendanceEvent[]
+
+  // Temporary field for ADA conflict resolution.
+  // Set when a poll detects that an ADA already belongs to another subject's decision.
+  // Cleared to null once admin resolves the conflict (reassign or dismiss).
+
+  @@index([cityId, councilMeetingId])
+  @@index([discussedInId])
+}
+
+/// One decision document linked to a subject: where it lives on Diavgeia, the
+/// text as read, and what it states, verbatim, as the extractor read it — the
+/// facts behind the derived attendance and vote rows, kept so any later
+/// derivation change can rerun without reading the document again.
+model Decision {
+  id             String    @id @default(cuid())
+  subjectId      String    @unique
+  ada            String?   @unique  // Diavgeia unique identifier (e.g., "91ΥΔΩΡΦ-ΓΥ6")
+  protocolNumber String?             // Protocol number (e.g., "261/2024")
+  decisionNumber String?             // The number the decision carries (Αρ. Απόφασης), read from the document. Distinct from protocolNumber, which mirrors Diavgeia's field and means different things per municipality.
+  meetingDate    DateTime?           // The session the document says produced it. Lets a link be verified against the decision itself.
+  title          String?             // Decision title from Diavgeia
+  pdfUrl         String
+  publishDate    DateTime?           // Date published on Diavgeia
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Fields extracted from the actual decision PDF content
+  excerpt    String?   @db.Text  // Decision body text (markdown) — "ΑΠΟΦΑΣΙΖΕΙ…"
+  references String?   @db.Text  // Legal bases from "αφού έλαβε υπόψη" section (markdown)
+
+  /// What this document states about its vote and the audit of one reading. The
+  /// phrase is the document's statement; the outcome is never stored, it is a count
+  /// over SubjectVote rows. `extraction` is the wire entry as received (task v4).
+  voteResultPhrase    String?
+  mayorPresent        Boolean?
+  declaredItemNumber  Int?
+  declaredOutOfAgenda Boolean?
+  incomplete          Boolean  @default(false)
+  unmatchedNames      String[] @default([])
+  extractorVersion    String?
+  extraction          Json?
+
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  // Track whether decision was added by task or manually by user
+  task      TaskStatus? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId    String?
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
+  candidate DecisionCandidate?      // The suggestion this decision came from; survives promotion for revert + analysis.
+}
+
+/// A decision discovered on Diavgeia and, where possible, read. Unresolved rows
+/// (decisionId null, dismissedAt null) are work; resolved rows are the permanent
+/// record of how that work was decided. Rows are NEVER deleted on promotion —
+/// deleting the Decision reverts the assignment (onDelete: SetNull).
+///
+/// After promotion, subjectId/confidence/reasoning are the record of the
+/// suggestion AS MADE, not current truth: if an admin later moves the decision,
+/// they deliberately diverge — that is what makes acceptance analysis possible.
+model DecisionCandidate {
+  id     String @id @default(cuid())
+  cityId String
+  ada    String
+
+  // As published on Diavgeia
+  title          String?
+  pdfUrl         String
+  publishDate    DateTime?
+  protocolNumber String?     // faithful mirror of Diavgeia's field, whatever the municipality puts there
+
+  // As stated by the decision itself
+  meetingDate    DateTime?   // the session it says produced it (Athens-local date at midnight UTC)
+  decisionNumber String?     // its own Αρ. Απόφασης / Πράξη
+
+  readStatus String          // ok | no_meeting_date | unreadable | unread; only 'unread' is retried on later polls
+
+  // Resolution
+  councilMeetingId String?   // resolved from meetingDate; null = no such meeting in our data
+  subjectId        String?   // proposed subject; null = belongs to the meeting, unplaced
+  confidence       Float?
+  reasoning        String?
+  dismissedAt      DateTime?
+  decisionId       String?   @unique
+  decision         Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cityId, ada])
+  @@index([cityId, publishDate])
+  @@index([councilMeetingId])
+}
+
+enum NonAgendaReason {
+  beforeAgenda
+  outOfAgenda
+}
+
+/// Derived: who was present for each subject, rebuilt by src/lib/derivation from
+/// MeetingAttendance and AttendanceEvent along the transcript order (or taken from
+/// the document's own list where the body prints one). Never a source.
+model SubjectAttendance {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId String
+
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId String
+
+  status AttendanceStatus
+  source DataSource
+
+  // Track whether added by task or manually by user
+  task      TaskStatus? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId    String?
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
+  @@unique([subjectId, personId, source])
+  @@index([subjectId])
+  @@index([personId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+/// One arrival or departure, pinned to what its source pins it to, with the sentence.
+/// Rows of source `decision` are derivation output: resolved over every stored page
+/// of the meeting (src/lib/derivation/resolveSession.ts) and written with the
+/// per-subject rows; the derivation never reads them back. Rows of any other source
+/// are stated facts and outrank the pages (SOURCE_PRECEDENCE).
+model AttendanceEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  councilMeeting   CouncilMeeting @relation(fields: [cityId, councilMeetingId], references: [cityId, id], onDelete: Cascade)
+  councilMeetingId String
+  cityId           String
+
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId String
+
+  kind       AttendanceEventKind
+  anchorKind AttendanceAnchorKind
+  anchorAgendaItemIndex Int?
+  anchorNonAgendaReason NonAgendaReason?
+  anchorDecisionNumber  String?
+  /// The document's own subject: per-vote absence and «during this item» changes.
+  anchorSubject   Subject? @relation(fields: [anchorSubjectId], references: [id], onDelete: SetNull)
+  anchorSubjectId String?
+  anchorPhase     AttendancePhase?
+  timing     AttendanceTiming?
+  rawText    String
+  // How many of the session's documents stated it, out of how many were read.
+  reportingDocuments Int @default(1)
+  totalDocuments     Int @default(1)
+  source DataSource
+
+  task      TaskStatus? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId    String?
+
+  @@index([councilMeetingId, cityId])
+  @@index([personId])
+  @@index([anchorSubjectId])
+}
+
+enum AttendanceEventKind {
+  ARRIVAL
+  DEPARTURE
+}
+
+/// What a source pins a change to. A phase resolves to the start of its block;
+/// SUBJECT is the document's own subject; SESSION_START/END carry no position.
+enum AttendanceAnchorKind {
+  AGENDA_ITEM
+  DECISION_NUMBER
+  SUBJECT
+  PHASE
+  SESSION_START
+  SESSION_END
+}
+
+enum AttendancePhase {
+  PRE_AGENDA
+  OUT_OF_AGENDA
+}
+
+enum AttendanceTiming {
+  BEFORE
+  DURING
+  AFTER
+}
+
+/// The opening roll call, one row per person (the mayor included), per source.
+/// Rows of source `decision` are derivation output (see AttendanceEvent); rows of
+/// any other source are stated facts.
+model MeetingAttendance {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  councilMeeting   CouncilMeeting @relation(fields: [cityId, councilMeetingId], references: [cityId, id], onDelete: Cascade)
+  councilMeetingId String
+  cityId           String
+
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId String
+
+  status AttendanceStatus // PRESENT | ABSENT at session start (initial roll call)
+  source DataSource       // decision | transcript | manual
+
+  // Track whether added by task or manually by user
+  task      TaskStatus? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId    String?
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
+  @@unique([councilMeetingId, cityId, personId, source])
+  @@index([councilMeetingId, cityId])
+  @@index([personId])
+}
+
+/// One row per person per subject: the full record of the vote. Named by the
+/// source, or FOR inferred from presence when the phrase permits. The outcome
+/// (ομόφωνα, κατά πλειοψηφία) is a count over these rows.
+model SubjectVote {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId String
+
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId String
+
+  voteType VoteType
+  source   DataSource
+
+  // Track whether added by task or manually by user
+  task      TaskStatus? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId    String?
+  createdBy User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
+  @@unique([subjectId, personId, source])
+  @@index([subjectId])
+  @@index([personId])
+}
+
+enum VoteType {
+  FOR           // ΥΠΕΡ — vote in favor
+  AGAINST       // ΚΑΤΑ — vote against
+  ABSTAIN       // ΛΕΥΚΟ — vote with no position (counts as a vote)
+  PRESENT       // ΠΑΡΩΝ — physically present but not participating in the vote (declaration, not a vote)
+  DID_NOT_VOTE  // ΑΠΟΧΗ — declined to participate (declaration, not a vote)
+}
+
+enum DataSource {
+  decision    // Extracted from decision PDF
+  transcript  // Derived from transcript analysis
+  manual      // Manually entered by admin
+}
+
+enum LocationType {
+  point
+  lineString
+  polygon
+}
+
+model Location {
+  id        String   @id  @default(cuid())
+  type LocationType
+  text String
+  coordinates Unsupported("geometry")
+
+  subjects Subject[]
+  
+  // Relation to notification preferences
+  notificationPreferences NotificationPreference[] @relation("NotificationLocation")
+}
+
+model SpeakerContribution {
+  id        String   @id @default(cuid())
+  text      String   @db.Text // Markdown with REF:TYPE:ID links
+
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  speakerId   String?  // personId (nullable for unidentified speakers)
+  speaker     Person?  @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  speakerName String?  // Display name for speakers without a person record
+  order       Int?     // Display order within the subject (0-based)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subjectId, speakerId])
+  @@index([subjectId])
+  @@index([speakerId])
+}
+
+model Highlight {
+  id        String   @id  @default(cuid())
+  name      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
+  meetingId String
+  cityId String
+
+  createdBy   User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+
+  highlightedUtterances HighlightedUtterance[]
+  
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  subjectId String?
+
+  videoUrl String?
+  muxPlaybackId String?
+
+  isShowcased Boolean @default(false)
+
+  @@index([meetingId, cityId])
+  @@index([cityId, createdById])
+  // The personal highlights page filters on the author alone, which the
+  // cityId-leading index above cannot serve.
+  @@index([createdById])
+}
+
+model HighlightedUtterance {
+  id        String   @id  @default(cuid())
+  
+  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  utteranceId String
+
+  highlight Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  highlightId String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([highlightId])
+  @@index([utteranceId])
+}
+
+model Offer {
+  id        String   @id  @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  type      String   @default("pilot")
+  version   Int?     @default(1)
+
+  startDate DateTime
+  endDate DateTime
+
+  recipientName String
+  platformPrice Float
+  ingestionPerHourPrice Float
+  hoursToIngest Int
+  discountPercentage Float
+  meetingsToIngest Int?  // Keep for backward compatibility
+  hoursToGuarantee Int?  // New field for version 2
+  cityId String?
+
+  correctnessGuarantee Boolean @default(false)
+  
+  // Equipment rental fields
+  equipmentRentalPrice Float?  // Monthly price for equipment rental
+  equipmentRentalName String?  // Name/description of equipment
+  equipmentRentalDescription String? // Detailed description
+  
+  // Physical presence fields
+  physicalPresenceHours Int?  // Number of hours for physical presence
+  
+  respondToEmail String
+  respondToPhone String
+  respondToName String
+
+  // Lifecycle
+  agreed Boolean @default(false) // Unofficially accepted (no ΑΔΑΜ yet)
+  adam   String?                  // ΑΔΑΜ identifier; setting this implies signed
+}
+
+// Users and authentication
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  /// One account per mobile number: Νότης is one conversation per number.
+  phone         String?         @unique
+  /// When the reader proved `phone` with a code; null on a number nobody
+  /// proved. Verification is optional: Νότης writes to the number either
+  /// way. A proved number cannot be claimed by another account.
+  phoneVerifiedAt DateTime?
+  phoneVerification PhoneVerification?
+  phoneCodeSends    PhoneCodeSend[]
+  onboarded     Boolean         @default(false)
+  allowProductUpdates  Boolean  @default(true)
+  allowPetitionUpdates Boolean  @default(false)
+  allowFeedbackCalls   Boolean  @default(true)
+  /// WhatsApp/SMS consent, one per person: Νότης is one conversation, not
+  /// one per municipality. The signup's card and the profile switch write it;
+  /// the notis_fanout_targets view carries it on every row.
+  notifyByPhone        Boolean  @default(true)
+  isSuperAdmin  Boolean         @default(false)
+  /// A machine account: a service holds it, it never signs in, and its MCP
+  /// tokens carry its rights like a person's (#590). Its address is on the
+  /// reserved domain of src/lib/auth/machineAccounts.ts. The queries that
+  /// mean "people" (recipients, stats, the operator picker) exclude it.
+  isMachine     Boolean         @default(false)
+  accounts      Account[]
+  sessions      Session[]
+  Authenticator Authenticator[]
+  administers   Administers[]
+  voicePrintConsents VoicePrintConsent[]
+  
+  petitions Petition[]
+  notificationPreferences NotificationPreference[]
+  notifications Notification[]
+  
+  // Add these relations for consultation comments
+  consultationComments ConsultationComment[]
+  consultationCommentUpvotes ConsultationCommentUpvote[]
+  consultationCommentResponses ConsultationCommentResponse[]
+  pendingConsultationComments PendingConsultationComment[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  utteranceEdits UtteranceEdit[]
+  highlights Highlight[]
+  decisions Decision[]
+  meetingOperatorAssignments MeetingOperator[]
+  subjectAttendance SubjectAttendance[]
+  subjectVotes SubjectVote[]
+  meetingAttendance MeetingAttendance[]
+  mcpTokens UserMcpToken[]
+  searchQueries SearchQuery[]
+
+}
+ 
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@id([provider, providerAccountId])
+}
+ 
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+ 
+  @@id([identifier, token])
+}
+
+/// The number a reader is proving, with the code we sent to it. One per
+/// reader: a new number replaces the old attempt. When the code matches,
+/// the number is the account's and User.phoneVerifiedAt is set.
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  /// E.164, validated as a mobile number before it is stored.
+  phone     String
+  /// HMAC of the 6-digit code; null until the first code went out.
+  codeHash  String?
+  expiresAt DateTime?
+  /// Wrong codes typed against the current code.
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+}
+
+/// One code that went out. The send limits count these rows, per account and
+/// per number, so neither switching numbers nor racing requests resets them.
+/// Rows older than the limit window are deleted as the limits are checked.
+model PhoneCodeSend {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  phone     String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([phone, createdAt])
+}
+ 
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@id([userId, credentialID])
+}
+
+model Administers {
+  
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  workspaceId String?
+  cityId    String?
+  partyId   String?
+  personId  String?
+  /// An admin of one administrative body: its meetings, its members and its
+  /// own contact settings, and nothing else in the city (#828).
+  /// The migration adds two rules that this schema cannot state: a check
+  /// constraint keeps exactly one of cityId, partyId, personId and
+  /// administrativeBodyId set, and the partial unique index
+  /// Administers_user_body_key allows one row per user and body. The
+  /// @@unique below never rejects a row, because its other columns are NULL
+  /// and Postgres treats NULLs as distinct.
+  administrativeBodyId String?
+  
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  party     Party?   @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: Cascade)
+
+  /// Set only by claimPerson, when the person scans their own QR code. It
+  /// says "this account is this person", where a row without it says only
+  /// "this account may edit this person" (a delegate a superadmin added).
+  /// A partial unique index in the migration allows one claimed row per
+  /// person. Voiceprint consent needs any row for the person, claimed or not.
+  claimedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+<<<<<<<
+  @@unique([userId, cityId, partyId, personId, administrativeBodyId])
+}
+
+// Personal access token for the MCP server. An MCP token acts as the owning
+// user: highlight creation is attributed to them and limited by their
+// per-city permissions.
+model UserMcpToken {
+  id         String    @id @default(cuid())
+  name       String    @default("MCP token")
+  hashedKey  String    @unique // SHA-256 hash of the raw token
+  keyPrefix  String    // First 10 chars for display (e.g. "mcp_a1b2c3")
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+=======
+  @@unique([userId, workspaceId, partyId, personId])
+>>>>>>>
+}
+
+model UtteranceEdit {
+  id        String   @id @default(cuid())
+  utterance Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  utteranceId String
+
+  beforeText String
+  afterText String
+
+  editedBy LastModifiedBy
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([utteranceId])
+}
+
+model Role {
+  id        String   @id @default(cuid())
+
+  personId String
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  cityId String?
+  city City? @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  partyId String?
+  party Party? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  administrativeBodyId String?
+  administrativeBody AdministrativeBody? @relation(fields: [administrativeBodyId], references: [id], onDelete: Cascade)
+
+  isHead Boolean @default(false)
+  name String?
+  name_en String?
+  electedOrder Int?
+
+  startDate DateTime?
+  endDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([personId])
+  @@index([cityId])
+  @@index([partyId])
+  @@index([administrativeBodyId])
+
+  // Only one role per person and {city, party, administrativeBody}
+  @@unique([personId, cityId, partyId, administrativeBodyId])
+}
+
+// New models for the notification signup system
+model Petition {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+  
+  // Fields from PRD
+  is_resident Boolean @default(false)
+  is_citizen Boolean @default(false)
+  /// The reader's own words for a relation that is neither («Είμαι παραθεριστής»).
+  other_relation String?
+
+  @@unique([userId, cityId])
+  @@index([userId])
+  @@index([cityId])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+  
+  // The email summary, per municipality. The phone channel is the person's (User.notifyByPhone).
+  notifyByEmail Boolean @default(true)
+
+  // Many-to-many relations with locations and topics/interests
+  locations Location[] @relation("NotificationLocation")
+  interests Topic[]    @relation("NotificationTopic")
+  
+  @@unique([userId, cityId])
+  @@index([userId])
+  @@index([cityId])
+}
+
+model CityMessage {
+  id          String   @id @default(cuid())
+  cityId      String   @unique  // One message per city
+  emoji       String   // lucide-react icon name
+  title       String
+  description String
+  callToActionText String?
+  callToActionUrl  String?
+  callToActionExternal Boolean @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId, isActive])
+}
+
+model Consultation {
+  id        String   @id @default(cuid())
+  name      String
+  jsonUrl   String   // URL to the regulation JSON file
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+
+  comments  ConsultationComment[]
+  pendingComments PendingConsultationComment[]
+
+  @@index([cityId, isActive])
+  @@index([isActive, endDate])
+}
+
+enum ConsultationCommentEntityType {
+  CHAPTER
+  ARTICLE
+  GEOSET
+  GEOMETRY
+}
+
+model ConsultationComment {
+  id            String   @id @default(cuid())
+  body          String   @db.Text
+  entityType    ConsultationCommentEntityType
+  entityId      String   // ID of the chapter/article/geoset/geometry being commented on
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+
+  consultation  Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  consultationId String
+
+  city          City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId        String
+
+  upvotes       ConsultationCommentUpvote[]
+  response      ConsultationCommentResponse?
+
+  @@index([consultationId, entityType, entityId])
+  @@index([cityId])
+  @@index([userId])
+}
+
+/// A comment written by a reader who was not signed in. It stays hidden until the reader opens the
+/// magic link sent to their email; the sign-in then publishes it as a ConsultationComment. Kept apart
+/// from ConsultationComment so no query or count of published comments ever sees it.
+model PendingConsultationComment {
+  id            String   @id @default(cuid())
+  body          String   @db.Text
+  entityType    ConsultationCommentEntityType
+  entityId      String
+  /// The name the reader typed; set on the account at publication when it has none.
+  authorName    String?
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+
+  consultation  Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  consultationId String
+
+  city          City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId        String
+
+  @@index([userId])
+}
+
+model ConsultationCommentUpvote {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  comment   ConsultationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+/// The municipality's one public response under a citizen's consultation comment. It shows in
+/// the municipality's name, never the administrator's. `emailSentAt` is when the email that
+/// joins the author and the municipality went out: once, on the first publication that sends.
+model ConsultationCommentResponse {
+  id           String    @id @default(cuid())
+  body         String    @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  emailSentAt  DateTime?
+
+  comment      ConsultationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId    String    @unique
+
+  /// The administrator who last wrote it: the email's CC and an audit trail. Never shown.
+  author       User?     @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorUserId String?
+
+  @@index([authorUserId])
+}
+
+// Connects a user to a meeting (via a cityId and meetingId). Has a medium (email or message) and a type (beforeMeeting or afterMeeting).
+// Has many NotificationSubjects, which are the subjects that the notification is about.
+// Has many NotificationDeliveries, which are the planned (pending) and attempted (sent or failed) deliveries of the notification.
+model Notification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  cityId    String
+
+  meeting   CouncilMeeting @relation(fields: [meetingId, cityId], references: [id, cityId], onDelete: Cascade)
+  meetingId String
+
+  type NotificationType
+
+  deliveries NotificationDelivery[]
+  subjects NotificationSubject[]
+
+  @@unique([userId, cityId, meetingId, type])
+  @@index([userId])
+  @@index([cityId, meetingId, type])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  beforeMeeting
+  afterMeeting
+}
+
+model NotificationSubject {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reason NotificationSubjectReason
+  
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId String
+
+  @@unique([notificationId, subjectId])
+}
+
+enum NotificationSubjectReason {
+  proximity
+  topic
+  generalInterest
+}
+
+model NotificationDelivery {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId String
+
+  // Set at creation time:
+  medium NotificationMedium
+  email String?
+  phone String?
+  status NotificationDeliveryStatus
+  title String?
+  body String?
+  
+  // Set at sending time:
+  messageSentVia NotificationMessageType? // only filled in if status is sent
+  sentAt DateTime?
+
+  // Both outbound (test sends, real notification messages) and inbound replies
+  // are recorded in Message; this back-relation lets us trace a delivery to
+  // the message rows it produced (or the user reply that came back).
+  messages Message[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@unique([notificationId, medium])
+}
+
+enum NotificationMedium {
+  email
+  message
+}
+
+enum NotificationMessageType {
+  whatsapp
+  sms
+}
+
+enum NotificationDeliveryStatus {
+  pending
+  sent
+  failed
+  // The user moved to the Notis rollout after this delivery was created —
+  // the message medium is Notis's now, so the delivery is skipped, not sent.
+  skipped
+}
+
+model Message {
+  id                     String   @id @default(cuid())
+  channel                MessageChannel
+  direction              MessageDirection
+  birdMessageId          String?  @unique
+  conversationId         String?
+  phone                  String
+  body                   String   @db.Text
+  status                 MessageStatus @default(pending)
+  // Bird's failure description when status transitions to `failed`. Null on
+  // success and on rows still in flight.
+  failureReason          String?  @db.Text
+
+  // Set when the message is the inbound reply to (or outbound delivery of)
+  // an existing notification. Null for free-form admin test sends.
+  notificationDeliveryId String?
+  notificationDelivery   NotificationDelivery? @relation(fields: [notificationDeliveryId], references: [id])
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([phone])
+  @@index([conversationId, createdAt])
+  @@index([createdAt])
+}
+
+enum MessageChannel {
+  whatsapp
+  sms
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageStatus {
+  pending
+  sent
+  delivered
+  failed
+}
+
+// User search queries, logged for usage analytics
+model SearchQuery {
+  id        String   @id @default(cuid())
+  query     String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// QR Campaigns for short redirects
+model QrCampaign {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  url       String
+  name      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

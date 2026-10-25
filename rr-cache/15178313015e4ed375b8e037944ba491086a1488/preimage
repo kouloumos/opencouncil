@@ -1,0 +1,100 @@
+/**
+ * OpenTranscript Pricing Calculations
+ */
+
+import { Offer } from '@prisma/client';
+<<<<<<<
+import {
+    getPlatformPricingTier,
+    getCorrectnessPricing,
+    getPhysicalPresencePricing,
+    SESSION_PROCESSING,
+    PRICING_CONSTANTS,
+    CURRENT_OFFER_VERSION
+} from './config';
+import { monthsBetween } from '../utils';
+=======
+import { SESSION_PROCESSING } from './config';
+>>>>>>>
+
+/**
+ * The Offer fields pricing actually reads — callers with form values (not a
+ * persisted Offer) can satisfy this without casting.
+ */
+export type OfferPricingInput = Pick<
+    Offer,
+    | 'startDate'
+    | 'endDate'
+    | 'platformPrice'
+    | 'ingestionPerHourPrice'
+    | 'hoursToIngest'
+    | 'discountPercentage'
+    | 'correctnessGuarantee'
+    | 'version'
+    | 'hoursToGuarantee'
+    | 'meetingsToIngest'
+    | 'equipmentRentalPrice'
+    | 'physicalPresenceHours'
+>;
+
+export interface OfferTotals {
+    ingestionTotal: number;
+    subtotal: number;
+    discount: number;
+    total: number;
+}
+
+/**
+ * Calculate offer totals
+ */
+<<<<<<<
+export function calculateOfferTotals(offer: OfferPricingInput): OfferTotals {
+    const months = monthsBetween(offer.startDate, offer.endDate);
+    const offerVersion = offer.version || 1; // Default to version 1 for legacy offers
+    const platformTotal = offer.platformPrice * months;
+=======
+export function calculateOfferTotals(offer: Pick<Offer, 'ingestionPerHourPrice' | 'hoursToIngest' | 'discountPercentage'>): OfferTotals {
+>>>>>>>
+    const ingestionTotal = offer.ingestionPerHourPrice * offer.hoursToIngest;
+<<<<<<<
+
+    // Calculate equipment rental cost
+    const equipmentRentalTotal = (offer.equipmentRentalPrice || 0) * months;
+
+    // Calculate physical presence cost
+    const physicalPresenceTotal = (offer.physicalPresenceHours || 0) * getPhysicalPresencePricing(offerVersion).pricePerHour;
+
+    // Calculate correctness guarantee cost based on version
+    let correctnessGuaranteeCost = 0;
+    let hoursToGuarantee = 0;
+
+    if (offer.correctnessGuarantee) {
+        const correctnessPricing = getCorrectnessPricing(offerVersion);
+
+        if (correctnessPricing.unit === 'hour') {
+            hoursToGuarantee = offer.hoursToGuarantee || 0;
+            correctnessGuaranteeCost = hoursToGuarantee * correctnessPricing.pricePerUnit;
+        } else {
+            // Legacy version 1 - price per meeting
+            const meetingsToIngest = offer.meetingsToIngest || 0;
+            correctnessGuaranteeCost = meetingsToIngest * correctnessPricing.pricePerUnit;
+            hoursToGuarantee = meetingsToIngest; // For display purposes
+        }
+    }
+
+    const subtotal = platformTotal + ingestionTotal + equipmentRentalTotal + physicalPresenceTotal + correctnessGuaranteeCost;
+=======
+    const subtotal = ingestionTotal;
+>>>>>>>
+    const discount = subtotal * (offer.discountPercentage / 100);
+    const total = subtotal - discount;
+
+    return { ingestionTotal, subtotal, discount, total };
+}
+
+/**
+ * Get current session processing price per hour
+ */
+export function getSessionProcessingPrice(): number {
+    return SESSION_PROCESSING.pricePerHour;
+}

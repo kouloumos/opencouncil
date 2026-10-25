@@ -1,0 +1,175 @@
+import "./globals.css"
+import { Inter as FontSans } from "next/font/google"
+import { cn } from "../lib/utils"
+import React, { Suspense } from "react"
+import PlausibleAnalytics from "@/components/analytics/PlausibleAnalytics"
+import PostHogPageView from "@/components/analytics/PostHogPageView"
+import PostHogAuthSync from "@/components/analytics/PostHogAuthSync"
+import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration"
+import { SessionProvider } from "next-auth/react"
+import { Toaster } from "@/components/ui/toaster";
+<<<<<<<
+import { inter, roboto, robotoMono } from "@/lib/fonts";
+import { routing, LOCALE_OVERRIDE_HEADER } from "@/i18n/routing";
+import { getLocale, getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
+import { Metadata } from "next";
+import { getMetadataBaseFromRequest } from "@/lib/realm.server";
+import { siteOpenGraph } from "@/lib/og/siteOpenGraph";
+import { appleStartupImages } from "@/lib/pwa/splash";
+=======
+import { routing } from "@/i18n/routing";
+
+// Keep Inter as a fallback font
+const fontSans = FontSans({
+    subsets: ["latin"],
+    variable: "--font-sans",
+})
+>>>>>>>
+
+<<<<<<<
+export async function generateMetadata(): Promise<Metadata> {
+    // metadataBase is the realm's canonical domain (resolved from the request
+    // Host), so opencouncil.gr and opencouncil.fr each resolve their own
+    // relative OG-image URLs. Child pages set relative `/api/og` image URLs that
+    // get resolved against this base per host. On a preview host it is the
+    // preview's own origin instead, so an OG-image change is reviewable on its
+    // own PR — see getMetadataBaseFromRequest.
+    const metadataBase = await getMetadataBaseFromRequest();
+
+    return {
+        title: 'OpenCouncil',
+        description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+        icons: {
+            // The SVG favicon carries its own `prefers-color-scheme` rule, so the
+            // mark turns white on a dark tab strip. The black mark is close to
+            // invisible there. The SVG comes first, and the .ico keeps an explicit
+            // size, so a browser that reads both prefers the SVG. Browsers without
+            // SVG favicon support fall back to the .ico.
+            icon: [
+                { url: '/favicon.svg', type: 'image/svg+xml' },
+                { url: '/favicon.ico', sizes: '250x250' },
+            ],
+            apple: '/icons/apple-touch-icon.png',
+        },
+        // iOS reads these instead of the manifest: without them "Add to Home
+        // Screen" opens the site in a Safari tab, not as a standalone app.
+        appleWebApp: {
+            capable: true,
+            title: 'OpenCouncil',
+            statusBarStyle: 'default',
+            startupImage: appleStartupImages(),
+        },
+        metadataBase: new URL(metadataBase),
+        openGraph: siteOpenGraph,
+        twitter: {
+            card: 'summary_large_image',
+            title: 'OpenCouncil',
+            description: 'Ανοιχτή τοπική αυτοδιοίκηση',
+            images: ['/oc-theme.png'],
+        },
+    };
+=======
+export const metadata = {
+    title: 'OpenTranscripts',
+    description: 'Ανοιχτή απομαγνητοφώνηση',
+    icons: {
+        icon: '/favicon.ico',
+    },
+    metadataBase: new URL('https://opencouncil.gr'),
+    openGraph: {
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
+        type: 'website',
+        url: 'https://opencouncil.gr',
+        images: [
+            {
+                url: '/logo.png',
+                width: 500,
+                height: 500,
+                alt: 'OpenTranscripts Logo',
+            },
+        ],
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'OpenTranscripts',
+        description: 'Ανοιχτή απομαγνητοφώνηση',
+        images: ['/logo.png'],
+    },
+>>>>>>>
+}
+
+export const viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    // No maximumScale and no userScalable: false. Both were added to stop iOS
+    // zooming the page when a reader focuses an input, which it does whenever
+    // the field is under 16px — the form controls carry that size themselves
+    // now, so the lock has no job. It also never did that job: Safari has
+    // ignored user-scalable since iOS 10. What it did do was deny pinch-zoom
+    // on Android, which is WCAG 1.4.4 and not ours to take from a reader.
+    // The app has no dark theme — `darkMode: ["class"]` is configured but the class is never
+    // applied. Without a declared color scheme, Chrome's Auto Dark Theme (and Samsung Internet,
+    // and in-app WebViews) assume the page simply hasn't been updated and algorithmically invert
+    // it, which darkens some surfaces and not others. `only light` is the documented opt-out.
+    colorScheme: 'only light',
+    // The installed app's title bar (Android) and the browser UI on mobile
+    // take this colour; white matches the header.
+    themeColor: '#ffffff',
+}
+
+export default async function RootLayout(
+    props: {
+        children: React.ReactNode,
+    }
+) {
+    const { children } = props;
+
+    // The root layout sits above the [locale] segment, so it doesn't receive a
+    // locale param from routing. For `.fr`-host requests (which bypass next-intl's
+    // middleware) the proxy passes the locale via LOCALE_OVERRIDE_HEADER; for
+    // everything else getLocale() resolves it normally. This drives the <html lang>
+    // attr and the skip-to-content string; per-page strings come from the [locale]
+    // layout's NextIntlClientProvider.
+    const overrideLocale = (await headers()).get(LOCALE_OVERRIDE_HEADER);
+    const locale = overrideLocale && routing.locales.includes(overrideLocale as typeof routing.locales[number])
+        ? overrideLocale
+        : await getLocale();
+    const t = await getTranslations({ locale, namespace: "Common" });
+
+    return (
+        <html lang={locale} suppressHydrationWarning>
+            <head>
+            </head>
+            <body
+                className={cn(
+                    "min-h-screen bg-background font-sans antialiased",
+                    fontSans.variable
+                )}
+            >
+                <a
+                    href="#main-content"
+                    className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none"
+                >
+                    {t("skipToContent")}
+                </a>
+                <SessionProvider>
+                    <PlausibleAnalytics>
+                        {children}
+                        {/* The only Toaster (see single-toaster.test.ts). It sits above
+                            src/app/error.tsx and the [locale] segment, so an open toast
+                            survives a render error and a locale switch. */}
+                        <Toaster />
+                    </PlausibleAnalytics>
+                    {/* useSearchParams requires a Suspense boundary in layouts */}
+                    <Suspense fallback={null}>
+                        <PostHogPageView />
+                    </Suspense>
+                    <PostHogAuthSync />
+                    <ServiceWorkerRegistration />
+                </SessionProvider>
+            </body>
+        </html>
+    );
+}

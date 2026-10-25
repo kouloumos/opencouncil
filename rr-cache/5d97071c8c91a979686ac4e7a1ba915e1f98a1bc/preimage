@@ -1,0 +1,213 @@
+<<<<<<<
+import { Building, ChevronRight, Flag, Landmark, ShieldCheck, User, type LucideIcon } from "lucide-react";
+// The locale-aware Link: next/link would drop the locale prefix.
+import { Link } from "@/i18n/routing";
+import { RailCard } from "@/components/ui/rail-card";
+=======
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ContactBadge } from "../layout/contact-badge";
+import { Flag, User, Folder } from "lucide-react";
+import { Users } from "lucide-react";
+import { Building } from "lucide-react";
+import { UserWithAdministers } from "@/lib/db/users";
+>>>>>>>
+
+type AdminSectionProps = {
+    user: {
+        isSuperAdmin: boolean;
+        administers: Array<{
+            id: string;
+            city?: { id: string; name: string } | null;
+            party?: { id: string; cityId: string; name: string } | null;
+            person?: { id: string; cityId: string; name: string } | null;
+            administrativeBody?: { id: string; cityId: string; name: string } | null;
+        }>;
+    };
+    /** @translationNamespace Profile */
+    t: (key: string, params?: Record<string, string>) => string;
+};
+
+interface AdminEntry {
+    key: string;
+    href: string;
+    icon: LucideIcon;
+    label: string;
+    name: string;
+}
+
+/**
+ * What this account can edit, as a rail card of links: the admin panel for
+ * a superadmin, and one row per city, party, person or body it administers. The
+ * label says the kind, the name says which, and the whole row is the link.
+ */
+export function AdminSection({ user, t }: AdminSectionProps) {
+<<<<<<<
+    // Check if user has any workspace administrations
+    const hasWorkspaceAccess = user.administers.some(admin => admin.workspace && !admin.workspace.city);
+    
+=======
+    const entries: AdminEntry[] = [];
+    if (user.isSuperAdmin) {
+        entries.push({ key: "superadmin", href: "/admin", icon: ShieldCheck, label: t("superAdminAccess"), name: t("goToAdmin") });
+    }
+    for (const admin of user.administers) {
+        if (admin.city) {
+            entries.push({ key: admin.id, href: `/${admin.city.id}`, icon: Building, label: t("adminCity"), name: admin.city.name });
+        } else if (admin.party) {
+            entries.push({ key: admin.id, href: `/${admin.party.cityId}/parties/${admin.party.id}`, icon: Flag, label: t("adminParty"), name: admin.party.name });
+        } else if (admin.person) {
+            entries.push({ key: admin.id, href: `/${admin.person.cityId}/people/${admin.person.id}`, icon: User, label: t("adminPerson"), name: admin.person.name });
+        } else if (admin.administrativeBody) {
+            entries.push({ key: admin.id, href: `/${admin.administrativeBody.cityId}/meetings`, icon: Landmark, label: t("adminBody"), name: admin.administrativeBody.name });
+        }
+    }
+    if (entries.length === 0) return null;
+
+>>>>>>>
+    return (
+<<<<<<<
+        <Card>
+            <CardHeader>
+                <CardTitle>{t("administration")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {user.isSuperAdmin ? (
+                    <div className="space-y-4">
+                        <p className="text-green-600 font-medium">
+                            {t("superAdminAccess")}
+                        </p>
+                        <div className="flex gap-2">
+                            <Button asChild>
+                                <Link href="/admin">{t("goToAdmin")}</Link>
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/workspaces">{t("goToWorkspaces")}</Link>
+                            </Button>
+                        </div>
+                    </div>
+                ) : user.administers.length > 0 ? (
+                    <>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {user.administers.map((admin) => (
+                                <AdminCard key={admin.id} admin={admin} t={t} />
+                            ))}
+                        </div>
+                        {hasWorkspaceAccess && (
+                            <div className="pt-2">
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link href="/workspaces">{t("goToWorkspaces")}</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className="text-gray-600">
+                        <p className="text-md">{t("noAdminAccess")}</p>
+                        <p className="mt-16 text-sm">
+                            {t("contactForAccess")}
+                        </p>
+                        <div className="mt-4">
+                            <ContactBadge type="Email" size="md" className="mr-4" />
+                            <ContactBadge type="Phone" size="md" />
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+=======
+        <RailCard title={t("administration")}>
+            <ul className="-mx-2 -mb-1.5 flex flex-col">
+                {entries.map(({ key, href, icon: Icon, label, name }) => (
+                    <li key={key}>
+                        <Link
+                            href={href}
+                            className="group flex items-center gap-3 rounded-xl px-2 py-2 no-underline transition-colors hover:bg-foreground/[0.04] hover:no-underline"
+                        >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--orange))]/[0.10] text-[hsl(var(--orange-deep))]">
+                                <Icon className="h-4 w-4" aria-hidden />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[11px] leading-tight text-muted-foreground">{label}</span>
+                                <span className="block truncate text-[13.5px] font-medium leading-snug text-foreground">{name}</span>
+                            </span>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </RailCard>
+>>>>>>>
+    );
+}
+<<<<<<<
+=======
+function AdminCard({ admin, t }: { admin: AdminSectionProps['user']['administers'][0], t: AdminSectionProps['t'] }) {
+    // Determine admin type based on which relation exists
+    // Check for workspace first (generic mode), then city/party/person
+    if (admin.workspace && !admin.workspace.city) {
+        // Generic workspace (not linked to a city)
+        return (
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex items-center gap-2">
+                        <Folder className="h-10 w-10" />
+                        <h3 className="font-medium">{t("adminWorkspace")}</h3>
+                    </div>
+                    <Link
+                        href={`/workspaces/${admin.workspace.id}`}
+                        className="text-blue-600 hover:underline mt-2 block"
+                    >
+                        {admin.workspace.name}
+                    </Link>
+                </CardContent>
+            </Card>
+        );
+    }
+    
+    // workspace.city is the new way, cityId is kept for backward compatibility
+    const city = admin.workspace?.city;
+    const cityId = city?.id || admin.cityId;
+    const adminType = (city || admin.cityId) ? 'city' : admin.party ? 'party' : 'person';
+    
+    // For city admin, create a virtual entity
+    const entity = adminType === 'city' 
+        ? { id: cityId!, name: city?.name || `City (${admin.cityId})` }
+        : (admin as any)[adminType];
+
+    if (!entity) return null;
+
+    let href = '';
+    if (adminType === 'city') {
+        href = `/${entity.id}`;
+    } else if (adminType === 'party') {
+        href = `/${(entity as { cityId: string }).cityId}/parties/${entity.id}`;
+    } else { // person
+        href = `/${(entity as { cityId: string }).cityId}/people/${entity.id}`;
+    }
+
+    return (
+        <Card>
+            <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                    {adminType === 'city' ? (
+                        <Building className="h-10 w-10" />
+                    ) : adminType === 'party' ? (
+                        <Flag className="h-10 w-10" />
+                    ) : (
+                        <User className="h-10 w-10" />
+                    )}
+                    <h3 className="font-medium">{t(`admin${adminType.charAt(0).toUpperCase() + adminType.slice(1)}`)}</h3>
+                </div>
+                <Link
+                    href={href}
+                    className="text-blue-600 hover:underline mt-2 block"
+                >
+                    {entity.name}
+                </Link>
+            </CardContent>
+        </Card>
+    );
+}
+>>>>>>>

@@ -1,0 +1,1011 @@
+"use client"
+<<<<<<<
+import { useEffect, useRef, useState } from 'react'
+=======
+import { useState, useEffect } from 'react'
+>>>>>>>
+import { useRouter } from 'next/navigation'
+import { useValidationMessage, useZodResolver } from "@/hooks/useLocalizedValidation"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Button } from "@/components/ui/button"
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { SheetClose } from "@/components/ui/sheet"
+import { Offer } from '@prisma/client'
+import { Loader2, Check } from "lucide-react"
+import { useTranslations } from 'next-intl'
+import { useToast } from "@/hooks/use-toast"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { Slider } from '@/components/ui/slider'
+import { createOffer, updateOffer } from '@/lib/db/offers'
+<<<<<<<
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+=======
+import { getCities } from '@/lib/db/cities'
+import { CityCombobox } from "@/components/cities/CityCombobox"
+>>>>>>>
+import { formatCurrency } from '@/lib/utils'
+<<<<<<<
+import {
+    calculateOfferTotals,
+    CURRENT_OFFER_VERSION,
+    getPhysicalPresencePricing,
+    getPlatformMonthlyPrice,
+    SESSION_PROCESSING,
+} from '@/lib/pricing'
+import { Switch } from "@/components/ui/switch"
+import { offerFormSchema } from '@/lib/zod-schemas/offer'
+import { offerHasEquipment } from '@/lib/offers/display'
+import { useSession } from 'next-auth/react'
+=======
+import { calculateOfferTotals, CURRENT_OFFER_VERSION } from '@/lib/pricing'
+import { listWorkspaces } from '@/lib/db/workspaces'
+
+const formSchema = z.object({
+    recipientName: z.string().min(2, {
+        message: "Recipient name must be at least 2 characters.",
+    }),
+    ingestionPerHourPrice: z.number().min(0, {
+        message: "Ingestion price per hour must be a positive number.",
+    }),
+    hoursToIngest: z.number().int().min(1, {
+        message: "Hours to ingest must be at least 1.",
+    }),
+    discountPercentage: z.number().min(0).max(100, {
+        message: "Discount percentage must be between 0 and 100.",
+    }),
+    type: z.string().default("pilot"),
+    startDate: z.date().optional(),
+    endDate: z.date().optional(),
+    respondToName: z.string().min(2, {
+        message: "Respond to name must be at least 2 characters.",
+    }),
+    respondToEmail: z.string().email({
+        message: "Please enter a valid email address.",
+    }),
+    respondToPhone: z.string().min(10, {
+        message: "Please enter a valid phone number.",
+    }),
+    workspaceId: z.string().optional(),
+})
+>>>>>>>
+
+interface OfferFormProps {
+    offer?: Offer
+<<<<<<<
+    onSuccess?: () => void
+    cityId?: string
+    /** Pre-fill values from a previous offer (used for renewals). */
+    renewFrom?: Offer
+=======
+    onSuccess?: (data: z.infer<typeof formSchema>) => void
+    workspaceId?: string
+>>>>>>>
+}
+
+<<<<<<<
+/**
+ * Default start date: 1st of next month, unless that's less than 5 days
+ * away — in which case the 1st of the month after.
+ */
+function defaultStartDate(now: Date = new Date()): Date {
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    const firstOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    const daysAway = (firstOfNextMonth.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    if (daysAway < 5) {
+        return new Date(today.getFullYear(), today.getMonth() + 2, 1)
+    }
+    return firstOfNextMonth
+}
+
+/**
+ * End date for a 12-month inclusive term: the day before the first
+ * anniversary of the start. e.g. start=2026-05-01 → end=2027-04-30,
+ * start=2027-02-28 → end=2028-02-27. Used by fresh creates (whose default
+ * start is always the 1st of a month, so this equals the old
+ * last-day-of-previous-month behavior) and renewals alike.
+ */
+function endDateForTerm(start: Date): Date {
+    const end = new Date(start)
+    end.setFullYear(end.getFullYear() + 1)
+    end.setDate(end.getDate() - 1)
+    return end
+}
+
+const DEFAULT_HOURS_TO_INGEST = 100
+
+/**
+ * The empty field shape, shared by useForm defaultValues and the post-submit
+ * reset so new fields only need to be added in one place (plus the schema).
+ */
+const EMPTY_OFFER_DEFAULTS = {
+    recipientName: "",
+    platformPrice: 0,
+    ingestionPerHourPrice: 0,
+    hoursToIngest: 1,
+    discountPercentage: 0,
+    type: "pilot",
+    respondToName: "",
+    respondToEmail: "",
+    respondToPhone: "",
+    cityId: undefined,
+    correctnessGuarantee: false,
+    meetingsToIngest: 1,
+    hoursToGuarantee: 1,
+    includeEquipmentRental: false,
+    equipmentRentalPrice: 0,
+    equipmentRentalName: "",
+    equipmentRentalDescription: "",
+    includePhysicalPresence: false,
+    physicalPresenceHours: 0,
+    agreed: false,
+    adam: "",
+} satisfies Partial<z.input<typeof offerFormSchema>>
+
+/** Responder contact prefill from the signed-in session (fresh creates). */
+function sessionContactValues(session: ReturnType<typeof useSession>['data']) {
+    return {
+        respondToName: session?.user?.name || "",
+        respondToEmail: session?.user?.email || "",
+        respondToPhone: session?.user?.phone || "",
+    }
+}
+
+export default function OfferForm({ offer, onSuccess, cityId, renewFrom }: OfferFormProps) {
+=======
+export default function OfferForm({ offer, onSuccess, workspaceId }: OfferFormProps) {
+>>>>>>>
+    const router = useRouter()
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isSuccess, setIsSuccess] = useState(false)
+<<<<<<<
+    const [cities, setCities] = useState<{ id: string, name: string, population: number | null }[]>([])
+=======
+    const [workspaces, setWorkspaces] = useState<{ id: string, name: string }[]>([])
+>>>>>>>
+    const t = useTranslations('OfferForm')
+    const validationMessage = useValidationMessage()
+    const { toast } = useToast()
+    const { data: session } = useSession()
+
+    const isFreshCreate = !offer && !renewFrom
+
+    useEffect(() => {
+        const loadWorkspaces = async () => {
+            try {
+<<<<<<<
+                const citiesData = await getCities({ includeNonPublic: true })
+                setCities(citiesData.map(city => ({ id: city.id, name: city.name, population: city.population })))
+=======
+                const workspacesData = await listWorkspaces()
+                setWorkspaces(workspacesData.map(ws => ({ id: ws.id, name: ws.name })))
+>>>>>>>
+            } catch (error) {
+                console.error('Failed to load workspaces:', error)
+            }
+        }
+        loadWorkspaces()
+    }, [])
+
+    // Source for pre-filling: existing offer (edit) or renewFrom (renewal create) or empty (fresh create)
+    const source: Partial<Offer> | undefined = offer || renewFrom
+
+    // An existing offer keeps the pricing version it was priced with — editing
+    // it (e.g. to record the ΑΔΑΜ) must not re-price it. Only a new offer,
+    // including a renewal, gets the current version.
+    const offerVersion = offer ? offer.version || 1 : CURRENT_OFFER_VERSION
+
+    // Renewal default dates: start = max(today, prev.endDate + 1 day),
+    // end = day before the first anniversary — a 12-month inclusive term,
+    // consistent with fresh-offer defaults (e.g. 2027-02-28 → 2028-02-27).
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const renewStart = renewFrom
+        ? (() => {
+              const dayAfter = new Date(renewFrom.endDate)
+              dayAfter.setDate(dayAfter.getDate() + 1)
+              return dayAfter > today ? dayAfter : today
+          })()
+        : null
+    const renewEnd = renewStart ? endDateForTerm(renewStart) : null
+
+    // Defaults for fresh creates only (offer/renewFrom override these)
+    const freshStart = defaultStartDate()
+    const freshEnd = endDateForTerm(freshStart)
+
+    const contact = sessionContactValues(session)
+    const form = useForm({
+        resolver: useZodResolver(offerFormSchema),
+        defaultValues: {
+<<<<<<<
+            ...EMPTY_OFFER_DEFAULTS,
+            recipientName: source?.recipientName || "",
+            platformPrice: source?.platformPrice || 0,
+            ingestionPerHourPrice: source?.ingestionPerHourPrice ?? (isFreshCreate ? SESSION_PROCESSING.pricePerHour : 0),
+            hoursToIngest: source?.hoursToIngest || (isFreshCreate ? DEFAULT_HOURS_TO_INGEST : 1),
+            discountPercentage: source?.discountPercentage || 0,
+            type: source?.type || "pilot",
+            startDate: renewStart || offer?.startDate || (isFreshCreate ? freshStart : new Date()),
+            endDate: renewEnd || offer?.endDate || (isFreshCreate ? freshEnd : new Date()),
+            respondToName: source?.respondToName || (isFreshCreate ? contact.respondToName : ""),
+            respondToEmail: source?.respondToEmail || (isFreshCreate ? contact.respondToEmail : ""),
+            respondToPhone: source?.respondToPhone || (isFreshCreate ? contact.respondToPhone : ""),
+            cityId: cityId || source?.cityId || undefined,
+            correctnessGuarantee: source?.correctnessGuarantee ?? isFreshCreate,
+            meetingsToIngest: source?.meetingsToIngest || 1,
+            hoursToGuarantee: source?.hoursToGuarantee || (isFreshCreate ? DEFAULT_HOURS_TO_INGEST : 1),
+            includeEquipmentRental: !!source && offerHasEquipment(source),
+            equipmentRentalPrice: source?.equipmentRentalPrice || 0,
+            equipmentRentalName: source?.equipmentRentalName || "",
+            equipmentRentalDescription: source?.equipmentRentalDescription || "",
+            includePhysicalPresence: !!(source?.physicalPresenceHours && source.physicalPresenceHours > 0),
+            physicalPresenceHours: source?.physicalPresenceHours || 0,
+            agreed: offer?.agreed || false,
+            adam: offer?.adam || "",
+=======
+            recipientName: offer?.recipientName || "",
+            ingestionPerHourPrice: offer?.ingestionPerHourPrice || 0,
+            hoursToIngest: offer?.hoursToIngest || 1,
+            discountPercentage: offer?.discountPercentage || 0,
+            type: offer?.type || "pilot",
+            startDate: offer?.startDate || undefined,
+            endDate: offer?.endDate || undefined,
+            respondToName: offer?.respondToName || "",
+            respondToEmail: offer?.respondToEmail || "",
+            respondToPhone: offer?.respondToPhone || "",
+            workspaceId: workspaceId || offer?.workspaceId || undefined,
+>>>>>>>
+        },
+    })
+
+    // Auto-prefill platform price from population when a city is picked on a
+    // fresh create. Prefill at most once per selected city — the effect also
+    // fires when the city list finishes loading, and must not clobber a price
+    // the user already edited by hand.
+    const watchedCityId = form.watch('cityId')
+    const prefilledForCityId = useRef<string | null>(null)
+    useEffect(() => {
+        if (!isFreshCreate || !watchedCityId) return
+        if (prefilledForCityId.current === watchedCityId) return
+        const population = cities.find(c => c.id === watchedCityId)?.population
+        if (population != null) {
+            prefilledForCityId.current = watchedCityId
+            form.setValue('platformPrice', getPlatformMonthlyPrice(population))
+        }
+    }, [watchedCityId, isFreshCreate, cities, form])
+
+    // Once the session loads, fill responder fields if still empty (fresh create only).
+    useEffect(() => {
+        if (!isFreshCreate || !session?.user) return
+        const loaded = sessionContactValues(session)
+        for (const field of ['respondToName', 'respondToEmail', 'respondToPhone'] as const) {
+            if (!form.getValues(field) && loaded[field]) {
+                form.setValue(field, loaded[field])
+            }
+        }
+    }, [session, isFreshCreate, form])
+
+
+    const watchedValues = form.watch()
+<<<<<<<
+    const { total } = calculateOfferTotals(watchedValues)
+=======
+    const { total } = calculateOfferTotals({
+        startDate: watchedValues.startDate,
+        endDate: watchedValues.endDate,
+        platformPrice: watchedValues.platformPrice,
+        ingestionPerHourPrice: watchedValues.ingestionPerHourPrice,
+        hoursToIngest: watchedValues.hoursToIngest,
+        discountPercentage: watchedValues.discountPercentage,
+        correctnessGuarantee: watchedValues.correctnessGuarantee ?? false,
+        version: offerVersion,
+        hoursToGuarantee: watchedValues.hoursToGuarantee ?? null,
+        meetingsToIngest: watchedValues.meetingsToIngest ?? null,
+        equipmentRentalPrice: watchedValues.includeEquipmentRental
+            ? watchedValues.equipmentRentalPrice ?? null
+            : null,
+        physicalPresenceHours: watchedValues.includePhysicalPresence
+            ? watchedValues.physicalPresenceHours ?? null
+            : null,
+    })
+>>>>>>>
+
+    async function onSubmit(values: z.output<typeof offerFormSchema>) {
+        setIsSubmitting(true)
+        try {
+            const commonData = {
+                recipientName: values.recipientName,
+                ingestionPerHourPrice: values.ingestionPerHourPrice,
+                hoursToIngest: values.hoursToIngest,
+                discountPercentage: values.discountPercentage,
+                type: values.type,
+                startDate: values.startDate || null,
+                endDate: values.endDate || null,
+                respondToName: values.respondToName,
+                respondToEmail: values.respondToEmail,
+                respondToPhone: values.respondToPhone,
+<<<<<<<
+                cityId: values.cityId || null,
+                correctnessGuarantee: values.correctnessGuarantee,
+                equipmentRentalPrice: values.includeEquipmentRental ? values.equipmentRentalPrice || null : null,
+                equipmentRentalName: values.includeEquipmentRental ? values.equipmentRentalName || null : null,
+                equipmentRentalDescription: values.includeEquipmentRental ? values.equipmentRentalDescription || null : null,
+                physicalPresenceHours: values.includePhysicalPresence ? values.physicalPresenceHours || null : null,
+=======
+                workspaceId: values.workspaceId || null,
+                version: CURRENT_OFFER_VERSION
+>>>>>>>
+            };
+
+            if (offer) {
+<<<<<<<
+                await updateOffer(offer.id, commonData);
+=======
+                await updateOffer(offer.id, {
+                    ...commonData,
+                    meetingsToIngest: values.correctnessGuarantee && offer.version === 1 ? values.meetingsToIngest : null,
+                    hoursToGuarantee: values.correctnessGuarantee && offer.version !== null && offer.version > 1 ? values.hoursToGuarantee : null,
+                    agreed: values.agreed,
+                    adam: values.adam || null,
+                });
+>>>>>>>
+            } else {
+<<<<<<<
+                await createOffer(commonData);
+=======
+                await createOffer({
+                    ...commonData,
+                    version: CURRENT_OFFER_VERSION,
+                    meetingsToIngest: null,
+                    hoursToGuarantee: values.correctnessGuarantee ? values.hoursToGuarantee! : null,
+                    agreed: values.agreed,
+                    adam: values.adam || null,
+                });
+>>>>>>>
+            }
+
+            setIsSuccess(true)
+            setTimeout(() => setIsSuccess(false), 1000)
+            if (onSuccess) {
+                onSuccess()
+            }
+            router.refresh()
+            form.reset({
+<<<<<<<
+                ...EMPTY_OFFER_DEFAULTS,
+                startDate: new Date(),
+                endDate: new Date(),
+=======
+                recipientName: "",
+                ingestionPerHourPrice: 0,
+                hoursToIngest: 1,
+                discountPercentage: 0,
+                type: "pilot",
+                startDate: undefined,
+                endDate: undefined,
+                respondToName: "",
+                respondToEmail: "",
+                respondToPhone: "",
+                workspaceId: undefined,
+>>>>>>>
+            })
+            toast({
+                title: t('success'),
+                description: offer ? t('offerUpdated') : t('offerCreated'),
+            })
+        } catch (error) {
+            console.error(t('failedToSaveOffer'), error)
+            toast({
+                title: t('error'),
+                description: error instanceof Error ? error.message : t('unexpectedError'),
+                variant: "destructive",
+            })
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <h3 className="font-semibold text-lg mb-2">{t('totalPrice')}</h3>
+                    <p className="text-2xl font-bold">{formatCurrency(total)}</p>
+                </div>
+
+
+                {Object.keys(form.formState.errors).length > 0 && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <strong className="font-bold">{t('formErrors')}</strong>
+                        <ul className="mt-2 list-disc list-inside">
+                            {Object.entries(form.formState.errors).map(([key, error]) => (
+                                <li key={key}>{error.message && validationMessage(error.message)}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                <FormField
+                    control={form.control}
+                    name="workspaceId"
+                    render={({ field }) => (
+                        <FormItem>
+<<<<<<<
+                            <FormLabel>Workspace</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select workspace (optional)" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {workspaces.map((ws) => (
+                                        <SelectItem key={ws.id} value={ws.id}>
+                                            {ws.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+=======
+                            <FormLabel>{t('city')}</FormLabel>
+                            <FormControl>
+                                <CityCombobox
+                                    cities={cities}
+                                    value={field.value ?? null}
+                                    onChange={field.onChange}
+                                    placeholder={t('selectCity')}
+                                />
+                            </FormControl>
+>>>>>>>
+                            <FormDescription>
+                                Optional workspace association for this offer
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="recipientName"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('recipientName')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                {t('recipientNameDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+<<<<<<<
+=======
+                    name="platformPrice"
+                    render={({ field }) => {
+                        const selectedPopulation = cities.find(c => c.id === watchedCityId)?.population;
+                        return (
+                            <FormItem>
+                                <FormLabel>{t('platformPrice')}</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={e => field.onChange(parseFloat(e.target.value))}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    {t('platformPriceDescription')}
+                                    {watchedCityId && (
+                                        selectedPopulation != null
+                                            ? <> · Πληθυσμός: {selectedPopulation.toLocaleString('el-GR')}</>
+                                            : <> · Πληθυσμός: <span className="text-amber-700">άγνωστος</span></>
+                                    )}
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        );
+                    }}
+                />
+
+                <FormField
+                    control={form.control}
+>>>>>>>
+                    name="ingestionPerHourPrice"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('ingestionPerHourPrice')}</FormLabel>
+                            <FormControl>
+                                <Input
+                                    type="number"
+                                    {...field}
+                                    onChange={e => field.onChange(parseFloat(e.target.value))}
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                {t('ingestionPerHourPriceDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="hoursToIngest"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('hoursToIngest')}</FormLabel>
+                            <FormControl>
+                                <Input
+                                    type="number"
+                                    {...field}
+                                    onChange={e => field.onChange(parseInt(e.target.value))}
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                {t('hoursToIngestDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="discountPercentage"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('discountPercentage')}</FormLabel>
+                            <FormControl>
+                                <div className="flex items-center gap-2">
+                                    <Slider
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={[field.value]}
+                                        onValueChange={([value]) => field.onChange(value)}
+                                    />
+                                    <span className="w-12 text-sm">{field.value}%</span>
+                                </div>
+                            </FormControl>
+                            <FormDescription>
+                                {t('discountPercentageDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+<<<<<<<
+=======
+                    name="correctnessGuarantee"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-base">
+                                    {t('correctnessGuarantee')}
+                                </FormLabel>
+                                <FormDescription>
+                                    {t('correctnessGuaranteeDescription')}
+                                </FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
+
+                {offer?.version === 1 ? (
+                    <FormField
+                        control={form.control}
+                        name="meetingsToIngest"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{t('meetingsToIngest')}</FormLabel>
+                                <FormControl>
+                                    <div className="flex items-center gap-2">
+                                        <Slider
+                                            disabled={!form.watch('correctnessGuarantee')}
+                                            min={1}
+                                            max={100}
+                                            step={1}
+                                            value={[field.value || 1]}
+                                            onValueChange={([value]) => field.onChange(value)}
+                                        />
+                                        <span className="w-12 text-sm">{field.value || 1}</span>
+                                    </div>
+                                </FormControl>
+                                <FormDescription>
+                                    {!form.watch('correctnessGuarantee')
+                                        ? t('meetingsToIngestDisabledDescription')
+                                        : t('meetingsToIngestDescription')
+                                    }
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                ) : (
+                    <FormField
+                        control={form.control}
+                        name="hoursToGuarantee"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{t('hoursToGuarantee')}</FormLabel>
+                                <FormControl>
+                                    <div className="flex items-center gap-2">
+                                        <Slider
+                                            disabled={!form.watch('correctnessGuarantee')}
+                                            min={1}
+                                            max={form.watch('hoursToIngest')}
+                                            step={1}
+                                            value={[field.value || 1]}
+                                            onValueChange={([value]) => field.onChange(value)}
+                                        />
+                                        <span className="w-12 text-sm">{field.value || 1}</span>
+                                    </div>
+                                </FormControl>
+                                <FormDescription>
+                                    {!form.watch('correctnessGuarantee')
+                                        ? t('hoursToGuaranteeDisabledDescription')
+                                        : t('hoursToGuaranteeDescription')
+                                    }
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+
+                {/* Equipment Rental Section */}
+                <div className="space-y-4 border-t pt-4">
+                    <FormField
+                        control={form.control}
+                        name="includeEquipmentRental"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                        Equipment Rental
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Include cameras, microphones and conferencing equipment (optional)
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+
+                    {form.watch('includeEquipmentRental') && (
+                        <div className="space-y-4 ml-4">
+                            <FormField
+                                control={form.control}
+                                name="equipmentRentalPrice"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Monthly Equipment Price (€)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                {...field}
+                                                onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Monthly price for cameras, microphones and conferencing equipment
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="equipmentRentalName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Equipment Name/Title</FormLabel>
+                                        <FormControl>
+                                            <Input {...field} placeholder="e.g., Professional Video & Audio Package" />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Short name or title for the equipment package
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="equipmentRentalDescription"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Equipment Description</FormLabel>
+                                        <FormControl>
+                                            <textarea
+                                                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                {...field}
+                                                placeholder="Detailed description of equipment included..."
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Detailed description of what equipment is included
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Physical Presence Section */}
+                <div className="space-y-4 border-t pt-4">
+                    <FormField
+                        control={form.control}
+                        name="includePhysicalPresence"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                        Physical Presence
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Include personnel to be physically present at meetings (optional)
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+
+                    {form.watch('includePhysicalPresence') && (
+                        <div className="space-y-4 ml-4">
+
+                            <FormField
+                                control={form.control}
+                                name="physicalPresenceHours"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Physical Presence Hours</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                {...field}
+                                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Number of hours for personnel to be physically present at meetings ({formatCurrency(getPhysicalPresencePricing(offerVersion).pricePerHour)}/hour)
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <FormField
+                    control={form.control}
+>>>>>>>
+                    name="startDate"
+                    render={() => (
+                        <FormItem className="flex flex-col">
+<<<<<<<
+                            <FormLabel>{t('startDate')} – {t('endDate')}</FormLabel>
+                            <FormControl>
+                                <DateRangePicker
+                                    value={{ from: form.watch('startDate'), to: form.watch('endDate') }}
+                                    onChange={(range) => {
+                                        if (range?.from) {
+                                            form.setValue('startDate', range.from);
+                                            form.setValue('endDate', range.to ?? range.from);
+                                        }
+                                    }}
+                                    placeholder={t('startDateDescription')}
+                                />
+                            </FormControl>
+=======
+                            <FormLabel>{t('startDate')}</FormLabel>
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                    date < new Date()
+                                }
+                                initialFocus
+                            />
+                            <FormDescription>
+                                {t('startDateDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                            <FormLabel>{t('endDate')}</FormLabel>
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) => {
+                                    const startDate = form.getValues('startDate');
+                                    return startDate ? date < startDate : false;
+                                }}
+                                initialFocus
+                            />
+                            <FormDescription>
+                                {t('endDateDescription')}
+                            </FormDescription>
+>>>>>>>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="respondToName"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('respondToName')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                {t('respondToNameDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="respondToEmail"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('respondToEmail')}</FormLabel>
+                            <FormControl>
+                                <Input type="email" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                {t('respondToEmailDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="respondToPhone"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('respondToPhone')}</FormLabel>
+                            <FormControl>
+                                <Input type="tel" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                {t('respondToPhoneDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {/* Lifecycle fields — edit mode only. Hidden on create and renewal. */}
+                {offer && (
+                    <div className="space-y-4 border-t pt-4">
+                        <FormField
+                            control={form.control}
+                            name="agreed"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-base">
+                                            {t('agreed')}
+                                        </FormLabel>
+                                        <FormDescription>
+                                            {t('agreedDescription')}
+                                        </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="adam"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('adam')}</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            value={field.value || ""}
+                                            placeholder="24PROC015123456"
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        {t('adamDescription')}
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
+
+                <div className="flex justify-between">
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                {t('submitting')}
+                            </>
+                        ) : isSuccess ? (
+                            <>
+                                <Check className="mr-2 h-4 w-4" />
+                                {t('success')}
+                            </>
+                        ) : (
+                            <>{offer ? t('updateOffer') : t('createOffer')}</>
+                        )}
+                    </Button>
+                    <SheetClose asChild>
+                        <Button type="button" variant="outline">{t('cancel')}</Button>
+                    </SheetClose>
+                </div>
+            </form>
+        </Form>
+    )
+}

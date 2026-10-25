@@ -1,0 +1,241 @@
+import { createEnv } from "@t3-oss/env-nextjs";
+import * as z from "zod";
+
+/**
+ * Session-mirror defaults. Both values are a function of where the app runs,
+ * and a mismatched pair is an admin lockout, so staging and production derive
+ * them instead of hand-setting two variables that must agree. Setting either
+ * variable still overrides.
+ *
+ * The domain is the deployment's own host — a cookie for ".opencouncil.gr"
+ * also reaches staging.opencouncil.gr, which is exactly why the name carries
+ * an environment suffix as well.
+ */
+const deploymentEnv =
+    process.env.DEPLOYMENT_ENV ??
+    (process.env.NODE_ENV === 'development' ? 'development' : 'production');
+
+function derivedCookieDomain() {
+    // Development and previews do not mirror: dev reads the Auth.js cookie
+    // directly, and a preview has no Notis service of its own.
+    if (deploymentEnv !== 'production' && deploymentEnv !== 'staging') return undefined;
+    try {
+        return `.${new URL(process.env.NEXTAUTH_URL ?? '').hostname}`;
+    } catch {
+        return undefined;
+    }
+}
+
+function derivedCookieSuffix() {
+    return deploymentEnv === 'production' ? '' : `-${deploymentEnv}`;
+}
+
+export const env = createEnv({
+  /**
+   * Specify your server-side environment variables schema here. This way you can ensure the app
+   * isn't built with invalid env vars.
+   */
+  server: {
+    DATABASE_URL: z.url(),
+    DIRECT_URL: z.url(),
+
+    // Database Initialization (for local Docker setup)
+    DATABASE_USER: z.string().optional(),
+    DATABASE_PASSWORD: z.string().optional(),
+    DATABASE_NAME: z.string().optional(),
+
+    // Auth
+    RESEND_API_KEY: z.string().min(1),
+    // Replaces every sender address; see src/lib/email/senders.ts.
+    EMAIL_FROM_OVERRIDE: z.string().min(1).optional(),
+    NEXTAUTH_SECRET: z.string().min(1),
+    NEXTAUTH_URL: z.url(),
+    BASIC_AUTH_USERNAME: z.string().optional(),
+    BASIC_AUTH_PASSWORD: z.string().optional(),
+    // Sign in with Google. Both unset disables the provider and hides the
+    // button; the magic link keeps working. See docs/environment-variables.md
+    // for the redirect URIs the Google client must list.
+    AUTH_GOOGLE_ID: z.string().optional(),
+    AUTH_GOOGLE_SECRET: z.string().optional(),
+    // Session-mirror cookie for the Notis admin (see applySessionMirror in
+    // src/proxy.ts). Both default from DEPLOYMENT_ENV + NEXTAUTH_URL — see
+    // derivedCookieDomain/derivedCookieSuffix above; set either only to
+    // override. An unset domain disables mirroring.
+    SESSION_COOKIE_DOMAIN: z.string().optional(),
+    SESSION_COOKIE_SUFFIX: z.string().optional(),
+
+    // Services
+    ANTHROPIC_API_KEY: z.string().min(1),
+    GOOGLE_API_KEY: z.string().min(1),
+    // Gemini key for the subject illustrations. Optional — when unset, no image
+    // is generated and every subject shows the topic-coloured fallback.
+    GEMINI_API_KEY: z.string().optional(),
+    // Folder inside DO_SPACES_BUCKET that holds the subject illustrations. The
+    // folder names the style, so a restyle can write a sibling folder.
+    SUBJECT_IMAGES_PREFIX: z.string().min(1).default('subject-images/8bit'),
+    // YouTube Data API v3 key (used by the poll-livestreams cron to find meeting
+    // livestreams). Optional — when unset, the cron no-ops.
+    YOUTUBE_API_KEY: z.string().optional(),
+
+    // Storage
+    DO_SPACES_ENDPOINT: z.string().min(1),
+    DO_SPACES_KEY: z.string().min(1),
+    DO_SPACES_SECRET: z.string().min(1),
+    DO_SPACES_BUCKET: z.string().min(1),
+<<<<<<<
+    CDN_URL: z.string().url(),
+    S3_PATH_PREFIX: z.string().optional(),
+=======
+    CDN_URL: z.url(),
+>>>>>>>
+
+    // Task Server
+    TASK_API_URL: z.url(),
+    TASK_API_KEY: z.string().min(1),
+
+    // Elasticsearch
+    ELASTICSEARCH_URL: z.url(),
+    ELASTICSEARCH_API_KEY: z.string().min(1),
+    ELASTICSEARCH_INDEX: z.string().default('subjects'), // Override for testing (e.g., 'subjects_test')
+
+    // Deployment target, resolved here once — read it via env.DEPLOYMENT_ENV
+    // (server-only). Previews and staging declare themselves (flake.nix unit /
+    // DO app env); everywhere else it defaults from NODE_ENV.
+    DEPLOYMENT_ENV: z.enum(['development', 'preview', 'staging', 'production'])
+        .default(process.env.NODE_ENV === 'development' ? 'development' : 'production'),
+
+    // The Notis service (services/notis), which this app calls server-side
+    // on a reader's behalf: the profile switch reads and flips their
+    // subscription through /api/subscriptions/{userId}. Both optional — a
+    // deployment without them shows the switch as unavailable and still
+    // writes notifyByPhone, which is what the poller enrolls on.
+    NOTIS_API_URL: z.url().optional(),
+    NOTIS_SERVICE_TOKEN: z.string().optional(),
+
+    // Bird, for one thing only: the SMS that carries a phone verification
+    // code (src/lib/phone-verification/sms.ts). Every other message to a
+    // reader is Notis's. All optional: without them a development or preview
+    // deployment prints the code to the server log, and production refuses.
+    BIRD_API_KEY: z.string().optional(),
+    BIRD_WORKSPACE_ID: z.string().optional(),
+    BIRD_SMS_CHANNEL_ID: z.string().optional(),
+
+    // Discord Admin Alerts
+    DISCORD_WEBHOOK_URL: z.url().optional(),
+
+    // Google Calendar Integration (OAuth 2.0)
+    GOOGLE_CALENDAR_CLIENT_ID: z.string().optional(),
+    GOOGLE_CALENDAR_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_CALENDAR_REFRESH_TOKEN: z.string().optional(),
+    GOOGLE_CALENDAR_ID: z.string().optional(),
+    GOOGLE_CALENDAR_ENABLED: z.string().optional(),
+
+    // Cron Jobs
+    CRON_SECRET: z.string().optional(),
+
+    // Cache (Valkey/Redis)
+    CACHE_URL: z.string().optional(),
+
+    // Development
+    DEV_EMAIL_OVERRIDE: z.email().optional(),
+    SIMULATE_WHATSAPP_UNAVAILABLE: z.string().optional(),
+    SEED_DATA_URL: z.url().default('https://raw.githubusercontent.com/schemalabz/opencouncil-seed-data/refs/heads/main/seed_data.json'),
+    SEED_DATA_PATH: z.string().default('./prisma/seed_data.json'),
+  },
+
+  /**
+   * Specify your client-side environment variables schema here. This way you can ensure the app
+   * isn't built with invalid env vars. To expose them to the client, prefix them with
+   * `NEXT_PUBLIC_`.
+   */
+  client: {
+    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: z.string().min(1),
+    NEXT_PUBLIC_CONTACT_EMAIL: z.email().optional(),
+    NEXT_PUBLIC_CONTACT_ADDRESS: z.string().optional(),
+    NEXT_PUBLIC_BUILD_COMMIT_SHA: z.string().optional(),
+    // PostHog analytics; unset (or empty) disables analytics entirely.
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: z.string().optional(),
+    NEXT_PUBLIC_APP_MODE: z.enum(['council', 'generic']).default('council'),
+  },
+
+  /**
+   * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
+   * middlewares) or client-side so we need to destruct manually.
+   */
+  runtimeEnv: {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DIRECT_URL: process.env.DIRECT_URL,
+    DATABASE_USER: process.env.DATABASE_USER,
+    DATABASE_PASSWORD: process.env.DATABASE_PASSWORD,
+    DATABASE_NAME: process.env.DATABASE_NAME,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM_OVERRIDE: process.env.EMAIL_FROM_OVERRIDE,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    BASIC_AUTH_USERNAME: process.env.BASIC_AUTH_USERNAME,
+    BASIC_AUTH_PASSWORD: process.env.BASIC_AUTH_PASSWORD,
+    AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+    AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+    SESSION_COOKIE_DOMAIN: process.env.SESSION_COOKIE_DOMAIN ?? derivedCookieDomain(),
+    SESSION_COOKIE_SUFFIX: process.env.SESSION_COOKIE_SUFFIX ?? derivedCookieSuffix(),
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    SUBJECT_IMAGES_PREFIX: process.env.SUBJECT_IMAGES_PREFIX,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
+    DO_SPACES_ENDPOINT: process.env.DO_SPACES_ENDPOINT,
+    DO_SPACES_KEY: process.env.DO_SPACES_KEY,
+    DO_SPACES_SECRET: process.env.DO_SPACES_SECRET,
+    DO_SPACES_BUCKET: process.env.DO_SPACES_BUCKET,
+    CDN_URL: process.env.CDN_URL,
+    S3_PATH_PREFIX: process.env.S3_PATH_PREFIX,
+    TASK_API_URL: process.env.TASK_API_URL,
+    TASK_API_KEY: process.env.TASK_API_KEY,
+    ELASTICSEARCH_URL: process.env.ELASTICSEARCH_URL,
+    ELASTICSEARCH_API_KEY: process.env.ELASTICSEARCH_API_KEY,
+    ELASTICSEARCH_INDEX: process.env.ELASTICSEARCH_INDEX,
+    DEPLOYMENT_ENV: process.env.DEPLOYMENT_ENV,
+    NOTIS_API_URL: process.env.NOTIS_API_URL,
+    NOTIS_SERVICE_TOKEN: process.env.NOTIS_SERVICE_TOKEN,
+    BIRD_API_KEY: process.env.BIRD_API_KEY,
+    BIRD_WORKSPACE_ID: process.env.BIRD_WORKSPACE_ID,
+    BIRD_SMS_CHANNEL_ID: process.env.BIRD_SMS_CHANNEL_ID,
+    DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL,
+    GOOGLE_CALENDAR_CLIENT_ID: process.env.GOOGLE_CALENDAR_CLIENT_ID,
+    GOOGLE_CALENDAR_CLIENT_SECRET: process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
+    GOOGLE_CALENDAR_REFRESH_TOKEN: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN,
+    GOOGLE_CALENDAR_ID: process.env.GOOGLE_CALENDAR_ID,
+    GOOGLE_CALENDAR_ENABLED: process.env.GOOGLE_CALENDAR_ENABLED,
+    CRON_SECRET: process.env.CRON_SECRET,
+    CACHE_URL: process.env.CACHE_URL,
+    DEV_EMAIL_OVERRIDE: process.env.DEV_EMAIL_OVERRIDE,
+    SIMULATE_WHATSAPP_UNAVAILABLE: process.env.SIMULATE_WHATSAPP_UNAVAILABLE,
+    SEED_DATA_URL: process.env.SEED_DATA_URL,
+    SEED_DATA_PATH: process.env.SEED_DATA_PATH,
+    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:
+      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    NEXT_PUBLIC_CONTACT_EMAIL: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
+    NEXT_PUBLIC_CONTACT_ADDRESS: process.env.NEXT_PUBLIC_CONTACT_ADDRESS,
+    NEXT_PUBLIC_BUILD_COMMIT_SHA: process.env.NEXT_PUBLIC_BUILD_COMMIT_SHA,
+    NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    NEXT_PUBLIC_APP_MODE: process.env.NEXT_PUBLIC_APP_MODE,
+  },
+
+  /**
+   * Called when the schema validation fails.
+   * @see https://env.t3.gg/docs/customization#overriding-the-default-error-handler
+   */
+  onValidationError: (issues) => {
+    const details = issues
+      .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    console.error(`❌ Invalid environment variables:\n${details}`);
+    throw new Error(`Invalid environment variables:\n${details}`);
+  },
+
+  /**
+   * Skip validation during builds (e.g., in CI/Nix sandboxes where env vars aren't available).
+   * Set SKIP_ENV_VALIDATION=1 to skip.
+   */
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+}); 

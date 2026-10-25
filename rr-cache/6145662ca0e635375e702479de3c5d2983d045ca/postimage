@@ -1,0 +1,1146 @@
+import { PrismaClient, type CityStatus } from '@prisma/client'
+import * as fs from 'fs'
+import * as path from 'path'
+import { env } from '@/env.mjs'
+import { CITY_DEFAULTS } from "@/lib/zod-schemas/city"
+import { CORE_PROCESSING_TASKS } from "@/lib/tasks/types"
+import { importBodyConventions, type BodyConventionsRecord } from "@/lib/db/bodyConventionsImport"
+import { ensureTestUsers } from "@/lib/db/testUsers"
+import { ensureSerbianFixture } from "@/lib/db/serbianFixture"
+// Imported, not read from disk: the preview runs a bundle of this file with no fixtures/ beside it.
+import bodyConventions from "../fixtures/body-conventions.json"
+
+const prisma = new PrismaClient()
+
+// Track seeding counts for summary
+const globalStats: Record<string, number> = {}
+const meetingStats: Map<string, Record<string, number>> = new Map()
+let currentMeetingKey = ''
+
+function track(entity: string, count: number) {
+  globalStats[entity] = (globalStats[entity] || 0) + count
+  if (currentMeetingKey) {
+    const stats = meetingStats.get(currentMeetingKey)!
+    stats[entity] = (stats[entity] || 0) + count
+  }
+}
+
+function startMeetingTracking(cityId: string, meetingId: string) {
+  currentMeetingKey = `${cityId}/${meetingId}`
+  meetingStats.set(currentMeetingKey, {})
+}
+
+function endMeetingTracking() {
+  currentMeetingKey = ''
+}
+
+function printSeedingSummary() {
+  // Per-meeting table
+  const cols = ['Subjects', 'Decisions', 'Segments', 'Summaries', 'Utterances', 'Highlights']
+  const colKeys = ['Subjects', 'Decisions', 'Speaker Segments', 'Summaries', 'Utterances', 'Highlights']
+
+  const meetingCol = 'Meeting'
+  const meetingWidth = Math.max(meetingCol.length, ...[...meetingStats.keys()].map(k => k.length))
+  const colWidth = 10
+
+  const header = meetingCol.padEnd(meetingWidth) + '  ' + cols.map(c => c.padStart(colWidth)).join('')
+  const separator = '-'.repeat(header.length)
+
+  console.log('\n=== Seeding Summary ===\n')
+  console.log(header)
+  console.log(separator)
+
+  for (const [key, stats] of meetingStats) {
+    const row = key.padEnd(meetingWidth) + '  ' +
+      colKeys.map(k => (stats[k] || 0).toLocaleString().padStart(colWidth)).join('')
+    console.log(row)
+  }
+
+  console.log(separator)
+  // Totals row
+  const totals = meetingCol.padEnd(meetingWidth).replace(/./g, ' ').slice(0, -6) + 'Totals' + '  ' +
+    colKeys.map(k => (globalStats[k] || 0).toLocaleString().padStart(colWidth)).join('')
+  console.log(totals)
+
+  // Global entities (not per-meeting)
+  console.log('\nGlobal entities:')
+  const globalOnly = ['Topics', 'Cities', 'Administrative Bodies', 'Parties', 'Persons', 'Roles', 'Speaker Tags', 'Voiceprints', 'Task Statuses']
+  const maxLabel = Math.max(...globalOnly.map(k => k.length))
+  for (const key of globalOnly) {
+    if (globalStats[key]) {
+      console.log(`  ${key.padEnd(maxLabel)}  ${globalStats[key].toLocaleString()}`)
+    }
+  }
+  console.log('')
+}
+
+// Configuration
+const SEED_DATA_URL = env.SEED_DATA_URL
+const SEED_DATA_PATH = env.SEED_DATA_PATH
+
+/**
+ * Create development test users with proper permissions
+ */
+async function createTestUsers() {
+  for (const user of await ensureTestUsers(prisma)) {
+    console.log(`Test user ${user.email}: ${user.administers.length} admin rights`)
+  }
+}
+
+/**
+ * Seed consultations
+ */
+async function seedConsultations() {
+  console.log('Seeding consultations...')
+
+  // Check if Athens city exists
+  const athensCity = await prisma.city.findUnique({
+    where: { id: 'athens' },
+    select: { id: true }
+  })
+
+  if (!athensCity) {
+    console.log('Athens city not found, skipping consultation seeding')
+    return
+  }
+
+  // Create sample consultation for Athens
+  const consultationData = {
+    id: 'scooters',
+    name: 'Κανονισμός Κυκλοφορίας και Στάθμευσης Ηλεκτρικών Πατινιών',
+    jsonUrl: '/regulation.json', // Served from public folder
+    endDate: new Date('2027-03-31'), // Set end date to March 31, 2027
+    isActive: true,
+    cityId: 'athens',
+  }
+
+  try {
+    await prisma.consultation.create({
+      data: consultationData
+    })
+    console.log('Successfully created consultation for Athens')
+  } catch (error) {
+    console.log('Consultation may already exist, skipping...')
+  }
+}
+
+/**
+ * Seed voiceprints for persons
+ */
+async function seedVoicePrints(persons: any[]) {
+  if (!persons || persons.length === 0) {
+    return;
+  }
+
+  console.log('Seeding voiceprints...')
+
+  // First, collect all voiceprints
+  const allVoicePrints = persons
+    .filter((person: { voicePrints?: any[] }) => person.voicePrints && person.voicePrints.length > 0)
+    .flatMap((person: { id: string; voicePrints: any[] }) =>
+      person.voicePrints.map((voicePrint: any) => ({
+        id: voicePrint.id,
+        embedding: voicePrint.embedding,
+        sourceAudioUrl: voicePrint.sourceAudioUrl,
+        startTimestamp: voicePrint.startTimestamp,
+        endTimestamp: voicePrint.endTimestamp,
+        createdAt: voicePrint.createdAt,
+        updatedAt: voicePrint.updatedAt,
+        sourceSegmentId: voicePrint.sourceSegmentId,
+        personId: person.id,
+      }))
+    )
+
+  if (allVoicePrints.length > 0) {
+    console.log(`Found ${allVoicePrints.length} voiceprints to create...`)
+
+    // Get all referenced speaker segment IDs
+    const segmentIds = allVoicePrints
+      .map(vp => vp.sourceSegmentId)
+      .filter((id): id is string => id !== null && id !== undefined)
+
+    // Check which speaker segments exist
+    const existingSegments = await prisma.speakerSegment.findMany({
+      where: {
+        id: {
+          in: segmentIds
+        }
+      },
+      select: {
+        id: true
+      }
+    })
+
+    const existingSegmentIds = new Set(existingSegments.map(s => s.id))
+
+    // Filter out voiceprints with missing speaker segments
+    const validVoicePrints = allVoicePrints.filter(vp => {
+      if (!vp.sourceSegmentId) return true // Keep voiceprints without source segments
+      return existingSegmentIds.has(vp.sourceSegmentId)
+    })
+
+    const skippedCount = allVoicePrints.length - validVoicePrints.length
+    if (skippedCount > 0) {
+      console.log(`Skipping ${skippedCount} voiceprints due to missing speaker segments`)
+    }
+
+    if (validVoicePrints.length > 0) {
+      console.log(`Creating ${validVoicePrints.length} valid voiceprints...`)
+      try {
+        await prisma.voicePrint.createMany({
+          data: validVoicePrints,
+          skipDuplicates: true,
+        })
+        track('Voiceprints', validVoicePrints.length)
+        console.log('Successfully created voiceprints')
+      } catch (error) {
+        console.error('Error creating voiceprints:', error)
+        // Continue execution - don't throw error
+      }
+    }
+  }
+}
+
+/**
+ * Main seeding function
+ */
+async function main() {
+  try {
+    // Verify Prisma client is in sync with schema
+    console.log('Checking Prisma client connection...')
+    await prisma.$connect()
+    console.log('Successfully connected to the database.')
+
+    // Get seed data, either from local file or by downloading it
+    const seedData = await getSeedData()
+
+    // Check if seeding has already occurred by verifying if cities and meetings exist
+    const existingCities = await prisma.city.findMany({
+      where: {
+        id: {
+          in: seedData.cities.map((city: { id: string }) => city.id)
+        }
+      }
+    })
+
+    // Meeting ids repeat across cities (every city has a jul15_2026), so the
+    // guard has to match on the pair or a second city's dump is skipped.
+    const existingMeetings = await prisma.councilMeeting.findMany({
+      where: {
+        OR: seedData.meetings.map((meeting: { id: string; cityId: string }) => ({ id: meeting.id, cityId: meeting.cityId }))
+      }
+    })
+
+    // If all cities and meetings from seed data already exist, skip seeding
+    if (existingCities.length === seedData.cities.length &&
+      existingMeetings.length === seedData.meetings.length) {
+      console.log('Database already contains all seed data. Skipping seeding...')
+      // The Serbian fixture is not part of the dump — keep it in sync anyway.
+      await ensureSerbianFixture(prisma, console.log)
+      return
+    }
+
+    console.log(`Seeding database with ${seedData.cities.length} cities and ${seedData.meetings.length} meetings...`)
+
+    // First, seed core entities that don't depend on others
+    await seedTopics(seedData.topics)
+    // City, Person and CouncilMeeting extend Workspace, Speaker and Transcript (same ids)
+    await seedWorkspaces(seedData.cities)
+    await seedCities(seedData.cities)
+
+    // Then seed entities with foreign key dependencies
+    await seedAdministrativeBodies(seedData.administrativeBodies)
+    // A dump taken before conventions existed carries none. A body with no record
+    // gets no extraction on a poll, and its stored readings derive on the defaults.
+    const imported = await importBodyConventions(bodyConventions.bodies as BodyConventionsRecord[], prisma)
+    console.log(`Decision conventions: ${imported.written.length} bodies written, ${imported.missing.length} not in this seed`)
+    await seedParties(seedData.parties)
+
+    // Seed persons next (depends on cities and parties)
+    await seedPersons(seedData.persons)
+
+    // Finally seed meetings and related data
+    await seedMeetings(seedData.meetings)
+
+    // Seed task statuses for meetings based on their data state
+    await seedMeetingTaskStatuses(seedData.meetings)
+
+    // Seed voiceprints after speaker segments are created
+    await seedVoicePrints(seedData.persons)
+
+    // Seed consultations
+    await seedConsultations()
+
+    // Serbian review fixture (not in the production dump)
+    await ensureSerbianFixture(prisma, console.log)
+
+    await createTestUsers()
+
+    printSeedingSummary()
+    console.log('Database has been seeded!')
+  } catch (error) {
+    console.error('Error during seeding:', error)
+    process.exit(1)
+  }
+}
+
+/**
+ * Timestamp of the newest local Prisma migration (directories are named
+ * `YYYYMMDDHHMMSS_name`, stamped in UTC), or null if none can be determined.
+ * Resolved from the working directory rather than `__dirname`, which does not
+ * exist when the preview deployment runs the esbuild ESM bundle of this script;
+ * both `prisma db seed` and the preview runner execute from the project root.
+ */
+function latestMigrationDate(): Date | null {
+  const migrationsDir = path.resolve(process.cwd(), 'prisma', 'migrations')
+  if (!fs.existsSync(migrationsDir)) return null
+
+  const stamps = fs.readdirSync(migrationsDir)
+    .map(name => name.match(/^(\d{14})_/)?.[1])
+    .filter((stamp): stamp is string => !!stamp)
+    .sort()
+  if (stamps.length === 0) return null
+
+  const s = stamps[stamps.length - 1]
+  return new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(8, 10)}:${s.slice(10, 12)}:${s.slice(12, 14)}Z`)
+}
+
+/**
+ * Returns a human-readable reason the cached seed data should be re-downloaded,
+ * or null if it looks usable. Seed data extracted before the newest migration
+ * may reference fields that no longer exist in the schema (e.g. the old
+ * `isListed` column), which otherwise surfaces as a confusing Prisma error deep
+ * inside seeding. A cache that was *downloaded* after the newest migration is
+ * accepted even if its extraction predates it — it is the freshest published
+ * dump available, and re-fetching it again would loop on every seed run.
+ */
+function seedDataStaleness(data: any): string | null {
+  const extractedAt = data?.metadata?.extractedAt
+  if (!extractedAt || isNaN(Date.parse(extractedAt))) {
+    return 'it has no metadata.extractedAt timestamp'
+  }
+  const migration = latestMigrationDate()
+  if (!migration || Date.parse(extractedAt) >= migration.getTime()) {
+    return null
+  }
+  const downloadedAt = data?.metadata?.downloadedAt
+  if (downloadedAt && !isNaN(Date.parse(downloadedAt)) && Date.parse(downloadedAt) >= migration.getTime()) {
+    return null
+  }
+  return `it was extracted at ${extractedAt}, before the latest schema migration (${migration.toISOString()})`
+}
+
+/**
+ * Get seed data from local file or download if needed. A cached file that is
+ * unreadable or predates the latest schema migration is re-downloaded; if the
+ * download fails (e.g. offline), the stale file is used with a warning rather
+ * than failing outright.
+ */
+async function getSeedData() {
+  let localData: any = null
+  let staleness: string | null = null
+
+  if (fs.existsSync(SEED_DATA_PATH)) {
+    try {
+      localData = JSON.parse(fs.readFileSync(SEED_DATA_PATH, 'utf-8'))
+      staleness = seedDataStaleness(localData)
+    } catch (error) {
+      staleness = `it is not valid JSON (${(error as Error).message})`
+    }
+
+    if (localData && !staleness) {
+      console.log(`Using local seed data file: ${SEED_DATA_PATH}`)
+      return localData
+    }
+    console.warn(`Local seed data file ${SEED_DATA_PATH} looks stale: ${staleness}. Re-downloading...`)
+  }
+
+  try {
+    return await downloadSeedData()
+  } catch (error) {
+    if (localData) {
+      console.warn('Download failed; falling back to the stale local file. If seeding fails with schema errors (e.g. an unknown argument), delete the file and re-run with network access.')
+      return localData
+    }
+    throw error
+  }
+}
+
+/**
+ * Download seed data from SEED_DATA_URL and cache it at SEED_DATA_PATH.
+ */
+async function downloadSeedData() {
+  console.log(`Downloading seed data from: ${SEED_DATA_URL}`)
+  let data: any
+  try {
+    // Dynamic import to avoid bundling axios in production builds
+    // (preview deployments pre-download the seed data with curl)
+    const axios = (await import('axios')).default
+    const response = await axios.get(SEED_DATA_URL)
+    data = response.data
+  } catch (error) {
+    console.error('Failed to download seed data:', error)
+    throw new Error('Could not obtain seed data. Please provide a local file or ensure the URL is accessible.')
+  }
+
+  const staleness = seedDataStaleness(data)
+  if (staleness) {
+    console.warn(`Downloaded seed data also looks stale: ${staleness}. Proceeding anyway — if seeding fails, the published dump needs regenerating (npm run generate-seed).`)
+  }
+
+  // Stamp the fetch time into the cached copy so a published dump that
+  // predates the newest migration is re-fetched once, not on every seed run.
+  if (data?.metadata) {
+    data.metadata.downloadedAt = new Date().toISOString()
+  }
+
+  // Save to local file for future use. A failed write is not fatal — the
+  // freshly downloaded data is still the best data we have.
+  try {
+    const directory = path.dirname(SEED_DATA_PATH)
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory, { recursive: true })
+    }
+    fs.writeFileSync(SEED_DATA_PATH, JSON.stringify(data, null, 2))
+  } catch (error) {
+    console.warn(`Could not cache seed data to ${SEED_DATA_PATH} (${(error as Error).message}). Continuing with the downloaded data.`)
+  }
+
+  return data
+}
+
+/**
+ * Seed topics
+ */
+async function seedTopics(topics: any[]) {
+  console.log(`Seeding ${topics.length} topics...`)
+
+  const topicData = topics.map(topic => ({
+    id: topic.id,
+    name: topic.name,
+    name_en: topic.name_en,
+    colorHex: topic.colorHex,
+    icon: topic.icon,
+  }))
+
+  await prisma.topic.createMany({
+    data: topicData,
+    skipDuplicates: true,
+  })
+  track('Topics', topicData.length)
+}
+
+/**
+ * A dumped city's visibility, as the current CityStatus.
+ *
+ * The dump lives in a separate, gitignored repo (schemalabz/opencouncil-seed-data)
+ * and lags this schema — and PR preview databases are seeded from it — so this has
+ * to read both shapes:
+ *   legacy:  { status: 'pending' | 'unlisted' | 'listed', officialSupport: boolean }
+ *   current: { status: 'pending' | 'demo' | 'supported' }
+ *
+ * Legacy rows follow the production backfill exactly, so a preview database ends
+ * up with the same cities visible as production. Only the new values match
+ * positively; everything else — including a legacy `'listed'` or `'unlisted'` —
+ * falls through to `officialSupport`, which is safe because the column is gone
+ * and a regenerated dump therefore cannot carry it.
+ *
+ * Delete the legacy branch once the dump has been regenerated.
+ */
+function cityStatusFromDump(city: { status?: unknown; officialSupport?: unknown }): CityStatus {
+  if (city.status === 'demo' || city.status === 'supported') return city.status
+  return city.officialSupport === true ? 'supported' : 'pending'
+}
+
+async function seedWorkspaces(cities: any[]) {
+  console.log(`Seeding ${cities.length} workspaces...`)
+
+  await prisma.workspace.createMany({
+    data: cities.map(city => ({ id: city.id, name: city.name })),
+    skipDuplicates: true,
+  })
+}
+
+/**
+ * Seed cities
+ */
+async function seedCities(cities: any[]) {
+  console.log(`Seeding ${cities.length} cities...`)
+
+  // Spread all fields from dump, exclude unsupported PostGIS geometry if present,
+  // apply defaults for fields that might be missing in older dumps.
+  // `officialSupport` and `status` are destructured out for the same reason as
+  // `geometry`: officialSupport is no longer a column, and letting a legacy dump's
+  // copy reach createMany throws `Unknown argument 'officialSupport'`.
+  const cityData = cities.map(({ geometry, officialSupport, status, ...city }) => ({
+    ...city,
+    name_municipality: city.name_municipality || city.name,
+    name_municipality_en: city.name_municipality_en || city.name_en,
+    timezone: city.timezone || 'Europe/Athens',
+    status: cityStatusFromDump({ status, officialSupport }),
+    authorityType: city.authorityType || CITY_DEFAULTS.authorityType,
+    consultationsEnabled: city.id === 'athens' ? true : CITY_DEFAULTS.consultationsEnabled,
+    highlightCreationPermission: city.highlightCreationPermission || CITY_DEFAULTS.highlightCreationPermission,
+  }))
+
+  await prisma.city.createMany({
+    data: cityData,
+    skipDuplicates: true,
+  })
+  track('Cities', cityData.length)
+}
+
+/**
+ * Seed administrative bodies
+ */
+async function seedAdministrativeBodies(bodies: any[]) {
+  console.log(`Seeding ${bodies.length} administrative bodies...`)
+
+  await prisma.administrativeBody.createMany({
+    data: bodies,
+    skipDuplicates: true,
+  })
+  track('Administrative Bodies', bodies.length)
+}
+
+/**
+ * Seed parties
+ */
+async function seedParties(parties: any[]) {
+  console.log(`Seeding ${parties.length} parties...`)
+
+  const partyData = parties.map(party => ({
+    id: party.id,
+    name: party.name,
+    name_en: party.name_en,
+    name_short: party.name_short,
+    name_short_en: party.name_short_en,
+    colorHex: party.colorHex,
+    logo: party.logo,
+    cityId: party.cityId,
+  }))
+
+  await prisma.party.createMany({
+    data: partyData,
+    skipDuplicates: true,
+  })
+  track('Parties', partyData.length)
+}
+
+/**
+ * Seed persons with their related roles and speaker tags
+ */
+async function seedPersons(persons: any[]) {
+  console.log(`Seeding ${persons.length} persons...`)
+
+  await prisma.speaker.createMany({
+    data: persons.map(person => ({
+      id: person.id,
+      workspaceId: person.cityId,
+      name: person.name,
+      image: person.image,
+    })),
+    skipDuplicates: true,
+  })
+
+  // Prepare person data without relations
+  const personData = persons.map(person => ({
+    id: person.id,
+    name: person.name,
+    name_en: person.name_en,
+    name_short: person.name_short,
+    name_short_en: person.name_short_en,
+    image: person.image,
+    activeFrom: person.activeFrom,
+    activeTo: person.activeTo,
+    profileUrl: person.profileUrl,
+    cityId: person.cityId
+  }))
+
+  // Create all persons at once
+  await prisma.person.createMany({
+    data: personData,
+    skipDuplicates: true,
+  })
+  track('Persons', personData.length)
+
+  // Now handle relations separately
+  // Collect all roles from all persons
+  const allRoles = persons
+    .filter(person => person.roles && person.roles.length > 0)
+    .flatMap(person =>
+      person.roles.map((role: any) => ({
+        id: role.id,
+        personId: person.id,
+        cityId: role.cityId,
+        partyId: role.partyId,
+        administrativeBodyId: role.administrativeBodyId,
+        isHead: role.isHead || false,
+        name: role.name,
+        name_en: role.name_en,
+        startDate: role.startDate,
+        endDate: role.endDate,
+      }))
+    )
+
+  // Collect all speaker tags from all persons
+  const allSpeakerTags = persons
+    .filter(person => person.speakerTags && person.speakerTags.length > 0)
+    .flatMap(person =>
+      person.speakerTags.map((tag: any) => ({
+        id: tag.id,
+        label: tag.label,
+        personId: person.id,
+      }))
+    )
+
+  // Create all roles at once if there are any
+  if (allRoles.length > 0) {
+    console.log(`Creating ${allRoles.length} roles...`)
+    await prisma.role.createMany({
+      data: allRoles,
+      skipDuplicates: true,
+    })
+    track('Roles', allRoles.length)
+  }
+
+  // Create all speaker tags at once if there are any
+  if (allSpeakerTags.length > 0) {
+    console.log(`Creating ${allSpeakerTags.length} speaker tags...`)
+    await prisma.speakerTag.createMany({
+      data: allSpeakerTags,
+      skipDuplicates: true,
+    })
+    track('Speaker Tags', allSpeakerTags.length)
+  }
+}
+
+/**
+ * Seed meetings and all related data
+ */
+async function seedMeetings(meetings: any[]) {
+  console.log(`Seeding ${meetings.length} meetings...`)
+
+  await prisma.transcript.createMany({
+    data: meetings.map(meeting => ({
+      id: meeting.id,
+      workspaceId: meeting.cityId,
+      name: meeting.name ?? meeting.id,
+      videoUrl: meeting.videoUrl,
+      audioUrl: meeting.audioUrl,
+      muxPlaybackId: meeting.muxPlaybackId,
+      released: meeting.released || false,
+    })),
+    skipDuplicates: true,
+  })
+
+  // Prepare meeting data for batch creation
+  const meetingData = meetings.map(meeting => ({
+    id: meeting.id,
+    name: meeting.name,
+    name_en: meeting.name_en,
+    dateTime: new Date(meeting.dateTime),
+    youtubeUrl: meeting.youtubeUrl,
+    agendaUrl: meeting.agendaUrl,
+    cityId: meeting.cityId,
+    administrativeBodyId: meeting.administrativeBodyId,
+  }))
+
+  // Create all meetings at once
+  try {
+    await prisma.councilMeeting.createMany({
+      data: meetingData,
+      skipDuplicates: true,
+    })
+    track('Meetings', meetingData.length)
+  } catch (error) {
+    console.error('Error creating meetings:', error)
+    return // If we can't create meetings, no point in continuing
+  }
+
+  // Create task statuses for all meetings
+  const allTaskStatuses = meetings
+    .filter(meeting => meeting.taskStatuses && meeting.taskStatuses.length > 0)
+    .flatMap(meeting =>
+      meeting.taskStatuses.map((status: any) => ({
+        id: status.id,
+        status: status.status,
+        stage: status.stage,
+        percentComplete: status.percentComplete,
+        type: status.type,
+        requestBody: status.requestBody,
+        responseBody: status.responseBody,
+        version: status.version,
+        councilMeetingId: meeting.id,
+        cityId: meeting.cityId,
+      }))
+    )
+
+  if (allTaskStatuses.length > 0) {
+    console.log(`Creating ${allTaskStatuses.length} task statuses...`)
+    try {
+      await prisma.taskStatus.createMany({
+        data: allTaskStatuses,
+        skipDuplicates: true,
+      })
+    } catch (error) {
+      console.error('Error creating task statuses:', error)
+      // Continue anyway, as this is not critical
+    }
+  }
+
+  // Process each meeting's data in the correct order to respect foreign key dependencies:
+  // 1. Subjects (needed by speaker segments, highlights)
+  // 2. Speaker segments (needed by utterances, words, etc.)
+  // 3. Highlights (references subjects and utterances)
+  for (const meeting of meetings) {
+    startMeetingTracking(meeting.cityId, meeting.id)
+    try {
+      // 1. Create subjects first (needed by speaker segments and highlights)
+      if (meeting.subjects && meeting.subjects.length > 0) {
+        await seedSubjects(meeting.subjects, meeting)
+      }
+
+      // 2. Create speaker segments and related data
+      if (meeting.speakerSegments && meeting.speakerSegments.length > 0) {
+        await seedSpeakerSegments(meeting.speakerSegments, meeting)
+      }
+
+      // 3. Create highlights with their utterance connections
+      if (meeting.highlights && meeting.highlights.length > 0) {
+        await seedHighlights(meeting.highlights, meeting)
+      }
+    } catch (error) {
+      console.error(`Error processing meeting ${meeting.id}:`, error)
+      // Continue with next meeting
+    } finally {
+      endMeetingTracking()
+    }
+  }
+}
+
+/**
+ * Seed subjects for a meeting
+ */
+async function seedSubjects(subjects: any[], meeting: any) {
+  console.log(`Seeding ${subjects.length} subjects for meeting ${meeting.id}...`)
+
+  let locationsCreated = 0;
+
+  // Handle locations with postgis geometry that requires raw SQL
+  for (const subject of subjects) {
+    if (subject.location) {
+      try {
+        // Use the geoData if available, otherwise create default GeoJSON
+        const geoJson = subject.location.geoData || {
+          type: 'Point',
+          coordinates: [24.0195, 35.5139] // Default coordinates for Chania
+        };
+
+        // Create a unique ID for the location if not provided
+        const locationId = subject.location.id || subject.locationId || `loc_${subject.id}`;
+
+        // Insert location using ST_GeomFromGeoJSON like in utils.ts
+        const result = await prisma.$queryRaw<[{ id: string }]>`
+          INSERT INTO "Location" (
+            id, 
+            type, 
+            text, 
+            coordinates
+          )
+          VALUES (
+            ${locationId}, 
+            ${subject.location.type}::"LocationType", 
+            ${subject.location.text || 'Default location'}, 
+            ST_GeomFromGeoJSON(${JSON.stringify(geoJson)})
+          )
+
+          RETURNING id
+        `;
+
+        if (result && Array.isArray(result) && result.length > 0) {
+          subject.locationId = result[0]?.id;
+          locationsCreated++;
+        }
+      } catch (error) {
+        console.error(`Error creating location for subject ${subject.id}:`, error);
+        subject.locationId = null;
+      }
+    }
+  }
+
+  if (locationsCreated > 0) {
+    track('Locations', locationsCreated)
+    console.log(`Created ${locationsCreated} locations for meeting ${meeting.id}`);
+  }
+
+  // Create all subjects — spread all scalar fields from dump, exclude relation objects
+  const validSubjectData = subjects.map(({
+    location: _location, introducedBy: _introducedBy, topic: _topic,
+    highlights: _highlights, speakerSegments: _speakerSegments,
+    contributions: _contributions, decision: _decision,
+    ...subject
+  }) => ({
+    ...subject,
+    contextCitationUrls: subject.contextCitationUrls || [],
+    councilMeetingId: meeting.id,
+    cityId: meeting.cityId,
+  }));
+
+  await prisma.subject.createMany({
+    data: validSubjectData,
+    skipDuplicates: true,
+  });
+  track('Subjects', validSubjectData.length)
+
+  // Seed decisions after subjects are created
+  await seedDecisions(subjects);
+
+  // Seed speaker contributions after subjects are created
+  await seedSpeakerContributions(subjects);
+}
+
+/**
+ * Seed decisions for subjects
+ */
+async function seedDecisions(subjects: any[]) {
+  const allDecisions = subjects
+    .filter(subject => subject.decision)
+    .map(subject => {
+      // Exclude taskId and createdById — those reference records that won't exist in the seeded DB
+      const { taskId, createdById, ...decision } = subject.decision;
+      return {
+        ...decision,
+        subjectId: subject.id,
+        publishDate: decision.publishDate ? new Date(decision.publishDate) : null,
+      };
+    });
+
+  if (allDecisions.length > 0) {
+    console.log(`Creating ${allDecisions.length} decisions...`);
+    try {
+      await prisma.decision.createMany({
+        data: allDecisions,
+        skipDuplicates: true,
+      });
+      track('Decisions', allDecisions.length)
+    } catch (error) {
+      console.error('Error creating decisions:', error);
+    }
+  }
+}
+
+/**
+ * Seed speaker contributions for subjects
+ */
+async function seedSpeakerContributions(subjects: any[]) {
+  const allContributions = subjects
+    .filter(subject => subject.contributions && subject.contributions.length > 0)
+    .flatMap(subject =>
+      subject.contributions.map((contribution: any) => ({
+        id: contribution.id,
+        text: contribution.text,
+        speakerId: contribution.speakerId,
+        subjectId: subject.id,
+      }))
+    );
+
+  // Validate uniqueness of [subjectId, speakerId] - duplicates indicate a bug in seed generation
+  // Note: Only check for duplicates when speakerId is non-null, since PostgreSQL's unique constraint
+  // allows multiple NULL values (NULL != NULL in SQL)
+  const seen = new Set<string>();
+  for (const c of allContributions) {
+    // Use loose equality to catch both null and undefined (missing property in seed data)
+    if (c.speakerId != null) {
+      const key = `${c.subjectId}:${c.speakerId}`;
+      if (seen.has(key)) {
+        throw new Error(
+          `Duplicate speaker contribution found: speaker ${c.speakerId} on subject ${c.subjectId}. ` +
+          `This violates @@unique([subjectId, speakerId]) - check seed data generation.`
+        );
+      }
+      seen.add(key);
+    }
+  }
+
+  if (allContributions.length > 0) {
+    console.log(`Creating ${allContributions.length} speaker contributions...`);
+    try {
+      await prisma.speakerContribution.createMany({
+        data: allContributions,
+        skipDuplicates: true,
+      });
+      track('Speaker Contributions', allContributions.length)
+    } catch (error) {
+      console.error('Error creating speaker contributions:', error);
+      // Continue anyway, as this is not critical
+    }
+  }
+}
+
+/**
+ * Seed speaker segments and their related data (utterances, words, etc.)
+ */
+async function seedSpeakerSegments(segments: any[], meeting: any) {
+  console.log(`Seeding ${segments.length} speaker segments for meeting ${meeting.id}...`)
+
+  // First, ensure all speaker tags exist
+  // Extract unique speaker tags that might not have been created yet
+  const speakerTagsToCreate = segments
+    .filter(segment => segment.speakerTag && segment.speakerTag.id)
+    .map(segment => ({
+      id: segment.speakerTag.id,
+      label: segment.speakerTag.label || null,
+      personId: segment.speakerTag.personId || null,
+    }));
+
+  if (speakerTagsToCreate.length > 0) {
+    // Use Set to store unique tag IDs we've seen
+    const uniqueTagIds = new Set<string>();
+    const uniqueTags = [];
+
+    // Filter for unique tags only
+    for (const tag of speakerTagsToCreate) {
+      if (!uniqueTagIds.has(tag.id)) {
+        uniqueTagIds.add(tag.id);
+        uniqueTags.push(tag);
+      }
+    }
+
+    console.log(`Ensuring ${uniqueTags.length} speaker tags exist before creating segments...`);
+
+    // Create missing speaker tags in batches
+    try {
+      await prisma.speakerTag.createMany({
+        data: uniqueTags,
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      console.error('Error creating speaker tags:', error);
+      // Continue anyway, as the tags might already exist
+    }
+  }
+
+  // Prepare speaker segment data for batch creation
+  const segmentData = segments.map(segment => ({
+    id: segment.id,
+    startTimestamp: segment.startTimestamp,
+    endTimestamp: segment.endTimestamp,
+    meetingId: meeting.id,
+    cityId: meeting.cityId,
+    speakerTagId: segment.speakerTagId || segment.speakerTag.id,
+  }))
+
+  // Create all speaker segments at once
+  await prisma.speakerSegment.createMany({
+    data: segmentData,
+    skipDuplicates: true,
+  })
+  track('Speaker Segments', segmentData.length)
+
+  // Create summaries for segments
+  const summaries = segments
+    .filter(segment => segment.summary)
+    .map(segment => ({
+      id: segment.summary.id,
+      text: segment.summary.text,
+      type: segment.summary.type,
+      speakerSegmentId: segment.id,
+    }))
+
+  if (summaries.length > 0) {
+    console.log(`Creating ${summaries.length} summaries...`)
+    await prisma.summary.createMany({
+      data: summaries,
+      skipDuplicates: true,
+    })
+    track('Summaries', summaries.length)
+  }
+
+  // Create topic labels for segments
+  const topicLabels = segments
+    .filter(segment => segment.topicLabels && segment.topicLabels.length > 0)
+    .flatMap(segment =>
+      segment.topicLabels.map((label: any) => ({
+        id: label.id,
+        speakerSegmentId: segment.id,
+        topicId: label.topicId,
+      }))
+    )
+
+  if (topicLabels.length > 0) {
+    console.log(`Creating ${topicLabels.length} topic labels...`)
+    await prisma.topicLabel.createMany({
+      data: topicLabels,
+      skipDuplicates: true,
+    })
+    track('Topic Labels', topicLabels.length)
+  }
+
+  // Create all utterances and then their words
+  // First collect all utterances from all segments
+  // Spread all scalar fields from dump, exclude relation objects
+  const utterances = segments
+    .filter(segment => segment.utterances && segment.utterances.length > 0)
+    .flatMap(segment =>
+      segment.utterances.map(({ words, highlightedUtterances, ...utterance }: any) => ({
+        ...utterance,
+        drift: utterance.drift || 0,
+        speakerSegmentId: segment.id,
+        _words: words || [], // Temporary property to track words for later
+      }))
+    )
+
+  if (utterances.length > 0) {
+    console.log(`Creating ${utterances.length} utterances...`)
+
+    // Create utterances without the temporary _words property
+    try {
+      await prisma.utterance.createMany({
+        data: utterances.map(u => {
+          const { _words, ...utteranceData } = u;
+          return utteranceData;
+        }),
+        skipDuplicates: true,
+      })
+      track('Utterances', utterances.length)
+
+      // Now create words for utterances
+      const words = utterances
+        .filter(u => u._words && u._words.length > 0)
+        .flatMap(utterance =>
+          utterance._words.map((word: any) => ({
+            id: word.id,
+            text: word.text,
+            startTimestamp: word.startTimestamp,
+            endTimestamp: word.endTimestamp,
+            confidence: word.confidence || 1,
+            utteranceId: utterance.id,
+          }))
+        )
+
+      if (words.length > 0) {
+        console.log(`Creating ${words.length} words...`)
+        try {
+          await prisma.word.createMany({
+            data: words,
+            skipDuplicates: true,
+          })
+          track('Words', words.length)
+        } catch (error) {
+          console.error('Error creating words:', error)
+          // Continue anyway, as this is not critical
+        }
+      }
+    } catch (error) {
+      console.error('Error creating utterances:', error)
+      // Continue with other operations
+    }
+  }
+}
+
+/**
+ * Seed highlights and their utterance connections
+ */
+async function seedHighlights(highlights: any[], meeting: any) {
+  console.log(`Seeding ${highlights.length} highlights for meeting ${meeting.id}...`)
+
+  // Prepare highlight data for batch creation
+  const highlightData = highlights.map(highlight => ({
+    id: highlight.id,
+    name: highlight.name,
+    meetingId: meeting.id,
+    cityId: meeting.cityId,
+    subjectId: highlight.subjectId,
+    videoUrl: highlight.videoUrl,
+    muxPlaybackId: highlight.muxPlaybackId,
+    isShowcased: highlight.isShowcased || false,
+  }))
+
+  // Create all highlights at once
+  try {
+    await prisma.highlight.createMany({
+      data: highlightData,
+      skipDuplicates: true,
+    })
+    track('Highlights', highlightData.length)
+
+    // Collect all highlighted utterance connections
+    const allHighlightedUtterances = highlights
+      .filter(highlight => highlight.highlightedUtterances && highlight.highlightedUtterances.length > 0)
+      .flatMap(highlight =>
+        highlight.highlightedUtterances.map((hu: any) => ({
+          id: hu.id,
+          utteranceId: hu.utteranceId,
+          highlightId: highlight.id,
+        }))
+      )
+
+    // Create all highlighted utterance connections at once if there are any
+    if (allHighlightedUtterances.length > 0) {
+      console.log(`Creating ${allHighlightedUtterances.length} highlighted utterance connections...`)
+      try {
+        await prisma.highlightedUtterance.createMany({
+          data: allHighlightedUtterances,
+          skipDuplicates: true,
+        })
+        track('Highlighted Utterances', allHighlightedUtterances.length)
+      } catch (error) {
+        console.error('Error creating highlighted utterance connections:', error)
+      }
+    }
+  } catch (error) {
+    console.error('Error creating highlights:', error)
+  }
+}
+
+/**
+ * Create task statuses for seeded meetings based on their data state.
+ * This ensures getMeetingStatus() works correctly in local dev.
+ */
+async function seedMeetingTaskStatuses(meetings: any[]) {
+  console.log(`Seeding task statuses for ${meetings.length} meetings...`)
+
+  let taskCount = 0;
+  // Set createdAt to 10 minutes ago so tasks can be immediately deleted from UI if needed
+  const createdAt = new Date(Date.now() - 10 * 60 * 1000);
+
+  for (const meeting of meetings) {
+    const hasUtterances = meeting.speakerSegments?.some(
+      (seg: any) => seg.utterances?.length > 0
+    );
+    const hasSummaries = meeting.speakerSegments?.some(
+      (seg: any) => seg.summary
+    );
+
+    // If meeting has processed data, mark all core tasks as succeeded
+    if (hasUtterances || hasSummaries) {
+      for (const taskType of CORE_PROCESSING_TASKS) {
+        await prisma.taskStatus.create({
+          data: {
+            type: taskType,
+            status: 'succeeded',
+            councilMeetingId: meeting.id,
+            cityId: meeting.cityId,
+            requestBody: JSON.stringify({ seeded: true }),
+            createdAt,
+            updatedAt: createdAt,
+          },
+        });
+        taskCount++;
+      }
+    }
+  }
+
+  track('Task Statuses', taskCount)
+  console.log(`Created ${taskCount} task statuses`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

@@ -1,0 +1,945 @@
+import type { Transcript } from '@/lib/db/transcript';
+import {
+  monthsBetween,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatDateRange,
+  cn,
+  debounce,
+  klitiki,
+  subjectToMapFeature,
+  sortSubjectsByImportance,
+  sortSubjectsBySpeakerContributionCount,
+  sortSubjectsByAgendaIndex,
+  compareAgendaPosition,
+  joinTranscriptSegments,
+  isRoleActive,
+  filterActiveRoles,
+  filterInactiveRoles,
+  normalizeText,
+  searchTerms,
+  matchesEveryTerm,
+  relevanceScore
+} from '../utils';
+import { calculateOfferTotals } from '../pricing';
+
+// Mock for Greek klitiki library. Do not pass `{ virtual: true }` here: the
+// package is a real dependency, and a virtual mock registers under the bare
+// specifier while jest's per-worker resolver caches the resolved path per
+// importing file. When another test file loads ../utils first in the same
+// worker, a virtual mock misses that cache entry and the real package answers.
+jest.mock('greek-name-klitiki', () =>
+  function mockKlitiki(name: string) {
+    // Simple mock implementation for testing
+    const conversions: Record<string, string> = {
+      'Γιώργος': 'Γιώργο',
+      'Νίκος': 'Νίκο',
+      'Μαρία': 'Μαρία',
+      'Ελένη': 'Ελένη',
+      'Κώστας': 'Κώστα',
+      'Ιωάννης': 'Ιωάννη',
+      'Γεώργιος': 'Γεώργιε',
+      'Σοφία': 'Σοφία',
+      'Χρήστος': 'Χρήστο',
+      'Παπαδόπουλος': 'Παπαδόπουλε',
+      'Αντωνίου': 'Αντωνίου',
+    };
+    // In a real scenario, the library handles accents. For the mock, we'll
+    // just normalize the key to match our dictionary.
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    // Special handling for the accented versions in the test
+    if (capitalized === 'Γιωργος') return 'Γιώργο';
+    if (capitalized === 'Νικος') return 'Νίκο';
+    
+    return conversions[capitalized] || name;
+  }
+);
+
+describe('monthsBetween', () => {
+  it('should calculate months between two dates correctly', () => {
+    const start = new Date('2024-01-01');
+    const end = new Date('2024-12-31');
+    expect(monthsBetween(start, end)).toBe(12);
+  });
+
+  it('should handle dates in reverse order', () => {
+    const start = new Date('2024-12-31');
+    const end = new Date('2024-01-01');
+    expect(monthsBetween(start, end)).toBe(12);
+  });
+
+  it('should round partial months to nearest month', () => {
+    // Less than 15 days rounds down
+    const start1 = new Date('2024-01-01');
+    const end1 = new Date('2024-02-14');
+    expect(monthsBetween(start1, end1)).toBe(1);
+
+    // 15 days or more rounds up
+    const start2 = new Date('2024-01-01');
+    const end2 = new Date('2024-02-15');
+    expect(monthsBetween(start2, end2)).toBe(2);
+  });
+});
+
+describe('formatCurrency', () => {
+  it('should format currency in EUR with Greek locale', () => {
+    expect(formatCurrency(1234.56).replace(/\s/g, '')).toBe('1.234,56€');
+    expect(formatCurrency(1000).replace(/\s/g, '')).toBe('1.000,00€');
+    expect(formatCurrency(0).replace(/\s/g, '')).toBe('0,00€');
+  });
+});
+
+describe('formatDate', () => {
+  it('should format date in Greek locale', () => {
+    const date = new Date('2024-01-15');
+    // Note: The exact format might vary depending on the environment's locale support
+    expect(formatDate(date)).toMatch(/15.*Ιανουαρίου.*2024/);
+  });
+
+  it('should handle string dates', () => {
+    expect(formatDate(new Date('2024-01-15'))).toMatch(/15.*Ιανουαρίου.*2024/);
+  });
+
+  it('should default to the app timezone, not the machine timezone', () => {
+    // 23:30Z on the 15th is already the 16th in Europe/Athens. A machine-local
+    // default would make the server (UTC) and the browser render different
+    // dates and break hydration.
+    expect(formatDate(new Date('2024-01-15T23:30:00Z'))).toMatch(/16.*Ιανουαρίου.*2024/);
+  });
+
+  it('should throw error for invalid date', () => {
+    // @ts-ignore - Testing invalid input
+    expect(() => formatDate(null)).toThrow('Invalid date');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('should format date and time in Greek locale', () => {
+    const date = new Date('2024-01-15T14:30:00Z');
+    // Without an explicit timezone the formatter renders the app default
+    // (Europe/Athens, UTC+2 in January), in the pinned 24-hour clock.
+    expect(formatDateTime(date)).toMatch(/15.*Ιανουαρίου.*2024/);
+    expect(formatDateTime(date)).toMatch(/16:30/);
+  });
+
+  it('should render the time in the given timezone', () => {
+    const date = new Date('2024-01-15T14:30:00Z');
+    // January is EET (UTC+2), so Athens runs two hours ahead of the UTC baseline.
+    expect(formatDateTime(date, 'Europe/Athens')).toMatch(/16:30/);
+    expect(formatDateTime(date, 'UTC')).toMatch(/14:30/);
+  });
+
+  it('should follow the locale parameter', () => {
+    const date = new Date('2024-01-15T14:30:00Z');
+    expect(formatDateTime(date, 'Europe/Athens', 'long', 'en')).toMatch(/January 15, 2024/);
+    expect(formatDateTime(date, 'Europe/Athens', 'long', 'el')).toMatch(/Ιανουαρίου/);
+  });
+
+  it('should use a compact month with dateStyle medium', () => {
+    const date = new Date('2024-01-15T14:30:00Z');
+    const result = formatDateTime(date, undefined, 'medium');
+    // The full month name only appears with the default 'long' dateStyle
+    expect(result).not.toMatch(/Ιανουαρίου/);
+    expect(result).toMatch(/2024/);
+    expect(result).toMatch(/16:30/);
+  });
+
+  it('should throw error for invalid date', () => {
+    // @ts-ignore - Testing invalid input
+    expect(() => formatDateTime(null)).toThrow('Invalid date');
+  });
+});
+
+describe('formatDateRange', () => {
+  const mockT = (key: string) => {
+    const translations: Record<string, string> = {
+      'from': 'from',
+      'until': 'until',
+      'present': 'present'
+    };
+    return translations[key] || key;
+  };
+
+  it('should format date range with both dates', () => {
+    const start = new Date('2024-01-01');
+    const end = new Date('2024-12-31');
+    expect(formatDateRange(start, end, mockT)).toMatch(/from.*2024.*until.*2024/);
+  });
+
+  it('should format date range with only start date', () => {
+    const start = new Date('2024-01-01');
+    expect(formatDateRange(start, null, mockT)).toMatch(/from.*2024.*until.*present/);
+  });
+
+  it('should format date range with only end date', () => {
+    const end = new Date('2024-12-31');
+    expect(formatDateRange(null, end, mockT)).toMatch(/until.*2024/);
+  });
+
+  it('should return empty string if no dates provided', () => {
+    expect(formatDateRange(null, null, mockT)).toBe('');
+  });
+});
+
+describe('cn', () => {
+  it('should merge class names correctly', () => {
+    expect(cn('class1', 'class2')).toBe('class1 class2');
+    expect(cn('class1', { class2: true, class3: false })).toBe('class1 class2');
+    expect(cn('class1', ['class2', 'class3'])).toBe('class1 class2 class3');
+  });
+
+  it('should handle conditional classes', () => {
+    const isActive = true;
+    const isDisabled = false;
+    expect(cn('base', { 'active': isActive, 'disabled': isDisabled })).toBe('base active');
+  });
+});
+
+describe('klitiki', () => {
+  it('should trim and decline a single name', () => {
+    expect(klitiki('  Γιώργος  ')).toBe('Γιώργο');
+  });
+
+  it('should collapse extra spaces between multiple names', () => {
+    expect(klitiki('  Γιώργος   Νίκος  ')).toBe('Γιώργο Νίκο');
+  });
+
+  it('should return empty string for whitespace-only input', () => {
+    expect(klitiki('   ')).toBe('');
+  });
+
+  it('should return empty string for empty input', () => {
+    expect(klitiki('')).toBe('');
+  });
+
+  it('should decline a name ending in -ας', () => {
+    expect(klitiki('Κώστας')).toBe('Κώστα');
+  });
+
+  it('should decline a name ending in -ης', () => {
+    expect(klitiki('Ιωάννης')).toBe('Ιωάννη');
+  });
+
+  it('should decline a name ending in -ιος', () => {
+    expect(klitiki('Γεώργιος')).toBe('Γεώργιε');
+  });
+
+  it('should leave female names ending in -α unchanged', () => {
+    expect(klitiki('Σοφία')).toBe('Σοφία');
+  });
+
+  it('should leave female names ending in -η unchanged', () => {
+    expect(klitiki('Ελένη')).toBe('Ελένη');
+  });
+
+  it('should decline both parts of a full name', () => {
+    expect(klitiki('Χρήστος Παπαδόπουλος')).toBe('Χρήστο Παπαδόπουλε');
+  });
+
+  it('should decline first name but leave genitive surname unchanged', () => {
+    expect(klitiki('Ιωάννης Αντωνίου')).toBe('Ιωάννη Αντωνίου');
+  });
+
+  it('should handle hyphenated names', () => {
+    expect(klitiki('Κώστας-Γιώργος')).toBe('Κώστα-Γιώργο');
+  });
+
+  it('should handle mixed casing by normalizing to Sentence Case (or keeping as is)', () => {
+    // Note: The implementation uses Sentence Case/Normalization internally
+    expect(klitiki('γιώργος')).toBe('Γιώργο');
+    expect(klitiki('ΝΙΚΟΣ')).toBe('Νίκο');
+  });
+
+  it('should handle multiple names with various endings', () => {
+    expect(klitiki('Χρήστος Κώστας Γεώργιος')).toBe('Χρήστο Κώστα Γεώργιε');
+  });
+
+  it('should handle hyphenated names followed by spaces', () => {
+    expect(klitiki('Κώστας-Γιώργος Παπαδόπουλος')).toBe('Κώστα-Γιώργο Παπαδόπουλε');
+  });
+});
+
+describe('debounce', () => {
+  jest.useFakeTimers();
+
+  it('should debounce function calls', () => {
+    const mockFn = jest.fn();
+    const debouncedFn = debounce(mockFn, 500);
+
+    // Call debounced function
+    debouncedFn();
+    expect(mockFn).not.toHaveBeenCalled();
+
+    // Fast-forward time
+    jest.advanceTimersByTime(500);
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should reset timer on multiple calls', () => {
+    const mockFn = jest.fn();
+    const debouncedFn = debounce(mockFn, 500);
+
+    // Call debounced function multiple times
+    debouncedFn();
+    jest.advanceTimersByTime(200);
+    debouncedFn();
+    jest.advanceTimersByTime(200);
+    debouncedFn();
+
+    expect(mockFn).not.toHaveBeenCalled();
+
+    // Fast-forward remaining time
+    jest.advanceTimersByTime(500);
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('should pass arguments to the original function', () => {
+    const mockFn = jest.fn();
+    const debouncedFn = debounce(mockFn, 500);
+
+    debouncedFn('test', 123);
+    jest.advanceTimersByTime(500);
+
+    expect(mockFn).toHaveBeenCalledWith('test', 123);
+  });
+});
+
+describe('subjectToMapFeature', () => {
+  it('should convert subject to map feature', () => {
+    // ST_X is the longitude, ST_Y the latitude. GeoJSON wants [lng, lat].
+    const subject = {
+      id: '123',
+      name: 'Test Subject',
+      location: {
+        coordinates: { x: 23.74, y: 37.98 }
+      }
+    };
+
+    const feature = subjectToMapFeature(subject as any);
+
+    expect(feature).toEqual({
+      id: '123',
+      geometry: {
+        type: 'Point',
+        coordinates: [23.74, 37.98]
+      },
+      properties: {
+        subjectId: '123',
+        name: 'Test Subject'
+      },
+      style: {
+        fillColor: '#E57373',
+        fillOpacity: 0.6,
+        strokeColor: '#E57373',
+        strokeWidth: 6,
+        label: 'Test Subject'
+      }
+    });
+  });
+
+  it('should return null for subject without coordinates', () => {
+    const subject = {
+      id: '123',
+      name: 'Test Subject',
+      location: null
+    };
+
+    expect(subjectToMapFeature(subject as any)).toBeNull();
+  });
+});
+
+describe('sortSubjectsByImportance', () => {
+  it('should sort by contributions count (descending)', () => {
+    const subjects = [
+      { name: 'Subject 1', _count: { contributions: 2 } },
+      { name: 'Subject 2', _count: { contributions: 5 } }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted[0].name).toBe('Subject 2');
+    expect(sorted[1].name).toBe('Subject 1');
+  });
+
+  it('should sort beforeAgenda subjects last', () => {
+    const subjects = [
+      { name: 'Before', nonAgendaReason: 'beforeAgenda', _count: { contributions: 10 } },
+      { name: 'Agenda', agendaItemIndex: 1, _count: { contributions: 1 } },
+      { name: 'OutOfAgenda', nonAgendaReason: 'outOfAgenda', _count: { contributions: 3 } }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted[0].name).toBe('OutOfAgenda');
+    expect(sorted[1].name).toBe('Agenda');
+    expect(sorted[2].name).toBe('Before');
+  });
+
+  it('should use agenda item index as tie-breaker', () => {
+    const subjects = [
+      { name: 'Item 3', agendaItemIndex: 3, _count: { contributions: 2 } },
+      { name: 'Item 1', agendaItemIndex: 1, _count: { contributions: 2 } }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted[0].name).toBe('Item 1');
+    expect(sorted[1].name).toBe('Item 3');
+  });
+
+  it('should fall back to alphabetical when no sorting fields are present', () => {
+    const subjects = [
+      { name: 'Zebra' },
+      { name: 'Alpha' },
+      { name: 'Middle' }
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Alpha', 'Middle', 'Zebra']);
+  });
+});
+
+describe('sortSubjectsBySpeakerContributionCount', () => {
+  it('should sort by contributions count (descending)', () => {
+    const subjects = [
+      { name: 'Subject 1', _count: { contributions: 2 } },
+      { name: 'Subject 2', _count: { contributions: 5 } },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Subject 2', 'Subject 1']);
+  });
+
+  it('should break contribution-count ties by topicImportance (high > normal > doNotNotify)', () => {
+    const subjects = [
+      { name: 'Low', topicImportance: 'doNotNotify' },
+      { name: 'High', topicImportance: 'high' },
+      { name: 'Normal', topicImportance: 'normal' },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['High', 'Normal', 'Low']);
+  });
+
+  it('should treat missing topicImportance as lowest priority', () => {
+    const subjects = [
+      { name: 'Unset' },
+      { name: 'High', topicImportance: 'high' },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['High', 'Unset']);
+  });
+
+  it('should fall back to agendaItemIndex when contributions and topicImportance tie', () => {
+    const subjects = [
+      { name: 'Item 3', agendaItemIndex: 3, topicImportance: 'normal' },
+      { name: 'Item 1', agendaItemIndex: 1, topicImportance: 'normal' },
+      { name: 'Item 2', agendaItemIndex: 2, topicImportance: 'normal' },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Item 1', 'Item 2', 'Item 3']);
+  });
+
+  it('should prefer topicImportance over agendaItemIndex', () => {
+    const subjects = [
+      { name: 'First in agenda, low', agendaItemIndex: 1, topicImportance: 'doNotNotify' },
+      { name: 'Last in agenda, high', agendaItemIndex: 9, topicImportance: 'high' },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Last in agenda, high', 'First in agenda, low']);
+  });
+
+  it('should fall back to alphabetical name as the final tie-breaker', () => {
+    const subjects = [
+      { name: 'Zebra', topicImportance: 'normal', agendaItemIndex: 1 },
+      { name: 'Alpha', topicImportance: 'normal', agendaItemIndex: 1 },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted.map(s => s.name)).toEqual(['Alpha', 'Zebra']);
+  });
+
+  it('should keep contribution count as the dominant signal over topicImportance', () => {
+    const subjects = [
+      { name: 'Many contributions, low importance', _count: { contributions: 10 }, topicImportance: 'doNotNotify' },
+      { name: 'No contributions, high importance', _count: { contributions: 0 }, topicImportance: 'high' },
+    ];
+
+    const sorted = sortSubjectsBySpeakerContributionCount(subjects as any);
+    expect(sorted[0].name).toBe('Many contributions, low importance');
+  });
+});
+
+describe('sortSubjectsByImportance (appearance)', () => {
+  it('should sort by earliest speaker segment timestamp', () => {
+    const subjects = [
+      { name: 'Later', speakerSegments: [{ startTimestamp: 300 }, { startTimestamp: 500 }] },
+      { name: 'First', speakerSegments: [{ startTimestamp: 100 }] },
+      { name: 'Middle', speakerSegments: [{ startTimestamp: 200 }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['First', 'Middle', 'Later']);
+  });
+
+  it('should handle nested speakerSegment.startTimestamp structure', () => {
+    const subjects = [
+      { name: 'B', speakerSegments: [{ speakerSegment: { startTimestamp: 200 } }] },
+      { name: 'A', speakerSegments: [{ speakerSegment: { startTimestamp: 100 } }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['A', 'B']);
+  });
+
+  it('should fall back to agendaItemIndex when no timestamps', () => {
+    const subjects = [
+      { name: 'Third', agendaItemIndex: 3 },
+      { name: 'First', agendaItemIndex: 1 },
+      { name: 'Second', agendaItemIndex: 2 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['First', 'Second', 'Third']);
+  });
+
+  it('should sort subjects with agendaItemIndex before those without', () => {
+    const subjects = [
+      { name: 'No index' },
+      { name: 'Has index', agendaItemIndex: 5 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted[0].name).toBe('Has index');
+    expect(sorted[1].name).toBe('No index');
+  });
+
+  it('should fall back to alphabetical when timestamps are equal', () => {
+    const subjects = [
+      { name: 'Zebra', speakerSegments: [{ startTimestamp: 100 }] },
+      { name: 'Alpha', speakerSegments: [{ startTimestamp: 100 }] },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted.map(s => s.name)).toEqual(['Alpha', 'Zebra']);
+  });
+
+  it('should fall back to agendaItemIndex when only one subject has segments', () => {
+    const subjects = [
+      { name: 'No segments', agendaItemIndex: 1 },
+      { name: 'Has segments', speakerSegments: [{ startTimestamp: 100 }], agendaItemIndex: 2 },
+    ];
+
+    const sorted = sortSubjectsByImportance(subjects as any, 'appearance');
+    expect(sorted[0].name).toBe('No segments');
+    expect(sorted[1].name).toBe('Has segments');
+  });
+});
+
+describe('joinTranscriptSegments', () => {
+  it('keeps two speaker tags of one person apart when asked, and joins them otherwise', () => {
+    const segment = (speakerTagId: string, personId: string | null, start: number) => ({
+      speakerTagId, speakerTag: { id: speakerTagId, personId }, startTimestamp: start, endTimestamp: start + 10,
+      utterances: [{ id: `u${start}` }], topicLabels: [], summary: null,
+    });
+    const segments = [segment('tag-a', 'anna', 0), segment('tag-a', 'anna', 10), segment('tag-b', 'anna', 20), segment('tag-b', 'anna', 30)];
+
+    expect(joinTranscriptSegments(segments as unknown as Transcript)).toHaveLength(1);
+
+    const apart = joinTranscriptSegments(segments as unknown as Transcript, { sameSpeakerTagOnly: true });
+    expect(apart.map(s => [s.speakerTagId, s.utterances.length])).toEqual([['tag-a', 2], ['tag-b', 2]]);
+  });
+
+  it('never joins segments without a person, with or without the option', () => {
+    const segments = [0, 10].map(start => ({
+      speakerTagId: 'tag-a', speakerTag: { id: 'tag-a', personId: null }, startTimestamp: start, endTimestamp: start + 10,
+      utterances: [], topicLabels: [], summary: null,
+    }));
+    expect(joinTranscriptSegments(segments as unknown as Transcript)).toHaveLength(2);
+    expect(joinTranscriptSegments(segments as unknown as Transcript, { sameSpeakerTagOnly: true })).toHaveLength(2);
+  });
+
+  it('should join adjacent segments with the same speaker', () => {
+    const segments = [
+      {
+        speakerTag: { personId: '1' },
+        startTimestamp: 0,
+        endTimestamp: 10,
+        utterances: [{ id: '1' }],
+        topicLabels: [{ id: 'topic1' }]
+      },
+      {
+        speakerTag: { personId: '1' },
+        startTimestamp: 10,
+        endTimestamp: 20,
+        utterances: [{ id: '2' }],
+        topicLabels: [{ id: 'topic2' }]
+      },
+      {
+        speakerTag: { personId: '2' },
+        startTimestamp: 20,
+        endTimestamp: 30,
+        utterances: [{ id: '3' }],
+        topicLabels: [{ id: 'topic3' }]
+      }
+    ];
+
+    const joined = joinTranscriptSegments(segments as any);
+
+    expect(joined).toHaveLength(2);
+    expect(joined[0].speakerTag.personId).toBe('1');
+    expect(joined[0].startTimestamp).toBe(0);
+    expect(joined[0].endTimestamp).toBe(20);
+    expect(joined[0].utterances).toHaveLength(2);
+    expect(joined[0].topicLabels).toHaveLength(2);
+
+    expect(joined[1].speakerTag.personId).toBe('2');
+  });
+
+  it('should handle empty segments array', () => {
+    expect(joinTranscriptSegments([] as any)).toEqual([]);
+  });
+
+  it('should not join segments with non-sequential timestamps', () => {
+    const segments = [
+      {
+        speakerTag: { personId: '1' },
+        startTimestamp: 0,
+        endTimestamp: 10,
+        utterances: [{ id: '1' }],
+        topicLabels: [{ id: 'topic1' }]
+      },
+      {
+        speakerTag: { personId: '1' },
+        startTimestamp: -1, // Out of order
+        endTimestamp: 5,
+        utterances: [{ id: '2' }],
+        topicLabels: [{ id: 'topic2' }]
+      }
+    ];
+
+    const joined = joinTranscriptSegments(segments as any);
+    expect(joined).toHaveLength(2);
+  });
+});
+
+describe('isRoleActive', () => {
+  beforeEach(() => {
+    // Mock current date to 2024-01-15
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should return true when both dates are null', () => {
+    expect(isRoleActive({ startDate: null, endDate: null })).toBe(true);
+  });
+
+  it('should check start date only', () => {
+    // Active - start date in past
+    expect(isRoleActive({ startDate: new Date('2023-01-01'), endDate: null })).toBe(true);
+    // Inactive - start date in future
+    expect(isRoleActive({ startDate: new Date('2025-01-01'), endDate: null })).toBe(false);
+  });
+
+  it('should check end date only', () => {
+    // Active - end date in future
+    expect(isRoleActive({ startDate: null, endDate: new Date('2025-01-01') })).toBe(true);
+    // Inactive - end date in past
+    expect(isRoleActive({ startDate: null, endDate: new Date('2023-01-01') })).toBe(false);
+  });
+
+  it('should check both dates', () => {
+    // Active - within range
+    expect(isRoleActive({
+      startDate: new Date('2023-01-01'),
+      endDate: new Date('2025-01-01')
+    })).toBe(true);
+
+    // Inactive - before range
+    expect(isRoleActive({
+      startDate: new Date('2025-01-01'),
+      endDate: new Date('2026-01-01')
+    })).toBe(false);
+
+    // Inactive - after range
+    expect(isRoleActive({
+      startDate: new Date('2022-01-01'),
+      endDate: new Date('2023-01-01')
+    })).toBe(false);
+  });
+});
+
+describe('filterActiveRoles and filterInactiveRoles', () => {
+  beforeEach(() => {
+    // Mock current date to 2024-01-15
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should filter active roles correctly', () => {
+    const roles = [
+      { id: '1', startDate: null, endDate: null }, // Active (no dates)
+      { id: '2', startDate: new Date('2023-01-01'), endDate: null }, // Active (past start)
+      { id: '3', startDate: new Date('2025-01-01'), endDate: null }, // Inactive (future start)
+      { id: '4', startDate: new Date('2023-01-01'), endDate: new Date('2025-01-01') } // Active (within range)
+    ];
+
+    const activeRoles = filterActiveRoles(roles);
+    expect(activeRoles).toHaveLength(3);
+    expect(activeRoles.map(r => r.id)).toEqual(['1', '2', '4']);
+
+    const inactiveRoles = filterInactiveRoles(roles);
+    expect(inactiveRoles).toHaveLength(1);
+    expect(inactiveRoles[0].id).toBe('3');
+  });
+});
+
+describe('normalizeText', () => {
+  it('should convert text to lowercase', () => {
+    expect(normalizeText('AbCdEf')).toBe('abcdef');
+  });
+
+  it('should remove Greek diacritics', () => {
+    expect(normalizeText('άέήίόύώ')).toBe('αεηιουω');
+    expect(normalizeText('ΆΈΉΊΌΎΏϊϋΐΰ')).toBe('αεηιουωιυιυ');
+  });
+
+  it('should handle empty and null inputs', () => {
+    expect(normalizeText('')).toBe('');
+    // @ts-ignore - Testing invalid input
+    expect(normalizeText(null)).toBe('');
+  });
+});
+
+describe('relevanceScore', () => {
+  it('returns 1 for an empty query (everything matches)', () => {
+    expect(relevanceScore('Παπάς Παναγιώτης', '')).toBe(1);
+    expect(relevanceScore('anything', '   ')).toBe(1);
+  });
+
+  it('ranks accent-insensitive prefix matches highest', () => {
+    // "παπ" should match "Παπάς Παναγιώτης" despite stress marks
+    expect(relevanceScore('Παπάς Παναγιώτης', 'παπ')).toBe(1);
+  });
+
+  it('boosts word-start matches above plain substring matches', () => {
+    // Query matches the start of the second word, not the first
+    expect(relevanceScore('Παπάς Παναγιώτης', 'παν')).toBe(0.9);
+    // Query is only a mid-word substring
+    expect(relevanceScore('Σαλαμανή Τριανταφυλλιά', 'λαμ')).toBe(0.5);
+  });
+
+  it('returns 0 for unrelated names', () => {
+    // The regression: "παπ" must NOT match "Σαλαμανή Τριανταφυλλιά"
+    expect(relevanceScore('Σαλαμανή Τριανταφυλλιά', 'παπ')).toBe(0);
+  });
+
+  it('orders a list with prefix matches first', () => {
+    const people = ['Σαλαμανή Τριανταφυλλιά', 'Παπαδόπουλος Δημήτρης', 'Παπάς Παναγιώτης'];
+    const ranked = [...people]
+      .map((name) => ({ name, score: relevanceScore(name, 'παπ') }))
+      .filter((p) => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((p) => p.name);
+
+    expect(ranked).toContain('Παπάς Παναγιώτης');
+    expect(ranked).toContain('Παπαδόπουλος Δημήτρης');
+    expect(ranked).not.toContain('Σαλαμανή Τριανταφυλλιά');
+  });
+});
+
+describe('calculateOfferTotals', () => {
+  it('should calculate totals correctly with discount', () => {
+    const result = calculateOfferTotals({
+      ingestionPerHourPrice: 50,
+      hoursToIngest: 10,
+      discountPercentage: 10,
+<<<<<<<
+      respondToEmail: 'test@example.com',
+      respondToName: 'Test Person',
+      cityId: '1',
+      respondToPhone: '+30123456789',
+      agreed: false,
+      adam: null,
+    } as const;
+=======
+    });
+>>>>>>>
+
+    expect(result.ingestionTotal).toBe(500); // 50 * 10 hours
+    expect(result.subtotal).toBe(500);
+    expect(result.discount).toBe(50); // 500 * 0.10
+    expect(result.total).toBe(450); // 500 - 50
+  });
+
+  it('should calculate totals correctly without discount', () => {
+    const result = calculateOfferTotals({
+      ingestionPerHourPrice: 50,
+      hoursToIngest: 10,
+<<<<<<<
+=======
+      correctnessGuarantee: false,
+      meetingsToIngest: 5,
+      hoursToGuarantee: null,
+      equipmentRentalPrice: null,
+      equipmentRentalName: null,
+      equipmentRentalDescription: null,
+      physicalPresenceHours: null,
+      discountPercentage: 10,
+      respondToEmail: 'test@example.com',
+      respondToName: 'Test Person',
+      cityId: '1',
+      respondToPhone: '+30123456789',
+      agreed: false,
+      adam: null,
+    } as const;
+
+    const result = calculateOfferTotals(offer);
+
+    expect(result.correctnessGuaranteeCost).toBe(0);
+    expect(result.subtotal).toBe(1700); // 1200 + 500 + 0
+    expect(result.discount).toBe(170); // 1700 * 0.10
+    expect(result.total).toBe(1530); // 1700 - 170
+  });
+
+  it('should calculate totals correctly with equipment rental and physical presence', () => {
+    const offer = {
+      id: '3',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      type: 'STANDARD',
+      version: 3,
+      startDate: new Date('2024-01-01'),
+      endDate: new Date('2024-12-31'),
+      recipientName: 'Test Municipality',
+      platformPrice: 100,
+      ingestionPerHourPrice: 50,
+      hoursToIngest: 10,
+      correctnessGuarantee: false,
+      meetingsToIngest: null,
+      hoursToGuarantee: null,
+      equipmentRentalPrice: 150, // €150/month
+      equipmentRentalName: 'Professional AV Package',
+      equipmentRentalDescription: 'Cameras and microphones',
+      physicalPresenceHours: 8, // 8 hours at €25/hour
+>>>>>>>
+      discountPercentage: 0,
+<<<<<<<
+      respondToEmail: 'test@example.com',
+      respondToName: 'Test Person',
+      cityId: '1',
+      respondToPhone: '+30123456789',
+      agreed: false,
+      adam: null,
+    } as const;
+=======
+    });
+>>>>>>>
+
+    expect(result.subtotal).toBe(500); // 50 * 10
+    expect(result.discount).toBe(0);
+    expect(result.total).toBe(500);
+  });
+
+  it('should price physical presence by offer version', () => {
+    const offer = {
+      id: '4',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      type: 'STANDARD',
+      startDate: new Date('2024-01-01'),
+      endDate: new Date('2024-12-31'),
+      recipientName: 'Test Municipality',
+      platformPrice: 100,
+      ingestionPerHourPrice: 50,
+      hoursToIngest: 10,
+      correctnessGuarantee: false,
+      meetingsToIngest: null,
+      hoursToGuarantee: null,
+      equipmentRentalPrice: null,
+      equipmentRentalName: null,
+      equipmentRentalDescription: null,
+      physicalPresenceHours: 8,
+      discountPercentage: 0,
+      respondToEmail: 'test@example.com',
+      respondToName: 'Test Person',
+      cityId: '1',
+      respondToPhone: '+30123456789',
+      agreed: false,
+      adam: null,
+    } as const;
+
+    expect(calculateOfferTotals({ ...offer, version: 3 }).physicalPresenceTotal).toBe(200); // 8 * 25
+    expect(calculateOfferTotals({ ...offer, version: 4 }).physicalPresenceTotal).toBe(400); // 8 * 50
+  });
+});
+
+describe('compareAgendaPosition', () => {
+  it('orders by section, then by number, and puts subjects without a number last', () => {
+    const items = [
+      { name: 'S2 #1', agendaSectionIndex: 2, agendaItemIndex: 1 },
+      { name: 'S1 #2', agendaSectionIndex: 1, agendaItemIndex: 2 },
+      { name: 'none', agendaSectionIndex: null, agendaItemIndex: null },
+      { name: 'S1 #1', agendaSectionIndex: 1, agendaItemIndex: 1 },
+    ];
+
+    const sorted = [...items].sort(compareAgendaPosition);
+    expect(sorted.map(i => i.name)).toEqual(['S1 #1', 'S1 #2', 'S2 #1', 'none']);
+  });
+
+  it('treats a missing section as section 0, so a one-list agenda keeps plain number order', () => {
+    const items = [
+      { name: '#3', agendaItemIndex: 3 },
+      { name: '#1', agendaItemIndex: 1 },
+      { name: '#2', agendaItemIndex: 2, agendaSectionIndex: null },
+    ];
+
+    const sorted = [...items].sort(compareAgendaPosition);
+    expect(sorted.map(i => i.name)).toEqual(['#1', '#2', '#3']);
+  });
+
+  it('returns 0 for two subjects without a number', () => {
+    expect(compareAgendaPosition({ agendaItemIndex: null }, { agendaItemIndex: null })).toBe(0);
+  });
+});
+
+describe('sortSubjectsByAgendaIndex', () => {
+  it('follows the document: section 1 in full, then section 2, when both start at 1', () => {
+    const subjects = [
+      { name: 'Παρέα', agendaSectionIndex: 2, agendaItemIndex: 1 },
+      { name: 'Στέγη', agendaSectionIndex: 1, agendaItemIndex: 2 },
+      { name: 'Ο ΑΛΛΟΣ', agendaSectionIndex: 2, agendaItemIndex: 2 },
+      { name: 'Γλυπτό', agendaSectionIndex: 1, agendaItemIndex: 1 },
+    ];
+
+    const sorted = sortSubjectsByAgendaIndex(subjects);
+    expect(sorted.map(s => s.name)).toEqual(['Γλυπτό', 'Στέγη', 'Παρέα', 'Ο ΑΛΛΟΣ']);
+  });
+});
+
+describe('searchTerms and matchesEveryTerm', () => {
+  it('splits a query into normalized words, and ignores blank space', () => {
+    expect(searchTerms('  Μαρία   ΠΑΠΑ ')).toEqual(['μαρια', 'παπα']);
+    expect(searchTerms('   ')).toEqual([]);
+  });
+
+  it('needs every word, in any order', () => {
+    const text = normalizeText('Μαρία Παπαδοπούλου');
+    expect(matchesEveryTerm(text, searchTerms('παπα μαρια'))).toBe(true);
+    expect(matchesEveryTerm(text, searchTerms('μαρια γιωργος'))).toBe(false);
+  });
+
+  it('splits on any blank space, such as a tab or a no-break space', () => {
+    expect(searchTerms('μαρια\tπαπα')).toEqual(['μαρια', 'παπα']);
+    expect(searchTerms('μαρια\u00a0παπα')).toEqual(['μαρια', 'παπα']);
+  });
+});
