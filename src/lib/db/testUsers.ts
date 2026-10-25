@@ -17,7 +17,7 @@ const administersSelect = {
     partyId: true,
     personId: true,
     administrativeBodyId: true,
-    city: { select: { name: true } },
+    workspace: { select: { city: { select: { name: true } } } },
     party: { select: { name: true, cityId: true } },
     person: { select: { name: true, cityId: true } },
     administrativeBody: { select: { name: true, cityId: true } },

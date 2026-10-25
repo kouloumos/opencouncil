@@ -15,7 +15,7 @@ export const machineAccountsOnly = { isMachine: true } satisfies Prisma.UserWher
 export const userWithAdministersInclude = {
     administers: {
         include: {
-            city: true,
+            workspace: { include: { city: true } },
             party: {
                 include: {
                     city: true

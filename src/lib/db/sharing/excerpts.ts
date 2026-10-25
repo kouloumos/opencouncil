@@ -16,7 +16,7 @@ const utteranceSelect = {
     discussionSubject: { select: subjectSelect },
     speakerSegment: { select: {
         id: true, startTimestamp: true,
-        speakerTag: { select: { id: true, personId: true, person: { select: { name: true, name_en: true } } } },
+        speakerTag: { select: { id: true, personId: true, speaker: { select: { person: { select: { name: true, name_en: true } } } } } },
     } },
 } satisfies Prisma.UtteranceSelect;
 type Source = Prisma.UtteranceGetPayload<{ select: typeof utteranceSelect }>;
@@ -80,14 +80,15 @@ export async function getPublicExcerpt(selector: ExcerptSelector, realm: Realm):
     if (sources[0]?.id !== first.id || sources[sources.length - 1]?.id !== last.id) return { status: 'invalid' };
     const runs = selectExcerptRuns(sources.map(source => {
         const tag = source.speakerSegment.speakerTag;
-        return { id: source.id, text: localizeText(source.text, selector.textLocale), speakerTagId: tag.id, personId: tag.personId, speakerName: tag.person ? getLocalizedName(tag.person, selector.textLocale) : null };
+        const person = tag.speaker?.person;
+        return { id: source.id, text: localizeText(source.text, selector.textLocale), speakerTagId: tag.id, personId: tag.personId, speakerName: person ? getLocalizedName(person, selector.textLocale) : null };
     }));
     if (!runs) return { status: 'invalid' };
     if (createHash('sha256').update(canonicalExcerpt(runs)).digest('hex') !== selector.digest) return { status: 'source-changed' };
     // The subject most of the passage carries needs no query; the rest asks the meeting.
     const subject = majoritySubject(sources.map(source => source.discussionSubject)) ?? await subjectFromMeeting(sources, scope, first, last, meeting);
     return { status: 'ok', excerpt: {
-        meeting, isReviewed: meeting.taskStatuses.length > 0, selector, runs,
+        meeting, isReviewed: meeting.transcript.taskStatuses.length > 0, selector, runs,
         subject: subject && { ...subject, name: localizeText(subject.name, selector.textLocale) },
     } };
 }

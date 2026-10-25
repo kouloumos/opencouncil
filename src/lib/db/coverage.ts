@@ -29,7 +29,7 @@ export async function getCityCoverage(realm: Realm): Promise<CoverageRow[]> {
     // Only meetings that have already taken place count towards coverage — a
     // future, pre-published meeting must not set an early "Από" date.
     const now = new Date();
-    const releasedPast = { released: true, administrativeBody: { isNot: null }, dateTime: { lte: now } };
+    const releasedPast = { transcript: { released: true }, administrativeBody: { isNot: null }, dateTime: { lte: now } };
 
     const cities = await prisma.city.findMany({
         where: {

@@ -44,7 +44,7 @@ const CITY_COUNT_SELECT = {
         parties: true,
         councilMeetings: {
             where: {
-                released: true
+                transcript: { released: true }
             }
         }
     }
@@ -648,12 +648,12 @@ export async function getAboutPageStats(): Promise<AboutPageStats> {
             }),
             // Count published meetings
             prisma.councilMeeting.count({
-                where: { released: true }
+                where: { transcript: { released: true } }
             }),
             // Count subjects in released meetings only
             prisma.subject.count({
                 where: {
-                    councilMeeting: { released: true }
+                    councilMeeting: { transcript: { released: true } }
                 }
             }),
             // Get min/max timestamps per meeting to calculate duration
@@ -663,7 +663,8 @@ export async function getAboutPageStats(): Promise<AboutPageStats> {
                     SELECT (MAX(ss."endTimestamp") - MIN(ss."startTimestamp")) / 3600.0 as meeting_hours
                     FROM "CouncilMeeting" cm
                     JOIN "SpeakerSegment" ss ON ss."meetingId" = cm.id AND ss."cityId" = cm."cityId"
-                    WHERE cm.released = true
+                    JOIN "Transcript" t ON t."workspaceId" = cm."cityId" AND t.id = cm.id
+                    WHERE t.released = true
                     GROUP BY cm.id, cm."cityId"
                 ) meetings
             `

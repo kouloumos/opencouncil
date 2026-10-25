@@ -91,7 +91,7 @@ describe('canAccessMyHighlights', () => {
 
         expect(await canAccessMyHighlights()).toBe(true);
         expect(mockFindFirst).toHaveBeenCalledWith(expect.objectContaining({
-            where: { createdById: 'user-1', meeting: { released: true } },
+            where: { createdById: 'user-1', meeting: { transcript: { released: true } } },
         }));
     });
 
@@ -131,7 +131,7 @@ describe('getMyHighlights', () => {
         await getMyHighlights();
 
         const { where } = mockFindMany.mock.calls[0][0];
-        expect(where.OR).toEqual([{ meeting: { released: true } }]);
+        expect(where.OR).toEqual([{ meeting: { transcript: { released: true } } }]);
     });
 
     it('keeps unreleased meetings of the cities the user administers', async () => {
@@ -146,7 +146,7 @@ describe('getMyHighlights', () => {
 
         const { where } = mockFindMany.mock.calls[0][0];
         expect(where.OR).toEqual([
-            { meeting: { released: true } },
+            { meeting: { transcript: { released: true } } },
             { cityId: { in: ['athens'] } },
         ]);
     });

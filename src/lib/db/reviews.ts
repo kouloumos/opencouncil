@@ -62,12 +62,16 @@ const includePattern = {
   meetingWithReviewInfo: () => ({
     city: { select: selectPattern.cityName },
     administrativeBody: { select: { id: true, name: true, name_en: true } },
-    taskStatuses: {
-      where: whereClause.reviewTaskStatuses(),
-      // Only the fields hasSucceededTask reads. The full rows carry the
-      // request/response payloads (~1.7 GB across production), which
-      // overflow the engine's result buffer on unfiltered lists (#303).
-      select: { type: true, status: true }
+    transcript: {
+      select: {
+        taskStatuses: {
+          where: whereClause.reviewTaskStatuses(),
+          // Only the fields hasSucceededTask reads. The full rows carry the
+          // request/response payloads (~1.7 GB across production), which
+          // overflow the engine's result buffer on unfiltered lists (#303).
+          select: { type: true, status: true }
+        }
+      }
     }
   }),
 
@@ -606,19 +610,23 @@ export interface ReviewFilterOptions {
  */
 function buildStatusWhereConditions(show: ReviewFilterOptions['show']): Prisma.CouncilMeetingWhereInput {
   const hasTranscribe = {
-    taskStatuses: {
-      some: {
-        type: 'transcribe' as const,
-        status: 'succeeded' as const
+    transcript: {
+      taskStatuses: {
+        some: {
+          type: 'transcribe' as const,
+          status: 'succeeded' as const
+        }
       }
     }
   };
 
   const hasHumanReview = {
-    taskStatuses: {
-      some: {
-        type: 'humanReview' as const,
-        status: 'succeeded' as const
+    transcript: {
+      taskStatuses: {
+        some: {
+          type: 'humanReview' as const,
+          status: 'succeeded' as const
+        }
       }
     }
   };
@@ -978,15 +986,15 @@ export async function getMeetingsNeedingReview(filters: ReviewFilterOptions = {}
       continue;
     }
 
-    const hasTranscribe = hasSucceededTask(m.taskStatuses, 'transcribe');
+    const hasTranscribe = hasSucceededTask(m.transcript.taskStatuses, 'transcribe');
 
     // Skip meetings without transcribe (shouldn't happen due to DB filter, but safety check)
     if (!hasTranscribe) {
       continue;
     }
 
-    const hasHumanReview = hasSucceededTask(m.taskStatuses, 'humanReview');
-    const hasTranscriptSent = hasSucceededTask(m.taskStatuses, 'transcriptSent');
+    const hasHumanReview = hasSucceededTask(m.transcript.taskStatuses, 'humanReview');
+    const hasTranscriptSent = hasSucceededTask(m.transcript.taskStatuses, 'transcriptSent');
     const status = determineReviewStatus(hasTranscribe, hasHumanReview, stats.reviewedUtterances);
 
     const reviewDurationMs = stats.lastEditAt && m.dateTime
@@ -1052,7 +1060,7 @@ export async function getReviewStats(): Promise<ReviewStats> {
     where: {
       type: 'humanReview',
       status: 'succeeded',
-      councilMeeting: { city: CUSTOMER_CITY_WHERE },
+      transcript: { councilMeeting: { city: CUSTOMER_CITY_WHERE } },
       createdAt: {
         gte: startOfWeek
       }
@@ -1100,9 +1108,9 @@ export async function getReviewProgressForMeeting(
   const stats = await getAggregatedMeetingStats(meetingId);
 
   // Check task statuses
-  const hasTranscribe = hasSucceededTask(meetingRecord.taskStatuses, 'transcribe');
-  const hasHumanReview = hasSucceededTask(meetingRecord.taskStatuses, 'humanReview');
-  const hasTranscriptSent = hasSucceededTask(meetingRecord.taskStatuses, 'transcriptSent');
+  const hasTranscribe = hasSucceededTask(meetingRecord.transcript.taskStatuses, 'transcribe');
+  const hasHumanReview = hasSucceededTask(meetingRecord.transcript.taskStatuses, 'humanReview');
+  const hasTranscriptSent = hasSucceededTask(meetingRecord.transcript.taskStatuses, 'transcriptSent');
 
   if (!hasTranscribe) {
     return null;

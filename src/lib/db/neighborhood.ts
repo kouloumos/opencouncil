@@ -38,7 +38,7 @@ const THEMES: ThemeQuery[] = [
 async function findThemeSubject(theme: ThemeQuery): Promise<NeighborhoodSubject | null> {
     const where: Prisma.SubjectWhereInput = {
         withdrawn: false,
-        councilMeeting: { released: true, city: { realm: 'greece' } },
+        councilMeeting: { transcript: { released: true }, city: { realm: 'greece' } },
         ...('topicId' in theme
             ? { topicId: theme.topicId }
             : { name: { contains: theme.nameContains, mode: 'insensitive' } }),

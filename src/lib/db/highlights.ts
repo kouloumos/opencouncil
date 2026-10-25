@@ -136,7 +136,7 @@ export async function canAccessMyHighlights(): Promise<boolean> {
     // The same visibility rule the list applies, so that the link never opens
     // onto a page that filtered everything out.
     const ownHighlight = await prisma.highlight.findFirst({
-        where: { createdById: currentUser.id, meeting: { released: true } },
+        where: { createdById: currentUser.id, meeting: { transcript: { released: true } } },
         select: { id: true }
     });
 
@@ -171,7 +171,7 @@ export async function getMyHighlights(): Promise<MyHighlights> {
         ? {}
         : {
             OR: [
-                { meeting: { released: true } },
+                { meeting: { transcript: { released: true } } },
                 ...(editableCityIds.length > 0 ? [{ cityId: { in: editableCityIds } }] : []),
                 ...(editableBodyIds.length > 0 ? [{ meeting: { administrativeBodyId: { in: editableBodyIds } } }] : []),
             ]

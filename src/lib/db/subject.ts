@@ -171,7 +171,7 @@ export async function getSubjectCountForCity(cityId: string): Promise<number> {
             cityId,
             contributions: { some: {} },
             councilMeeting: {
-                released: true,
+                transcript: { released: true },
                 dateTime: { lte: new Date() },
             },
         },
@@ -735,11 +735,11 @@ export async function getUtterancesForSubject(subjectId: string) {
                     speakerTag: {
                         select: {
                             label: true,
-                            person: {
+                            speaker: { select: { person: {
                                 select: {
                                     name: true
                                 }
-                            }
+                            } } }
                         }
                     }
                 }
@@ -769,7 +769,7 @@ export async function getSubjectPromptInput(subjectId: string) {
 export async function getLatestSubjectsForSpeaker(personId: string, take: number) {
     // A subject with several contributions by the same speaker repeats; a few more rows cover that.
     const contributions = await prisma.speakerContribution.findMany({
-        where: { speakerId: personId, subject: { councilMeeting: { released: true } } },
+        where: { speakerId: personId, subject: { councilMeeting: { transcript: { released: true } } } },
         select: { subject: { select: { id: true, name: true, topic: { select: { colorHex: true, icon: true } } } } },
         orderBy: [{ subject: { councilMeeting: { dateTime: 'desc' } } }, { order: 'asc' }],
         take: take * 4,
@@ -780,7 +780,7 @@ export async function getLatestSubjectsForSpeaker(personId: string, take: number
 
 /** What the public-visibility rule reads off a subject's meeting. */
 const subjectVisibilitySelect = {
-    released: true,
+    transcript: { select: { released: true } },
     city: { select: { status: true } },
 } satisfies Prisma.CouncilMeetingSelect;
 type SubjectVisibility = Prisma.CouncilMeetingGetPayload<{ select: typeof subjectVisibilitySelect }>;
@@ -789,7 +789,7 @@ type SubjectVisibility = Prisma.CouncilMeetingGetPayload<{ select: typeof subjec
  *  route reads it; the queries apply the same rule as a where clause, scoped to the realm (see
  *  publicMeetingWhere). */
 function isPublicSubject(meeting: SubjectVisibility): boolean {
-    return meeting.released && isPublic(meeting.city.status);
+    return meeting.transcript.released && isPublic(meeting.city.status);
 }
 
 const subjectIsPublicSelect = {

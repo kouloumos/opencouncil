@@ -15,7 +15,7 @@ describe('buildApiSubjectWhere', () => {
             expect(where).toEqual({
                 cityId: 'athens',
                 councilMeeting: {
-                    released: true,
+                    transcript: { released: true },
                     city: { ...PUBLIC_CITY_WHERE, realm: Realm.greece },
                 },
             });
