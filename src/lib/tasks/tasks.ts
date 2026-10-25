@@ -90,7 +90,7 @@ export interface TaskVersionsFilter {
 }
 
 const taskStatusWithMeetingInclude = {
-    councilMeeting: {
+    transcript: { include: { councilMeeting: {
         select: {
             ...meetingNameSelect,
             city: {
@@ -100,17 +100,19 @@ const taskStatusWithMeetingInclude = {
                 }
             }
         }
-    }
+    } } }
 } satisfies Prisma.TaskStatusInclude;
 
 type TaskStatusWithMeeting = Prisma.TaskStatusGetPayload<{ include: typeof taskStatusWithMeetingInclude }>;
 
 /** The task fields that every task admin alert carries. */
 function taskAlertTarget(task: TaskStatusWithMeeting) {
+    // A task of a transcript that is not a meeting names the workspace and the transcript ids.
+    const meeting = task.transcript.councilMeeting;
     return {
         taskType: task.type,
-        cityName: task.councilMeeting.city.name_en,
-        meetingName: meetingLabelInCity(task.councilMeeting, 'en'),
+        cityName: meeting ? meeting.city.name_en : task.cityId,
+        meetingName: meeting ? meetingLabelInCity(meeting, 'en') : task.councilMeetingId,
         taskId: task.id,
         cityId: task.cityId,
         meetingId: task.councilMeetingId,
@@ -159,7 +161,7 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
                 type: taskType,
                 status: 'pending',
                 requestBody: JSON.stringify(requestBody),
-                councilMeeting: { connect: { cityId_id: { cityId, id: councilMeetingId } } }
+                transcript: { connect: { workspaceId_id: { workspaceId: cityId, id: councilMeetingId } } }
             },
             include: taskStatusWithMeetingInclude
         });
@@ -229,9 +231,8 @@ export const startTask = async (taskType: MeetingTaskType, requestBody: any, cou
     if (!options.silent && getDiscordAlertMode(taskType) !== 'none') {
         sendTaskAdminAlert({
             status: 'started',
+            ...taskAlertTarget(newTask),
             taskType: taskType,
-            cityName: newTask.councilMeeting.city.name_en,
-            meetingName: meetingLabelInCity(newTask.councilMeeting, 'en'),
             taskId: newTask.id,
             cityId: cityId,
             meetingId: councilMeetingId,
@@ -583,7 +584,7 @@ export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): P
             id: true,
             cityId: true,
             dateTime: true,
-            taskStatuses: {
+            transcript: { select: { taskStatuses: {
                 where: taskStatusWhere,
                 select: {
                     type: true,
@@ -593,7 +594,7 @@ export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): P
                 orderBy: {
                     updatedAt: 'desc'
                 }
-            }
+            } } }
         },
         where: meetingWhere,
         orderBy: { dateTime: 'desc' }
@@ -624,7 +625,7 @@ export const getTaskVersionsForMeetings = async (filters: TaskVersionsFilter): P
             };
 
             filters.taskTypes.forEach(taskType => {
-                const latest = meeting.taskStatuses.find(t => t.type === taskType);
+                const latest = meeting.transcript.taskStatuses.find(t => t.type === taskType);
                 // Distinguish "never ran" (no task found → null for display) from
                 // "ran but unversioned" (task exists with version=null)
                 result[taskType] = latest ? (latest.version ?? null) : null;

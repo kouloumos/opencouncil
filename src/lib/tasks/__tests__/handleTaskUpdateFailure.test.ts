@@ -36,7 +36,7 @@ const baseTask = {
   cityId: 'city-1',
   councilMeetingId: 'meeting-1',
   createdAt: new Date(),
-  councilMeeting: { name_en: 'M', city: { name_en: 'C' } },
+  transcript: { councilMeeting: { name_en: 'M', city: { name_en: 'C' } } },
 };
 
 describe('handleTaskUpdate — failures', () => {

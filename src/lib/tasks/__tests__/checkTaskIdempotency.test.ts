@@ -187,7 +187,7 @@ describe('startTask — idempotency scoping', () => {
     id: 'new-task',
     type: 'summarize',
     status: 'pending',
-    councilMeeting: { city: { name_en: 'Test City' }, name_en: 'Test Meeting' },
+    transcript: { councilMeeting: { city: { name_en: 'Test City' }, name_en: 'Test Meeting' } },
   };
 
   beforeEach(() => {
@@ -286,7 +286,7 @@ describe('startTask — silent option', () => {
     id: 'new-task',
     type: 'summarize',
     status: 'pending',
-    councilMeeting: { city: { name_en: 'Test City' }, name_en: 'Test Meeting' },
+    transcript: { councilMeeting: { city: { name_en: 'Test City' }, name_en: 'Test Meeting' } },
   };
 
   beforeEach(() => {
@@ -340,7 +340,7 @@ describe('handleTaskUpdate — discordAlertMode gating', () => {
       type: 'summarize',
       cityId: CITY_ID,
       councilMeetingId: MEETING_ID,
-      councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+      transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
     };
     mockFindUnique.mockResolvedValue(task);
     mockUpdate.mockResolvedValue({ ...task, status: 'succeeded' });
@@ -362,7 +362,7 @@ describe('handleTaskUpdate — discordAlertMode gating', () => {
       type: 'pollDecisions',
       cityId: CITY_ID,
       councilMeetingId: MEETING_ID,
-      councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+      transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
     };
     mockFindUnique.mockResolvedValue(task);
     mockUpdate.mockResolvedValue({ ...task, status: 'succeeded' });
@@ -382,7 +382,7 @@ describe('handleTaskUpdate — discordAlertMode gating', () => {
       type: 'processAgenda',
       cityId: CITY_ID,
       councilMeetingId: MEETING_ID,
-      councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+      transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
     };
     mockFindUnique.mockResolvedValue(task);
     mockUpdate.mockResolvedValue({ ...task, status: 'succeeded' });
@@ -409,7 +409,7 @@ describe('handleTaskUpdate — discordAlertMode gating', () => {
       type: 'pollDecisions',
       cityId: CITY_ID,
       councilMeetingId: MEETING_ID,
-      councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+      transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
     };
     mockFindUnique.mockResolvedValue(task);
     mockUpdate.mockResolvedValue({ ...task, status: 'failed' });
@@ -429,7 +429,7 @@ describe('handleTaskUpdate — discordAlertMode gating', () => {
       type: 'summarize',
       cityId: CITY_ID,
       councilMeetingId: MEETING_ID,
-      councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+      transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
     };
     mockFindUnique.mockResolvedValue(task);
     mockUpdate.mockResolvedValue({ ...task, status: 'failed' });
@@ -455,7 +455,7 @@ describe('handleTaskUpdate — terminal hooks', () => {
     cityId: CITY_ID,
     councilMeetingId: MEETING_ID,
     createdAt: new Date('2026-03-06T10:00:00Z'),
-    councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+    transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
   };
 
   const summarizeTask = {
@@ -464,7 +464,7 @@ describe('handleTaskUpdate — terminal hooks', () => {
     cityId: CITY_ID,
     councilMeetingId: MEETING_ID,
     createdAt: new Date('2026-03-06T10:00:00Z'),
-    councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+    transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
   };
 
   beforeEach(() => {
@@ -568,7 +568,7 @@ describe('handleTaskUpdate — duplicate terminal callbacks', () => {
     cityId: CITY_ID,
     councilMeetingId: MEETING_ID,
     createdAt: new Date('2026-03-06T10:00:00Z'),
-    councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' },
+    transcript: { councilMeeting: { city: { name_en: 'City' }, name_en: 'Meeting' } },
   };
 
   beforeEach(() => {

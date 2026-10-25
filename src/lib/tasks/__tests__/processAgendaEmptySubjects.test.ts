@@ -23,13 +23,13 @@ const mockHighlightDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
 const mockSubjectDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
 const mockTaskStatusFindUnique = jest.fn().mockResolvedValue({
   id: TASK_ID,
-  councilMeeting: {
+  transcript: { councilMeeting: {
     id: MEETING_ID,
     cityId: CITY_ID,
     city: { name_en: 'TestCity', name: 'TestCity' },
     name: 'Test Meeting',
     administrativeBody: null,
-  },
+  } },
 });
 
 jest.mock('../../db/prisma', () => ({

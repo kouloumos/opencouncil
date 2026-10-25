@@ -26,7 +26,7 @@ export async function requestGenerateHighlightCore(highlightId: string, rawOptio
     const highlight = await prisma.highlight.findUnique({
         where: { id: highlightId },
         include: {
-            meeting: { include: { city: { select: { language: true } } } },
+            meeting: { include: { city: { select: { language: true } }, transcript: { select: { videoUrl: true } } } },
             highlightedUtterances: {
                 orderBy: {
                     utterance: {
@@ -40,13 +40,13 @@ export async function requestGenerateHighlightCore(highlightId: string, rawOptio
                                 include: {
                                     speakerTag: {
                                         include: {
-                                            person: {
+                                            speaker: { include: { person: {
                                                 include: {
                                                     roles: {
                                                         include: { party: true, administrativeBody: { select: { type: true } } },
                                                     },
                                                 },
-                                            },
+                                            } } },
                                         },
                                     },
                                 },
@@ -62,7 +62,7 @@ export async function requestGenerateHighlightCore(highlightId: string, rawOptio
         throw new Error('Highlight not found');
     }
 
-    if (!highlight.meeting.videoUrl) {
+    if (!highlight.meeting.transcript.videoUrl) {
         throw new Error('Meeting media not found: videoUrl is required');
     }
 
@@ -71,7 +71,7 @@ export async function requestGenerateHighlightCore(highlightId: string, rawOptio
     const utterances = highlight.highlightedUtterances.map(hu => {
         const u = hu.utterance;
         const speakerTag = u.speakerSegment.speakerTag;
-        const person = speakerTag.person;
+        const person = speakerTag.speaker?.person;
 
         let partyColorHex: string | undefined;
         let partyLabel: string | undefined;
@@ -108,7 +108,7 @@ export async function requestGenerateHighlightCore(highlightId: string, rawOptio
     const requestBody: Omit<GenerateHighlightRequest, 'callbackUrl'> = {
         media: {
             type: 'video',
-            videoUrl: highlight.meeting.videoUrl,
+            videoUrl: highlight.meeting.transcript.videoUrl,
         },
         parts: [
             {

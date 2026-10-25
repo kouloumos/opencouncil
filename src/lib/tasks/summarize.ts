@@ -14,6 +14,7 @@ import { taskScope } from "./types";
 import { after } from "next/server";
 import * as z from "zod";
 import { generateImagesForMeeting } from "../subjectImages";
+import { withCouncilMeeting } from './taskMeeting';
 
 // A Server Action has no runtime types. Both fields land in the summarize
 // prompt, so they are bounded here.
@@ -44,23 +45,24 @@ export async function requestSummarize(cityId: string, councilMeetingId: string,
 }
 
 export async function handleSummarizeResult(taskId: string, response: SummarizeResult) {
-    const task = await prisma.taskStatus.findUnique({
+    const loaded = await prisma.taskStatus.findUnique({
         where: {
             id: taskId
         },
         include: {
-            councilMeeting: {
+            transcript: { include: { councilMeeting: {
                 include: {
                     administrativeBody: true,
                     city: true
                 }
-            }
+            } } }
         }
     });
 
-    if (!task) {
+    if (!loaded) {
         throw new Error('Task not found');
     }
+    const task = withCouncilMeeting(loaded);
 
     const { councilMeeting } = task;
 

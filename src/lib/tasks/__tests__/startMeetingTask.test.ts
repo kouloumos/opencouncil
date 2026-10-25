@@ -26,7 +26,7 @@ const TASK = { id: 't1', type: 'transcribe', status: 'pending' };
 const meeting = (overrides: object = {}) => ({
     youtubeUrl: 'https://youtu.be/abc',
     agendaUrl: 'https://example.com/agenda.pdf',
-    _count: { speakerSegments: 0 },
+    transcript: { _count: { speakerSegments: 0 } },
     ...overrides,
 });
 
@@ -75,13 +75,13 @@ describe('startMeetingTask', () => {
 
     it('tells the caller that a succeeded step needs force', async () => {
         (requestSummarizeInternal as jest.Mock).mockRejectedValue(new TaskAlreadyExistsError('summarize', 'already_succeeded'));
-        mockMeetingFindUnique.mockResolvedValue(meeting({ _count: { speakerSegments: 3 } }));
+        mockMeetingFindUnique.mockResolvedValue(meeting({ transcript: { _count: { speakerSegments: 3 } } }));
         await expect(startMeetingTask('athens', 'm1', { type: 'summarize' })).rejects.toThrow(/Pass force/);
     });
 
     it('reports a step that startTask refused beside a running one as a conflict to wait out', async () => {
         (requestSummarizeInternal as jest.Mock).mockRejectedValue(new PipelineBusyError('summarize', 'transcribe'));
-        mockMeetingFindUnique.mockResolvedValue(meeting({ _count: { speakerSegments: 3 } }));
+        mockMeetingFindUnique.mockResolvedValue(meeting({ transcript: { _count: { speakerSegments: 3 } } }));
         const failure = startMeetingTask('athens', 'm1', { type: 'summarize', force: true });
         await expect(failure).rejects.toThrow(ConflictError);
         await expect(failure).rejects.toThrow(/transcribe task is still running.*with or without force/);
@@ -96,7 +96,7 @@ describe('startMeetingTask', () => {
         await expect(startMeetingTask('athens', 'm1', { type: 'fixTranscript' })).rejects.toThrow(BadRequestError);
         await expect(startMeetingTask('athens', 'm1', { type: 'summarize' })).rejects.toThrow(BadRequestError);
 
-        mockMeetingFindUnique.mockResolvedValue(meeting({ _count: { speakerSegments: 3 } }));
+        mockMeetingFindUnique.mockResolvedValue(meeting({ transcript: { _count: { speakerSegments: 3 } } }));
         await startMeetingTask('athens', 'm1', { type: 'summarize', additionalInstructions: 'Focus on the budget' });
         expect(requestSummarizeInternal).toHaveBeenCalledWith('athens', 'm1', [], 'Focus on the budget', { force: false });
         await startMeetingTask('athens', 'm1', { type: 'fixTranscript', force: true });

@@ -54,12 +54,12 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
     const audioUrl = response.audioUrl;
     const muxPlaybackId = response.muxPlaybackId;
 
-    const task = await prisma.taskStatus.findUnique({
+    const loaded = await prisma.taskStatus.findUnique({
         where: {
             id: taskId
         },
         include: {
-            councilMeeting: {
+            transcript: { include: { councilMeeting: {
                 include: {
                     city: {
                         select: {
@@ -68,24 +68,28 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
                         }
                     },
                     administrativeBody: { select: { name: true, name_en: true } },
-                    speakerSegments: {
-                        select: {
-                            id: true
-                        },
-                        take: 1
-                    }
                 }
-            }
+            },
+            speakerSegments: {
+                select: {
+                    id: true
+                },
+                take: 1
+            } } }
         }
     });
 
-    if (!task) {
+    if (!loaded) {
         throw new Error('Task not found');
     }
+    const task = loaded;
+    // A transcript that is not a council meeting (a workspace upload) gets
+    // the import only: its speakers are not people, and it has no fixTranscript.
+    const meeting = task.transcript.councilMeeting;
 
-    const existingSegmentsCount = task.councilMeeting.speakerSegments.length;
+    const existingSegmentsCount = task.transcript.speakerSegments.length;
 
-    await updateMeetingVideo(task.councilMeeting, videoUrl, audioUrl, muxPlaybackId);
+    await updateMeetingVideo({ cityId: task.cityId, id: task.councilMeetingId }, videoUrl, audioUrl, muxPlaybackId);
 
     // Pre-compute speaker segments and utterance mappings before transaction
     // This reduces time spent inside the transaction
@@ -136,10 +140,11 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
             // First, validate all person IDs before creating any speaker tags
             for (const speakerInfo of response.transcript.transcription.speakers) {
                 if (speakerInfo.match) {
-                    // Verify the person exists before attempting to connect
-                    const personExists = await tx.person.findUnique({
-                        where: { id: speakerInfo.match }
-                    });
+                    // Verify the person exists before attempting to connect. The
+                    // voiceprints of a workspace transcript are of its speakers.
+                    const personExists = meeting
+                        ? await tx.person.findUnique({ where: { id: speakerInfo.match } })
+                        : await tx.speaker.findUnique({ where: { id: speakerInfo.match } });
 
                     if (!personExists) {
                         console.warn(`Warning: Person with ID ${speakerInfo.match} not found. Skipping person connection for speaker ${speakerInfo.speaker}`);
@@ -179,16 +184,19 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
                         // person. The task server decided it is a match, so it is one
                         // the method acts on.
                         ...(isMatched ? {
-                            person: { connect: { id: matchInfo.match! } },
+                            speaker: { connect: { id: matchInfo.match! } },
                             personSetBy: 'voiceprint' as const,
-                            identifications: {
-                                create: {
-                                    method: 'voiceprint' as const,
-                                    personId: matchInfo.match!,
-                                    actionable: true,
-                                    confidence: matchInfo.confidence[matchInfo.match!] ?? null,
+                            // An identification names a person: a meeting's speakers only.
+                            ...(meeting ? {
+                                identifications: {
+                                    create: {
+                                        method: 'voiceprint' as const,
+                                        personId: matchInfo.match!,
+                                        actionable: true,
+                                        confidence: matchInfo.confidence[matchInfo.match!] ?? null,
+                                    },
                                 },
-                            },
+                            } : {}),
                         } : {})
                     }
                 });
@@ -236,7 +244,7 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
                         startTimestamp: segment.startTimestamp,
                         endTimestamp: segment.endTimestamp,
                         speakerTag: { connect: { id: speakerTags.get(Number(segment.speakerTagId))! } },
-                        meeting: { connect: { cityId_id: { cityId: task.councilMeeting.cityId, id: task.councilMeeting.id } } },
+                        transcript: { connect: { workspaceId_id: { workspaceId: task.cityId, id: task.councilMeetingId } } },
                         utterances: {
                             createMany: {
                                 data: segmentUtterances.map(utterance => ({
@@ -271,6 +279,8 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
 
     console.log(`Transaction completed successfully`);
 
+    if (!meeting) return;
+
     // Auto-chain the next pipeline step: a fresh transcript always needs fixing.
     // force bypasses the already-succeeded idempotency guard on re-transcribes,
     // where the prior fixTranscript applies to utterances that no longer exist.
@@ -279,8 +289,8 @@ export async function handleTranscribeResult(taskId: string, response: Transcrib
         {
             cityId: task.cityId,
             meetingId: task.councilMeetingId,
-            cityName: task.councilMeeting.city.name_en,
-            meetingName: meetingLabelInCity(task.councilMeeting, 'en'),
+            cityName: meeting.city.name_en,
+            meetingName: meetingLabelInCity(meeting, 'en'),
             source: { taskType: 'transcribe', taskId },
         },
         () => requestFixTranscriptInternal(task.councilMeetingId, task.cityId, { force: true })
@@ -322,11 +332,11 @@ let getSpeakerSegmentsFromUtterances = (utterances: ApiUtterance[]): SpeakerSegm
     return speakerSegments;
 }
 
-let updateMeetingVideo = async (meeting: CouncilMeeting, videoUrl: string, audioUrl: string, muxPlaybackId: string) => {
-    const updatedMeeting = await prisma.councilMeeting.update({
+let updateMeetingVideo = async (meeting: Pick<CouncilMeeting, 'cityId' | 'id'>, videoUrl: string, audioUrl: string, muxPlaybackId: string) => {
+    const updatedMeeting = await prisma.transcript.update({
         where: {
-            cityId_id: {
-                cityId: meeting.cityId,
+            workspaceId_id: {
+                workspaceId: meeting.cityId,
                 id: meeting.id
             }
         },

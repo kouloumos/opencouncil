@@ -257,7 +257,7 @@ describe('markHumanReviewComplete — summarize auto-run', () => {
 describe('getReviewCompletionState', () => {
   const DAY = 86_400_000;
   const meetingWithBody = (released: boolean, daysAgo = 2) => ({
-    released,
+    transcript: { released },
     dateTime: new Date(Date.now() - daysAgo * DAY),
     scheduleStatus: 'scheduled',
     administrativeBody: {
@@ -315,7 +315,7 @@ describe('getReviewCompletionState', () => {
   });
 
   it('reports a meeting without an administrative body as having no recipients', async () => {
-    mockMeetingFindUnique.mockResolvedValue({ released: true, dateTime: new Date(), scheduleStatus: 'scheduled', administrativeBody: null });
+    mockMeetingFindUnique.mockResolvedValue({ transcript: { released: true }, dateTime: new Date(), scheduleStatus: 'scheduled', administrativeBody: null });
 
     await expect(getReviewCompletionState(CITY_ID, MEETING_ID)).resolves.toEqual({
       contactEmails: [],

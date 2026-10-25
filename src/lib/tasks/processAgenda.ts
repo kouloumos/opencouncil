@@ -16,6 +16,7 @@ import { formatClockTime, localCalendarDate } from '@/lib/formatters/time';
 import { errorMessage } from '@/lib/utils/errors';
 import { sendAgendaReadingAlert, sendTaskAdminAlert } from '@/lib/discord';
 import { webUrl } from '@/lib/zod-schemas/primitives';
+import { withCouncilMeeting } from './taskMeeting';
 
 /**
  * User-facing Server Action that checks authorization before processing.
@@ -39,23 +40,24 @@ export async function requestProcessAgenda(agendaUrl: string, councilMeetingId: 
 }
 
 export async function handleProcessAgendaResult(taskId: string, response: ProcessAgendaResult) {
-    const task = await prisma.taskStatus.findUnique({
+    const loaded = await prisma.taskStatus.findUnique({
         where: {
             id: taskId
         },
         include: {
-            councilMeeting: {
+            transcript: { include: { councilMeeting: {
                 include: {
                     administrativeBody: true,
                     city: true
                 }
-            }
+            } } }
         }
     });
 
-    if (!task) {
+    if (!loaded) {
         throw new Error('Task not found');
     }
+    const task = withCouncilMeeting(loaded);
 
     // A success result with an empty `subjects` array is a valid outcome:
     // some agendas (e.g. λογοδοσία / accountability sessions) genuinely have no

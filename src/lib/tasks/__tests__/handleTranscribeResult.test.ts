@@ -7,6 +7,7 @@ const mockTaskFindUnique = jest.fn();
 const mockMeetingUpdate = jest.fn();
 const mockSpeakerTagCreate = jest.fn();
 const mockPersonFindUnique = jest.fn();
+const mockSpeakerFindUnique = jest.fn();
 const mockSpeakerSegmentCreate = jest.fn();
 
 // Mock all transitive dependencies of transcribe.ts before import
@@ -16,12 +17,13 @@ jest.mock('../../db/prisma', () => ({
     taskStatus: {
       findUnique: (...args: unknown[]) => mockTaskFindUnique(...args),
     },
-    councilMeeting: {
+    transcript: {
       update: (...args: unknown[]) => mockMeetingUpdate(...args),
     },
     $transaction: (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         person: { findUnique: (...args: unknown[]) => mockPersonFindUnique(...args) },
+        speaker: { findUnique: (...args: unknown[]) => mockSpeakerFindUnique(...args) },
         speakerTag: { create: (...args: unknown[]) => mockSpeakerTagCreate(...args) },
         speakerSegment: { create: (...args: unknown[]) => mockSpeakerSegmentCreate(...args) },
       }),
@@ -53,11 +55,13 @@ const task = {
   id: 'task-1',
   cityId: CITY_ID,
   councilMeetingId: MEETING_ID,
-  councilMeeting: {
-    id: MEETING_ID,
-    cityId: CITY_ID,
-    name_en: 'Test Meeting',
-    city: { name_en: 'Test City' },
+  transcript: {
+    councilMeeting: {
+      id: MEETING_ID,
+      cityId: CITY_ID,
+      name_en: 'Test Meeting',
+      city: { name_en: 'Test City' },
+    },
     speakerSegments: [],
   },
 };
@@ -208,7 +212,7 @@ describe('handleTranscribeResult — voiceprint identifications', () => {
     expect(mockSpeakerTagCreate).toHaveBeenCalledWith({
       data: {
         label: 'SPEAKER_0',
-        person: { connect: { id: 'anna' } },
+        speaker: { connect: { id: 'anna' } },
         personSetBy: 'voiceprint',
         identifications: { create: { method: 'voiceprint', personId: 'anna', actionable: true, confidence: 87.5 } },
       },
@@ -229,5 +233,43 @@ describe('handleTranscribeResult — voiceprint identifications', () => {
 
     const { data } = mockSpeakerTagCreate.mock.calls[0][0];
     expect(Object.keys(data)).toEqual(['label']);
+  });
+});
+
+describe('handleTranscribeResult — a transcript that is not a council meeting', () => {
+  const workspaceTask = { ...task, transcript: { councilMeeting: null, speakerSegments: [] } };
+  const withSpeakers = (speakers: unknown[]) => ({
+    ...response,
+    transcript: { transcription: { ...response.transcript.transcription, speakers } },
+  });
+
+  beforeEach(() => {
+    mockTaskFindUnique.mockResolvedValue(workspaceTask);
+  });
+
+  it('imports the segments into the transcript and starts no fixTranscript', async () => {
+    await handleTranscribeResult('task-1', response as never);
+
+    expect(mockSpeakerSegmentCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        transcript: { connect: { workspaceId_id: { workspaceId: CITY_ID, id: MEETING_ID } } },
+      }),
+    }));
+    expect(mockRequestFixTranscriptInternal).not.toHaveBeenCalled();
+  });
+
+  it('connects a voiceprint match to the speaker, with no identification', async () => {
+    mockSpeakerFindUnique.mockResolvedValue({ id: 'speaker-1' });
+
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: 'speaker-1', confidence: { 'speaker-1': 90 } }]) as never);
+
+    expect(mockPersonFindUnique).not.toHaveBeenCalled();
+    expect(mockSpeakerTagCreate).toHaveBeenCalledWith({
+      data: {
+        label: 'SPEAKER_0',
+        speaker: { connect: { id: 'speaker-1' } },
+        personSetBy: 'voiceprint',
+      },
+    });
   });
 });

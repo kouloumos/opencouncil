@@ -77,7 +77,7 @@ export async function getReviewCompletionState(cityId: string, meetingId: string
         prisma.councilMeeting.findUnique({
             where: { cityId_id: { cityId, id: meetingId } },
             select: {
-                released: true,
+                transcript: { select: { released: true } },
                 dateTime: true,
                 scheduleStatus: true,
                 administrativeBody: {
@@ -105,7 +105,7 @@ export async function getReviewCompletionState(cityId: string, meetingId: string
         administrativeBodyName: meeting.administrativeBody?.name || null,
         summarizeAvailability: blockedReason ? SUMMARIZE_AVAILABILITY[blockedReason] : 'available',
         summarizeNotifications: notificationOutcome({
-            released: meeting.released,
+            released: meeting.transcript.released,
             dateTime: meeting.dateTime,
             scheduleStatus: meeting.scheduleStatus,
             notificationBehavior: meeting.administrativeBody?.notificationBehavior,
@@ -179,7 +179,7 @@ async function createHumanReviewRecord(
                 triggeredBy: 'user',
                 ...(manualReviewTime && { manualReviewTime })
             }),
-            councilMeeting: { connect: { cityId_id: { cityId, id: meetingId } } }
+            transcript: { connect: { workspaceId_id: { workspaceId: cityId, id: meetingId } } }
         }
     });
 

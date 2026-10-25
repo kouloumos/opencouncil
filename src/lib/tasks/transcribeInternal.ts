@@ -69,12 +69,12 @@ export async function requestTranscribeInternal(youtubeUrl: string, councilMeeti
                     parties: true
                 }
             },
-            speakerSegments: {
+            transcript: { include: { speakerSegments: {
                 select: {
                     id: true
                 },
                 take: 1
-            }
+            } } }
         }
     });
 
@@ -94,7 +94,7 @@ export async function requestTranscribeInternal(youtubeUrl: string, councilMeeti
     // old transcript stays until the new one lands: handleTranscribeResult
     // deletes it inside the import transaction, so a job the task server
     // refuses leaves the meeting as it was.
-    if (councilMeeting.speakerSegments.length > 0 && !force) {
+    if (councilMeeting.transcript.speakerSegments.length > 0 && !force) {
         console.log(`Meeting already has speaker segments`);
         throw new ConflictError('The meeting already has a transcript. A re-run must set force, which replaces it, with its highlights.');
     }
