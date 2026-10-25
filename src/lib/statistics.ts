@@ -26,6 +26,11 @@ const EMPTY_STATISTICS: Statistics = {
     topics: []
 };
 
+/** The person of a segment's speaker tag, put on the tag, where the statistics read it. */
+function withTagPerson<T extends { speakerTag: { speaker: { person: PersonWithRelations | null } | null } }>(segment: T) {
+    return { ...segment, speakerTag: { ...segment.speakerTag, person: segment.speakerTag.speaker?.person ?? null } };
+}
+
 type SpeakerSegmentInfo = SpeakerSegment & {
     speakerTag: {
         person: PersonWithRelations | null;
@@ -102,18 +107,24 @@ export async function getStatisticsFor(
         meetingId: meetingId,
         cityId: cityId,
         speakerTag: { personId: personId },
-        meeting: {
-            ...(includeUnreleased ? {} : unreleasedMeetingWhere(unreleased)),
-            ...(administrativeBodyId ? { administrativeBodyId } : {})
+        transcript: {
+            councilMeeting: {
+                ...(includeUnreleased ? {} : unreleasedMeetingWhere(unreleased)),
+                ...(administrativeBodyId ? { administrativeBodyId } : {})
+            }
         },
         NOT: { summary: { type: "procedural" as const } }
     };
 
     const speakerTagInclude = {
         include: {
-            person: {
+            speaker: {
                 include: {
-                    roles: roleWithRelationsInclude
+                    person: {
+                        include: {
+                            roles: roleWithRelationsInclude
+                        }
+                    }
                 }
             }
         }
@@ -121,19 +132,19 @@ export async function getStatisticsFor(
 
     // Conditionally include topicLabels only when grouping by topic
     if (needsTopicLabels) {
-        transcript = await prisma.speakerSegment.findMany({
+        transcript = (await prisma.speakerSegment.findMany({
             where,
             include: {
                 speakerTag: speakerTagInclude,
                 topicLabels: { include: { topic: true } }
             }
-        });
+        })).map(withTagPerson);
     } else {
         const segments = await prisma.speakerSegment.findMany({
             where,
             include: { speakerTag: speakerTagInclude }
         });
-        transcript = segments.map(seg => ({ ...seg, topicLabels: [] }));
+        transcript = segments.map(seg => ({ ...withTagPerson(seg), topicLabels: [] }));
     }
 
     // Filter by party in application code to ensure role was active at meeting time
@@ -212,9 +223,13 @@ export async function getBatchStatisticsForSubjects(
 
     const speakerTagInclude = {
         include: {
-            person: {
+            speaker: {
                 include: {
-                    roles: roleWithRelationsInclude
+                    person: {
+                        include: {
+                            roles: roleWithRelationsInclude
+                        }
+                    }
                 }
             }
         }
@@ -223,11 +238,11 @@ export async function getBatchStatisticsForSubjects(
     const segments = await prisma.speakerSegment.findMany({
         where: {
             id: { in: [...allSegmentIds] },
-            meeting: includeUnreleased ? {} : { released: true },
+            transcript: includeUnreleased ? {} : { released: true },
             NOT: { summary: { type: "procedural" as const } }
         },
         include: { speakerTag: speakerTagInclude }
-    });
+    }).then(rows => rows.map(withTagPerson));
 
     // Index segments by ID for fast lookup
     const segmentById = new Map(segments.map(s => [s.id, s]));

@@ -532,13 +532,13 @@ export async function mcpGetSubjectTranscript(subjectId: string, page: number, i
                         speakerTag: {
                             select: {
                                 label: true,
-                                person: {
+                                speaker: { select: { person: {
                                     select: {
                                         id: true,
                                         name: true,
                                         roles: roleWithRelationsInclude,
                                     },
-                                },
+                                } } },
                             },
                         },
                     },
@@ -555,9 +555,9 @@ export async function mcpGetSubjectTranscript(subjectId: string, page: number, i
         pagination: paginationOf(total, page, SUBJECT_TRANSCRIPT_PAGE_SIZE),
         utterances: utterances.map(utterance => ({
             utteranceId: utterance.id,
-            speaker: utterance.speakerSegment.speakerTag.person?.name
+            speaker: utterance.speakerSegment.speakerTag.speaker?.person?.name
                 ?? utterance.speakerSegment.speakerTag.label,
-            role: getRoleLabelAt(utterance.speakerSegment.speakerTag.person?.roles, t, meetingDate),
+            role: getRoleLabelAt(utterance.speakerSegment.speakerTag.speaker?.person?.roles, t, meetingDate),
             startSec: utterance.startTimestamp,
             endSec: utterance.endTimestamp,
             text: utterance.text,
@@ -1162,7 +1162,7 @@ async function requireManagedHighlight(identity: McpIdentity, highlightId: strin
         where: { id: highlightId },
         include: {
             _count: { select: { highlightedUtterances: true } },
-            meeting: { select: { videoUrl: true } },
+            meeting: { select: { transcript: { select: { videoUrl: true } } } },
         },
     });
     if (!highlight) throw new NotFoundError('Highlight not found');
@@ -1306,7 +1306,7 @@ export async function mcpGenerateHighlightVideo(
         }
     }
 
-    if (!highlight.meeting.videoUrl) {
+    if (!highlight.meeting.transcript.videoUrl) {
         throw new BadRequestError('This meeting has no video, so a highlight video cannot be rendered.');
     }
 

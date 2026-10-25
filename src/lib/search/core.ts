@@ -33,18 +33,18 @@ const logEssential = (message: string, data?: any) => {
 
 // Relations needed to turn a speaker segment into a detailed search result entry
 const subjectDiscussionSegmentInclude = {
-    meeting: {
+    transcript: { include: { councilMeeting: {
         include: {
             city: true
         }
-    },
+    } } },
     speakerTag: {
         include: {
-            person: {
+            speaker: { include: { person: {
                 include: {
                     roles: roleWithRelationsInclude
                 }
-            }
+            } } }
         }
     },
     utterances: true,
@@ -152,14 +152,14 @@ async function resolveVisibleHits(
 
     const visible = await prisma.subject.findMany({
         where: { id: { in: hitIds } },
-        select: { id: true, councilMeeting: { select: { released: true } } },
+        select: { id: true, councilMeeting: { select: { transcript: { select: { released: true } } } } },
     });
     const visibleById = new Map(visible.map(subject => [subject.id, subject]));
 
     const { resolved, orphanedIds, unreleasedIds, droppedWithoutSource } = partitionHits(
         esHits,
         visibleById,
-        subject => subject.councilMeeting.released,
+        subject => subject.councilMeeting.transcript.released,
     );
 
     if (orphanedIds.length > 0 || unreleasedIds.length > 0 || droppedWithoutSource > 0) {
@@ -419,7 +419,7 @@ async function hydrateSubjectHits(hits: SubjectSearchHit[], detailed: boolean): 
             where: {
                 utterances: { some: { discussionSubjectId: { in: subjectIds } } },
                 // Search is public: no text of a transcript that a reader may not read.
-                meeting: TRANSCRIPT_PUBLIC_WHERE,
+                transcript: { councilMeeting: TRANSCRIPT_PUBLIC_WHERE },
             },
             include: subjectDiscussionSegmentInclude,
             orderBy: { startTimestamp: 'asc' }
@@ -492,10 +492,12 @@ async function hydrateSubjectHits(hits: SubjectSearchHit[], detailed: boolean): 
         // If detailed results are requested, add speaker segment text
         if (detailed) {
             const speakerSegments = (segmentsBySubject.get(subject.id) ?? [])
+                // Every segment here is of the subject's meeting.
+                .flatMap(({ transcript, ...segment }) => transcript.councilMeeting ? [{ ...segment, meeting: transcript.councilMeeting }] : [])
                 .filter(segment => {
                     const text = segment.utterances.map(u => u.text).join(' ');
-                    const hasPerson = segment.speakerTag?.person != null;
-                    const hasRoles = Array.isArray(segment.speakerTag?.person?.roles);
+                    const hasPerson = segment.speakerTag?.speaker?.person != null;
+                    const hasRoles = Array.isArray(segment.speakerTag?.speaker?.person?.roles);
                     return text.length >= 100 && hasPerson && hasRoles;
                 })
                 .map(segment => ({
@@ -503,7 +505,7 @@ async function hydrateSubjectHits(hits: SubjectSearchHit[], detailed: boolean): 
                     startTimestamp: segment.startTimestamp,
                     endTimestamp: segment.endTimestamp,
                     meeting: segment.meeting,
-                    person: segment.speakerTag?.person || null,
+                    person: segment.speakerTag?.speaker?.person || null,
                     text: segment.utterances.map(u => u.text).join(' '),
                     summary: segment.summary ? { text: segment.summary.text } : null
                 }));

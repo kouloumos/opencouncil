@@ -69,11 +69,11 @@ describe('where-clause fragments agree with the predicates', () => {
 
 describe('publicMeetingWhere', () => {
     it('admits only a released meeting of a public city on the given realm', () => {
-        expect(publicMeetingWhere('greece')).toEqual({ released: true, city: { ...PUBLIC_CITY_WHERE, realm: 'greece' } });
+        expect(publicMeetingWhere('greece')).toEqual({ transcript: { released: true }, city: { ...PUBLIC_CITY_WHERE, realm: 'greece' } });
     });
 
     it('spans every realm only when the caller passes null', () => {
-        expect(publicMeetingWhere(null)).toEqual({ released: true, city: PUBLIC_CITY_WHERE });
+        expect(publicMeetingWhere(null)).toEqual({ transcript: { released: true }, city: PUBLIC_CITY_WHERE });
     });
 
     // meetingWhere in subjectsApi adds its date filters to the object it gets.

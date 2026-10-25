@@ -281,7 +281,7 @@ describe('searchInRealm — reporting what the query text supplied', () => {
 
 describe('searchSubjectsInRealm — retrieval', () => {
     const hit = (id: string, score: number) => ({ _score: score, _source: { id } });
-    const released = (id: string, isReleased = true) => ({ id, councilMeeting: { released: isReleased } });
+    const released = (id: string, isReleased = true) => ({ id, councilMeeting: { transcript: { released: isReleased } } });
 
     const indexReturns = (hits: ReturnType<typeof hit>[], total = hits.length) => {
         esSearchMock.mockResolvedValue({ hits: { total: { value: total, relation: 'eq' }, hits }, took: 1 });
@@ -330,7 +330,7 @@ describe('searchSubjectsInRealm — retrieval', () => {
         await searchSubjectsInRealm({ query: 'ανακύκλωση' }, 'greece');
 
         const [args] = findManyMock.mock.calls[0];
-        expect(args.select).toEqual({ id: true, councilMeeting: { select: { released: true } } });
+        expect(args.select).toEqual({ id: true, councilMeeting: { select: { transcript: { select: { released: true } } } } });
         expect(args.include).toBeUndefined();
     });
 
@@ -354,7 +354,7 @@ describe('search matches cross the retrieval/hydration seam', () => {
         highlight: { name: [NAME_FRAGMENT], description: [DESCRIPTION_FRAGMENT] },
     };
     const plainHit = { _score: 4, _source: { id: 'b' } };
-    const released = (id: string) => ({ id, councilMeeting: { released: true } });
+    const released = (id: string) => ({ id, councilMeeting: { transcript: { released: true } } });
 
     beforeEach(() => {
         esSearchMock.mockResolvedValue({
@@ -524,7 +524,7 @@ describe('searchRelatedSubjectsInRealm', () => {
 
     it('re-checks visibility outside the cache, so a stale entry cannot show an unpublished subject', async () => {
         esSearchMock.mockResolvedValue({ hits: { total: { value: 1, relation: 'eq' }, hits: [{ _score: 0.95, _source: { id: 'stale' } }] }, took: 1 });
-        findManyMock.mockResolvedValue([{ id: 'stale', councilMeeting: { released: false } }]);
+        findManyMock.mockResolvedValue([{ id: 'stale', councilMeeting: { transcript: { released: false } } }]);
 
         await searchRelatedSubjectsInRealm(SEED, 'city', 'greece');
         // The entry is written now; this visit is a cache hit.
@@ -567,7 +567,7 @@ describe('searchRelatedSubjectsInRealm', () => {
 
     it('drops a hit whose meeting the database no longer marks released', async () => {
         esSearchMock.mockResolvedValue({ hits: { total: { value: 1, relation: 'eq' }, hits: [{ _score: 0.95, _source: { id: 'stale' } }] }, took: 1 });
-        findManyMock.mockResolvedValueOnce([{ id: 'stale', councilMeeting: { released: false } }]);
+        findManyMock.mockResolvedValueOnce([{ id: 'stale', councilMeeting: { transcript: { released: false } } }]);
 
         await expect(searchRelatedSubjectsInRealm(SEED, 'city', 'greece')).resolves.toEqual([]);
     });
@@ -583,8 +583,8 @@ describe('searchRelatedSubjectsInRealm', () => {
         const meeting = { id: 'meeting-2', city: { id: 'athens' }, administrativeBody: null };
         findManyMock
             .mockResolvedValueOnce([
-                { id: 'near', councilMeeting: { released: true } },
-                { id: 'far', councilMeeting: { released: true } },
+                { id: 'near', councilMeeting: { transcript: { released: true } } },
+                { id: 'far', councilMeeting: { transcript: { released: true } } },
             ])
             .mockResolvedValueOnce([
                 { id: 'far', location: null, councilMeeting: meeting },

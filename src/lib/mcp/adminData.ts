@@ -74,7 +74,7 @@ export async function mcpCreateMeeting(identity: McpIdentity, args: CreateMeetin
         title: meetingDisplayName(meeting, 'el', timezone),
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
-        released: meeting.released,
+        released: meeting.transcript.released,
         url: meetingUrl(meeting.cityId, meeting.id),
         ...(processAgendaStatus && { processAgendaStatus }),
         next: 'The meeting is saved as a draft: only administrators see it, and no subscriber is notified '
@@ -123,7 +123,7 @@ export async function mcpUpdateMeeting(identity: McpIdentity, args: UpdateMeetin
         youtubeUrl: meeting.youtubeUrl,
         agendaUrl: meeting.agendaUrl,
         administrativeBody: meeting.administrativeBody?.name ?? null,
-        released: meeting.released,
+        released: meeting.transcript.released,
         url: meetingUrl(meeting.cityId, meeting.id),
     };
 }

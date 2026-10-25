@@ -6,7 +6,7 @@ import { getPublicExcerpt } from '../excerpts';
 import { digestExcerpt, type ExcerptSelector } from '../excerptSelector';
 
 const query = prisma.utterance.findMany as jest.Mock;
-const source = { id: 'u1', text: 'Η πλατεία.', startTimestamp: 0, speakerSegmentId: 'seg', discussionStatus: 'SUBJECT_DISCUSSION', discussionSubject: { id: 's', name: 'Πλατεία' }, speakerSegment: { id: 'seg', startTimestamp: 0, speakerTag: { id: 'tag', personId: 'p', person: { name: 'Άννα', name_en: 'Anna' } } } };
+const source = { id: 'u1', text: 'Η πλατεία.', startTimestamp: 0, speakerSegmentId: 'seg', discussionStatus: 'SUBJECT_DISCUSSION', discussionSubject: { id: 's', name: 'Πλατεία' }, speakerSegment: { id: 'seg', startTimestamp: 0, speakerTag: { id: 'tag', personId: 'p', speaker: { person: { name: 'Άννα', name_en: 'Anna' } } } } };
 const selector: ExcerptSelector = { cityId: 'city', meetingId: 'meeting', firstUtteranceId: 'u1', lastUtteranceId: 'u1', textLocale: 'el', digest: '' };
 const topic = { name: 'Πολεοδομία', name_en: 'Planning', colorHex: '#4f46e5', icon: 'map' };
 const unassigned = { ...source, discussionStatus: 'OTHER', discussionSubject: null };
@@ -14,7 +14,7 @@ const unassigned = { ...source, discussionStatus: 'OTHER', discussionSubject: nu
 describe('bounded public excerpt reconstruction', () => {
     beforeEach(async () => {
         jest.clearAllMocks();
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', cityId: 'city', taskStatuses: [{ id: 'review' }] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', cityId: 'city', transcript: { taskStatuses: [{ id: 'review' }] } });
         (transcriptIsPublic as jest.Mock).mockReturnValue(true);
         (prisma.subject.findMany as jest.Mock).mockResolvedValue([]);
         query.mockResolvedValue([source]);
@@ -71,12 +71,12 @@ describe('bounded public excerpt reconstruction', () => {
         expect(result.excerpt.subject).toBeNull();
     });
     it('updates the review notice without changing the quote or invalidating its digest', async () => {
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', taskStatuses: [] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', transcript: { taskStatuses: [] } });
         const unreviewed = await getPublicExcerpt(selector, 'greece');
         expect(unreviewed.status).toBe('ok');
         if (unreviewed.status !== 'ok') throw new Error('Expected publicly eligible excerpt');
         expect(unreviewed.excerpt.isReviewed).toBe(false);
-        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', taskStatuses: [{ id: 'review' }] });
+        (getPublicMeeting as jest.Mock).mockResolvedValue({ id: 'meeting', transcript: { taskStatuses: [{ id: 'review' }] } });
         const reviewed = await getPublicExcerpt(selector, 'greece');
         expect(reviewed.status).toBe('ok');
         if (reviewed.status !== 'ok') throw new Error('Expected reviewed excerpt');
@@ -105,7 +105,7 @@ describe('bounded public excerpt reconstruction', () => {
         expect((await getPublicExcerpt(selector, 'greece')).status).toBe('source-changed'); // Every word in the selected utterance belongs to the quote.
         query.mockResolvedValue([{ ...source, text: 'Η ΠΛΑΤΕΙΑ.' }]);
         expect((await getPublicExcerpt(selector, 'greece')).status).toBe('source-changed');
-        query.mockResolvedValue([{ ...source, speakerSegment: { ...source.speakerSegment, speakerTag: { ...source.speakerSegment.speakerTag, person: { name: 'Νίκος', name_en: 'Nikos' } } } }]);
+        query.mockResolvedValue([{ ...source, speakerSegment: { ...source.speakerSegment, speakerTag: { ...source.speakerSegment.speakerTag, speaker: { person: { name: 'Νίκος', name_en: 'Nikos' } } } } }]);
         expect((await getPublicExcerpt(selector, 'greece')).status).toBe('source-changed');
         query.mockResolvedValue([]);
         expect((await getPublicExcerpt(selector, 'greece')).status).toBe('source-changed');

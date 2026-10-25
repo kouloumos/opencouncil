@@ -57,7 +57,7 @@ describe('getMeetingSummary', () => {
         expect(await getMeetingSummary('vouli', 'missing')).toBeNull();
 
         expect(mockFindUnique).toHaveBeenCalledWith(expect.objectContaining({
-            where: { cityId_id: { cityId: 'vouli', id: 'missing' }, released: true },
+            where: { cityId_id: { cityId: 'vouli', id: 'missing' }, transcript: { released: true } },
         }));
         expect(mockAggregate).not.toHaveBeenCalled();
         expect(mockPersonCount).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe('getMeetingSummary', () => {
             subjectStartSeconds: { s1: 872.5 },
         });
         expect(mockPersonCount).toHaveBeenCalledWith({
-            where: { speakerTags: { some: { speakerSegments: { some: { cityId: 'vouli', meetingId: 'apr6_2026' } } } } },
+            where: { speaker: { speakerTags: { some: { speakerSegments: { some: { cityId: 'vouli', meetingId: 'apr6_2026' } } } } } },
         });
         expect(mockGroupBy).toHaveBeenCalledWith(expect.objectContaining({
             where: { discussionSubjectId: { in: ['s1', 's2'] }, discussionStatus: 'SUBJECT_DISCUSSION' },

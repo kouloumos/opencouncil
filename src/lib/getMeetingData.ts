@@ -16,6 +16,7 @@ import { Realm, SpeakerTag } from '@prisma/client';
 import { Party } from '@prisma/client';
 import { originalScheduledDate } from '@/lib/db/meetingLifecycle';
 import { hideLinks } from '@/lib/meetingPublic';
+import { withTranscriptFields, type WithTranscriptFields } from '@/lib/db/types/meeting';
 
 const EMPTY_STATISTICS: Statistics = {
     speakingSeconds: 0,
@@ -29,7 +30,7 @@ const EMPTY_STATISTICS: Statistics = {
  * replaced is cleared, because that meeting is not public; the page shows the
  * date for which the meeting was first scheduled instead.
  */
-export type MeetingForPage = CouncilMeetingWithAdminBody & { postponedFromDate: Date | null };
+export type MeetingForPage = WithTranscriptFields<CouncilMeetingWithAdminBody> & { postponedFromDate: Date | null };
 
 export type MeetingDataCore = {
     meeting: MeetingForPage;
@@ -169,7 +170,7 @@ async function fetchMeetingDataCore(cityId: string, meetingId: string, realm: Re
         : null;
 
     return {
-        meeting: { ...hideLinks(meeting), postponedFromDate },
+        meeting: { ...withTranscriptFields(hideLinks(meeting)), postponedFromDate },
         transcript,
         city,
         people,

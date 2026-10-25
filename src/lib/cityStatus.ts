@@ -61,7 +61,7 @@ export const PUBLIC_CITY_WHERE = {
  */
 export function publicMeetingWhere(realm: Realm | null) {
     return {
-        released: true,
+        transcript: { released: true },
         city: realm ? { ...PUBLIC_CITY_WHERE, realm } : PUBLIC_CITY_WHERE,
     } satisfies Prisma.CouncilMeetingWhereInput;
 }

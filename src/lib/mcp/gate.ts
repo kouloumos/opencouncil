@@ -73,31 +73,29 @@ export async function requireVisibleMeeting(
         // rides along for the same reason: creating a highlight with a render
         // in one call has to know whether there is anything to render from.
         select: {
-            released: true,
             dateTime: true,
             name: true,
             name_en: true,
             kind: true,
             sessionNumber: true,
             urgent: true,
-            videoUrl: true,
             administrativeBody: { select: { name: true, name_en: true, showUnreviewedTranscript: true } },
             administrativeBodyId: true,
-            taskStatuses: transcriptGateSelect.taskStatuses,
+            transcript: { select: { released: true, videoUrl: true, ...transcriptGateSelect.transcript.select } },
             city: { select: { timezone: true } },
         },
     });
 
     if (!meeting) throw new NotFoundError('Meeting not found');
 
-    const editor = meeting.released ? null : await canSeeUnreleasedMeeting(identity, cityId, meeting.administrativeBodyId);
+    const editor = meeting.transcript.released ? null : await canSeeUnreleasedMeeting(identity, cityId, meeting.administrativeBodyId);
     if (editor === false) throw new NotFoundError('Meeting not found');
 
     return {
-        released: meeting.released,
+        released: meeting.transcript.released,
         dateTime: meeting.dateTime,
         name: meetingLabelInCity(meeting, 'el'),
-        videoUrl: meeting.videoUrl,
+        videoUrl: meeting.transcript.videoUrl,
         administrativeBody: meeting.administrativeBody && { name: meeting.administrativeBody.name },
         administrativeBodyId: meeting.administrativeBodyId,
         publicTranscript: transcriptIsPublic(meeting),

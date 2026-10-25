@@ -23,15 +23,13 @@ const USER = { userId: 'u1' } as const;
 /** The row that the gate selects, and the payload that it returns for it. */
 function row(released: boolean) {
     return {
-        released,
         dateTime: new Date('2026-05-12T18:00:00Z'),
         name: null,
         name_en: null,
         kind: 'ordinary',
         urgent: false,
-        videoUrl: null,
         administrativeBody: { name: 'Δημοτικό Συμβούλιο', name_en: 'Municipal Council', showUnreviewedTranscript: true },
-        taskStatuses: [],
+        transcript: { released, videoUrl: null, taskStatuses: [] as { id: string }[] },
         city: { timezone: 'Europe/Athens' },
     };
 }
@@ -145,7 +143,7 @@ describe('the transcript of a visible meeting', () => {
         const unreviewed = { ...row(true), administrativeBody: { ...row(true).administrativeBody, showUnreviewedTranscript: false } };
         mockMeetingFindFirst.mockResolvedValue(unreviewed);
         expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(false);
-        mockMeetingFindFirst.mockResolvedValue({ ...unreviewed, taskStatuses: [{ id: 't1' }] });
+        mockMeetingFindFirst.mockResolvedValue({ ...unreviewed, transcript: { ...unreviewed.transcript, taskStatuses: [{ id: 't1' }] } });
         expect((await requireVisibleMeeting('athens', 'm1', null)).publicTranscript).toBe(true);
     });
 });
