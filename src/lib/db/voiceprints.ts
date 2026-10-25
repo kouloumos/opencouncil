@@ -14,8 +14,8 @@ export async function deleteVoicePrint(voicePrintId: string): Promise<void> {
         const voicePrint = await prisma.voicePrint.findUnique({
             where: { id: voicePrintId },
             include: {
-                person: {
-                    select: { cityId: true },
+                speaker: {
+                    select: { workspaceId: true },
                 },
             },
         });
@@ -24,7 +24,7 @@ export async function deleteVoicePrint(voicePrintId: string): Promise<void> {
             throw new Error("Voice print not found");
         }
 
-        await withUserAuthorizedToEdit({ cityId: voicePrint.person.cityId });
+        await withUserAuthorizedToEdit({ cityId: voicePrint.speaker.workspaceId });
 
         await prisma.voicePrint.delete({
             where: { id: voicePrintId },

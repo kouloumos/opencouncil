@@ -12,11 +12,11 @@ import { transcriptGateSelect, transcriptIsPublic } from '@/lib/db/sharing/publi
 export async function getVotingUtterances(subjectId: string) {
     const subject = await prisma.subject.findUnique({
         where: { id: subjectId },
-        select: { cityId: true, councilMeetingId: true, councilMeeting: { select: { ...transcriptGateSelect, released: true } } },
+        select: { cityId: true, councilMeetingId: true, councilMeeting: { select: { ...transcriptGateSelect, transcript: { select: { ...transcriptGateSelect.transcript.select, released: true } } } } },
     });
     if (!subject) return [];
     const { councilMeeting } = subject;
-    if ((!councilMeeting.released || !transcriptIsPublic(councilMeeting))
+    if ((!councilMeeting.transcript.released || !transcriptIsPublic(councilMeeting))
         && !(await isUserAuthorizedToEdit({ cityId: subject.cityId, councilMeetingId: subject.councilMeetingId }))) {
         return [];
     }
@@ -43,7 +43,7 @@ export async function getVotingUtterances(subjectId: string) {
                             id: true,
                             label: true,
                             personId: true,
-                            person: {
+                            speaker: { select: { person: {
                                 select: {
                                     id: true,
                                     name: true,
@@ -54,7 +54,7 @@ export async function getVotingUtterances(subjectId: string) {
                                         }
                                     }
                                 }
-                            }
+                            } } }
                         }
                     }
                 }

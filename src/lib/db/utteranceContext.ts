@@ -51,15 +51,15 @@ export async function getUtteranceContext(
                 select: {
                     meetingId: true,
                     cityId: true,
-                    meeting: {
+                    transcript: { select: { councilMeeting: {
                         select: {
                             ...meetingNameSelect,
                             ...transcriptGateSelect,
                             administrativeBody: { select: { ...meetingNameSelect.administrativeBody.select, ...transcriptGateSelect.administrativeBody.select } },
-                            released: true,
+                            transcript: { select: { ...transcriptGateSelect.transcript.select, released: true } },
                             city: { select: { timezone: true } },
                         },
-                    },
+                    } } },
                 },
             },
         },
@@ -67,11 +67,13 @@ export async function getUtteranceContext(
 
     if (!target) return null;
 
-    const { meetingId, cityId, meeting } = target.speakerSegment;
+    const { meetingId, cityId } = target.speakerSegment;
+    const meeting = target.speakerSegment.transcript.councilMeeting;
+    if (!meeting) return null;
 
     // A reader gets the context of a public transcript only. An editor of the
     // city also gets a draft or a closed one.
-    if (!meeting.released || !transcriptIsPublic(meeting)) {
+    if (!meeting.transcript.released || !transcriptIsPublic(meeting)) {
         if (!(await isUserAuthorizedToEdit({ cityId, councilMeetingId: meetingId }))) {
             return null;
         }
