@@ -4,7 +4,7 @@ import { countCouncilMeetings, findMeetingIdsMatching, getCouncilMeetingsWithSub
 import { getCouncilMeetingPreviewsByIds } from '@/lib/cache/queries'
 import { __setSessionEmail } from '../mocks/auth'
 import { ensureTestDb, resetDatabase } from '../helpers/test-db'
-import { createUser, signInAsSuperAdmin } from '../helpers/factories'
+import { createUser, signInAsSuperAdmin, createMeeting } from '../helpers/factories'
 import { buildMeetingArchive, MeetingArchive } from '../helpers/meetingArchive'
 
 const PAGE_SIZE = 12
@@ -117,9 +117,7 @@ describe('meetings list paging - integration', () => {
         })
 
         test('matches the name in the script the reader sees, as the in-browser search did', async () => {
-            await prisma.councilMeeting.create({
-                data: { id: 'cyrillic-1', cityId: archive.cityId, name: 'Седница Скупштине 15/01/24', name_en: 'Assembly session 15/01/24', dateTime: new Date('2024-01-15T15:00:00Z'), released: true },
-            })
+            await createMeeting(archive.cityId, { id: 'cyrillic-1', cityId: archive.cityId, name: 'Седница Скупштине 15/01/24', name_en: 'Assembly session 15/01/24', dateTime: new Date('2024-01-15T15:00:00Z'), released: true })
             try {
                 // A reader on /lat sees «Sednica Skupštine» and types it in Latin script.
                 expect(await findMeetingIdsMatching(archive.cityId, 'sednica skupstine', reader, 'sr-Latn', TZ)).toEqual(['cyrillic-1'])
@@ -132,9 +130,7 @@ describe('meetings list paging - integration', () => {
         })
 
         test('matches the title derived from the kind and number, as the card shows it', async () => {
-            await prisma.councilMeeting.create({
-                data: { id: 'derived-1', cityId: archive.cityId, name: null, name_en: null, kind: 'ordinary', sessionNumber: 3, administrativeBodyId: archive.bodies.council, dateTime: new Date('2024-03-11T15:00:00Z'), released: true },
-            })
+            await createMeeting(archive.cityId, { id: 'derived-1', cityId: archive.cityId, name: null, name_en: null, kind: 'ordinary', sessionNumber: 3, administrativeBodyId: archive.bodies.council, dateTime: new Date('2024-03-11T15:00:00Z'), released: true })
             try {
                 expect(await findMeetingIdsMatching(archive.cityId, '3η τακτικη', reader, 'el', TZ)).toEqual(['derived-1'])
                 expect(await findMeetingIdsMatching(archive.cityId, '3rd regular', reader, 'el', TZ)).toEqual(['derived-1'])
@@ -154,9 +150,7 @@ describe('meetings list paging - integration', () => {
         afterEach(() => __setSessionEmail(null))
 
         test('hides the link to another meeting from a reader, and shows it to an editor', async () => {
-            await prisma.councilMeeting.create({
-                data: { id: 'continuation-1', cityId: archive.cityId, name: 'Συνέχεια', name_en: 'Continuation', administrativeBodyId: archive.bodies.council, continuationOfId: 'council-1', dateTime: new Date('2024-05-02T15:00:00Z'), released: true },
-            })
+            await createMeeting(archive.cityId, { id: 'continuation-1', cityId: archive.cityId, name: 'Συνέχεια', name_en: 'Continuation', administrativeBodyId: archive.bodies.council, continuationOfId: 'council-1', dateTime: new Date('2024-05-02T15:00:00Z'), released: true })
             try {
                 const [asReader] = await getCouncilMeetingPreviewsByIds(archive.cityId, ['continuation-1'])
                 expect(asReader.continuationOfId).toBeNull()

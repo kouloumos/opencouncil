@@ -37,7 +37,7 @@ export async function GET() {
             _count: { _all: true },
             where: { 
                 cityId: { in: citiesFromDb.map(c => c.id) },
-                released: true
+                transcript: { released: true }
             },
         });
 
@@ -45,7 +45,7 @@ export async function GET() {
             distinct: ['cityId'],
             where: {
                 cityId: { in: citiesFromDb.map(c => c.id) },
-                released: true
+                transcript: { released: true }
             },
             orderBy: [
                 { cityId: 'asc' },

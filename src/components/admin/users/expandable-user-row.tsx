@@ -52,10 +52,10 @@ export function ExpandableUserRow({
                                 {user.administers.length > 0 ? (
                                     <div className="space-y-2">
                                         {user.administers.map((admin) => {
-                                            if (admin.city) {
+                                            if (admin.workspace?.city) {
                                                 return (
                                                     <Badge key={admin.id} variant="secondary" className="block w-fit">
-                                                        🏛️ {admin.city.name}
+                                                        🏛️ {admin.workspace.city.name}
                                                     </Badge>
                                                 )
                                             }

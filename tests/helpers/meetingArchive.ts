@@ -91,7 +91,7 @@ export async function buildMeetingArchive(
         bodies[body.key] = created.id;
     }
 
-    const meetings: (Prisma.CouncilMeetingCreateManyInput & { id: string })[] = [];
+    const meetings: (Prisma.CouncilMeetingCreateManyInput & { id: string; released: boolean })[] = [];
     const unreleasedIds: string[] = [];
     BODIES.forEach((body, bodyIndex) => {
         for (let index = 0; index < MEETINGS_PER_BODY; index++) {
@@ -127,7 +127,12 @@ export async function buildMeetingArchive(
             name_en: `Municipal Council ${shortDate(dateTime)}`,
         });
     }
-    await prisma.councilMeeting.createMany({ data: meetings });
+    await prisma.councilMeeting.createMany({ data: meetings.map(({ released: _released, ...meeting }) => meeting) });
+    // A database trigger creates each meeting's transcript unreleased.
+    await prisma.transcript.updateMany({
+        where: { workspaceId: cityId, id: { in: meetings.filter(meeting => meeting.released).map(meeting => meeting.id) } },
+        data: { released: true },
+    });
 
     const subjects: Prisma.SubjectCreateManyInput[] = meetings.flatMap((meeting, meetingIndex) =>
         Array.from({ length: SUBJECTS_PER_MEETING }, (_, subjectIndex) => ({

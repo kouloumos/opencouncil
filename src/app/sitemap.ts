@@ -34,7 +34,7 @@ async function fetchSitemapData(realm: Realm): Promise<SitemapCity[]> {
             id: true,
             updatedAt: true,
             councilMeetings: {
-                where: { released: true },
+                where: { transcript: { released: true } },
                 select: {
                     id: true,
                     updatedAt: true,

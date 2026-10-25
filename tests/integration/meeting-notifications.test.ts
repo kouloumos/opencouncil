@@ -36,7 +36,7 @@ async function task(type: NewsPhase, status: 'succeeded' | 'pending' | 'failed',
     return row
 }
 
-const setReleased = (released: boolean) => prisma.councilMeeting.update({ where: { cityId_id: { cityId: CITY, id: 'm' } }, data: { released } })
+const setReleased = (released: boolean) => prisma.transcript.update({ where: { workspaceId_id: { workspaceId: CITY, id: 'm' } }, data: { released } })
 const deliveries = () => prisma.notificationDelivery.findMany({ include: { notification: { select: { type: true } } } })
 const sent = async () => (await deliveries()).map((d) => [d.notification.type, d.status])
 

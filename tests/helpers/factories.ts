@@ -2,7 +2,7 @@ import { __setSessionEmail } from '../mocks/auth'
 import prisma from '@/lib/db/prisma'
 import { NonAgendaReason, Prisma } from '@prisma/client'
 
-export async function createCity(data?: Partial<Prisma.CityCreateInput>) {
+export async function createCity(data?: Partial<Prisma.CityUncheckedCreateInput>) {
     const id = data?.id ?? 'testcity'
     return prisma.city.create({
         data: {
@@ -68,17 +68,46 @@ export async function createUser(email: string, data?: Partial<Prisma.UserCreate
     })
 }
 
-export async function createMeeting(cityId: string, data?: Partial<Prisma.CouncilMeetingUncheckedCreateInput>) {
-    return prisma.councilMeeting.create({
+/** The fields of a meeting that live on its Transcript. */
+export type MeetingTranscriptData = Partial<Pick<Prisma.TranscriptUncheckedCreateInput, 'released' | 'videoUrl' | 'audioUrl' | 'muxPlaybackId'>>
+
+/** A meeting row with the fields of its transcript, as the tests write it. */
+export type MeetingFactoryData = Partial<Prisma.CouncilMeetingUncheckedCreateInput> & MeetingTranscriptData
+
+/** Writes the transcript fields of a meeting. A database trigger creates the transcript with the meeting. */
+async function setMeetingTranscript(cityId: string, id: string, { released, videoUrl, audioUrl, muxPlaybackId }: MeetingTranscriptData) {
+    if (released === undefined && videoUrl === undefined && audioUrl === undefined && muxPlaybackId === undefined) return
+    await prisma.transcript.update({
+        where: { workspaceId_id: { workspaceId: cityId, id } },
+        data: { released, videoUrl, audioUrl, muxPlaybackId },
+    })
+}
+
+export async function createMeeting(cityId: string, data?: MeetingFactoryData) {
+    const { released, videoUrl, audioUrl, muxPlaybackId, ...meetingData } = data ?? {}
+    const meeting = await prisma.councilMeeting.create({
         data: {
-            name: data?.name ?? 'Test Meeting',
-            name_en: data?.name_en ?? 'Test Meeting',
-            dateTime: data?.dateTime ?? new Date(),
+            name: meetingData.name ?? 'Test Meeting',
+            name_en: meetingData.name_en ?? 'Test Meeting',
+            dateTime: meetingData.dateTime ?? new Date(),
             cityId,
-            administrativeBodyId: data?.administrativeBodyId ?? undefined,
-            ...data,
+            administrativeBodyId: meetingData.administrativeBodyId ?? undefined,
+            ...meetingData,
         },
     })
+    await setMeetingTranscript(cityId, meeting.id, { released, videoUrl, audioUrl, muxPlaybackId })
+    return meeting
+}
+
+/** `prisma.councilMeeting.createMany` for rows that may carry the fields of their transcript. */
+export async function createMeetings(rows: (Prisma.CouncilMeetingCreateManyInput & MeetingTranscriptData)[]) {
+    const result = await prisma.councilMeeting.createMany({
+        data: rows.map(({ released: _released, videoUrl: _videoUrl, audioUrl: _audioUrl, muxPlaybackId: _muxPlaybackId, ...row }) => row),
+    })
+    for (const { cityId, id, released, videoUrl, audioUrl, muxPlaybackId } of rows) {
+        if (id) await setMeetingTranscript(cityId, id, { released, videoUrl, audioUrl, muxPlaybackId })
+    }
+    return result
 }
 
 export async function createLocation({ id, text, lng, lat }: { id: string; text?: string; lng: number; lat: number }) {

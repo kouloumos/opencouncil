@@ -8,11 +8,12 @@ export function mapAdministersToEntities(administers: UserWithAdministers['admin
     const entities: AdminEntity[] = []
 
     for (const a of administers) {
-        if (a.city) {
+        const city = a.workspace?.city
+        if (city) {
             entities.push({
-                id: a.city.id,
-                name: a.city.name,
-                displayName: a.city.name,
+                id: city.id,
+                name: city.name,
+                displayName: city.name,
                 type: 'city'
             })
         } else if (a.party?.city) {

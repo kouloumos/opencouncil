@@ -8,7 +8,7 @@ jest.mock('@/hooks/useLocalizedValidation', () => ({ useValidationMessage: () =>
 
 const cityAdmin = {
     id: 'u1', email: 'city@example.com', name: 'City Admin', isSuperAdmin: false, isMachine: false,
-    administers: [{ id: 'adm1', city: { id: 'athens', name: 'Athens' }, party: null, person: null, administrativeBody: null }],
+    administers: [{ id: 'adm1', workspace: { city: { id: 'athens', name: 'Athens' } }, party: null, person: null, administrativeBody: null }],
 } as unknown as UserWithAdministers;
 
 const paola = {

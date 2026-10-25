@@ -101,18 +101,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ city
             // 7. Delete voice prints
             await tx.voicePrint.deleteMany({
                 where: {
-                    person: {
+                    speaker: { person: {
                         cityId: params.cityId
-                    }
+                    } }
                 }
             });
 
             // 8. Delete speaker tags
             await tx.speakerTag.deleteMany({
                 where: {
-                    person: {
+                    speaker: { person: {
                         cityId: params.cityId
-                    }
+                    } }
                 }
             });
 

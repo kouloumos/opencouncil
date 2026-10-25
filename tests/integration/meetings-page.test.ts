@@ -28,7 +28,7 @@ import prisma from '@/lib/db/prisma'
 import MeetingsPage from '@/app/[locale]/(city)/[cityId]/(other)/(tabs)/meetings/page'
 import { __setSessionEmail } from '../mocks/auth'
 import { ensureTestDb, resetDatabase } from '../helpers/test-db'
-import { createUser, signInAsSuperAdmin } from '../helpers/factories'
+import { createUser, signInAsSuperAdmin, createMeeting, createMeetings } from '../helpers/factories'
 import { buildMeetingArchive, MeetingArchive } from '../helpers/meetingArchive'
 import { countCouncilMeetingsCached } from '@/lib/cache'
 import type { MeetingListOptions } from '@/lib/db/meetingsList'
@@ -143,9 +143,7 @@ describe('meetings page - integration', () => {
         const draftsOnly = await prisma.administrativeBody.create({
             data: { cityId: archive.cityId, name: '3η Δημοτική Κοινότητα', name_en: '3rd Municipal Community', type: 'community' },
         })
-        await prisma.councilMeeting.createMany({
-            data: [1, 2].map(i => ({ id: `drafts-only-${i}`, cityId: archive.cityId, administrativeBodyId: draftsOnly.id, name: `Πρόχειρη ${i}`, name_en: `Draft ${i}`, dateTime: new Date(Date.UTC(2025, 0, i)), released: false })),
-        })
+        await createMeetings([1, 2].map(i => ({ id: `drafts-only-${i}`, cityId: archive.cityId, administrativeBodyId: draftsOnly.id, name: `Πρόχειρη ${i}`, name_en: `Draft ${i}`, dateTime: new Date(Date.UTC(2025, 0, i)), released: false })))
         try {
             await signInAsAdminOf('drafts-admin@integration.test', { administrativeBodyId: draftsOnly.id })
             expect((await load({ filters: 'adminBodyType_community', body: '3η Δημοτική Κοινότητα' })).total).toBe(2)
@@ -178,9 +176,7 @@ describe('meetings page - integration', () => {
         const draftsOnly = await prisma.administrativeBody.create({
             data: { cityId: archive.cityId, name: '4η Δημοτική Κοινότητα', name_en: '4th Municipal Community', type: 'community' },
         })
-        await prisma.councilMeeting.createMany({
-            data: [1, 2].map(i => ({ id: `city-drafts-${i}`, cityId: archive.cityId, administrativeBodyId: draftsOnly.id, name: `Πρόχειρη ${i}`, name_en: `Draft ${i}`, dateTime: new Date(Date.UTC(2025, 1, i)), released: false })),
-        })
+        await createMeetings([1, 2].map(i => ({ id: `city-drafts-${i}`, cityId: archive.cityId, administrativeBodyId: draftsOnly.id, name: `Πρόχειρη ${i}`, name_en: `Draft ${i}`, dateTime: new Date(Date.UTC(2025, 1, i)), released: false })))
         try {
             await signInAsAdminOf('city-drafts-admin@integration.test', { cityId: archive.cityId })
             // 36 meetings of each of the two other communities, drafts included, and these 2.
@@ -192,13 +188,11 @@ describe('meetings page - integration', () => {
     })
 
     test('a search reads the label in the script and the time zone the reader sees', async () => {
-        await prisma.councilMeeting.createMany({
-            data: [
+        await createMeetings([
                 { id: 'page-cyrillic', cityId: archive.cityId, name: 'Седница Скупштине 15/01/24', name_en: 'Assembly session 15/01/24', dateTime: new Date('2024-01-15T15:00:00Z'), released: true },
                 // Late on 11 March in UTC is 12 March in Athens, the date the card shows.
                 { id: 'page-late', cityId: archive.cityId, name: null, name_en: null, dateTime: new Date('2024-03-11T23:30:00Z'), released: true },
-            ],
-        })
+            ])
         try {
             expect((await load({ filters: '*', search: 'sednica skupstine' }, 'sr-Latn')).rows.map(row => row.id)).toEqual(['page-cyrillic'])
             expect((await load({ filters: '*', search: '12/03/2024' })).rows.map(row => row.id)).toEqual(['page-late'])
@@ -214,9 +208,7 @@ describe('meetings page - integration', () => {
 
     describe('the link to another meeting', () => {
         beforeAll(async () => {
-            await prisma.councilMeeting.create({
-                data: { id: 'continuation-p', cityId: archive.cityId, name: 'Συνέχεια μοναδικη', name_en: 'Continuation', administrativeBodyId: archive.bodies.council, continuationOfId: 'council-1', dateTime: new Date('2030-05-02T15:00:00Z'), released: true },
-            })
+            await createMeeting(archive.cityId, { id: 'continuation-p', cityId: archive.cityId, name: 'Συνέχεια μοναδικη', name_en: 'Continuation', administrativeBodyId: archive.bodies.council, continuationOfId: 'council-1', dateTime: new Date('2030-05-02T15:00:00Z'), released: true })
         })
 
         afterAll(async () => {

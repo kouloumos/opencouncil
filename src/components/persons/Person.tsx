@@ -391,7 +391,7 @@ export default function PersonC({ city, person, parties, administrativeBodies, s
                                             meeting={{
                                                 id: contribution.subject.councilMeetingId,
                                                 cityId: contribution.subject.cityId,
-                                                released: contribution.subject.councilMeeting.released,
+                                                released: contribution.subject.councilMeeting.transcript.released,
                                             }}
                                             speaker={contribution.speaker}
                                             contextHeader={{

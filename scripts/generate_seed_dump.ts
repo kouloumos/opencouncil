@@ -235,7 +235,7 @@ async function extractParties(prisma: PrismaClient, cityIds: string[]) {
  */
 async function extractPersons(prisma: PrismaClient, cityIds: string[]) {
   console.log('Extracting persons...');
-  return prisma.person.findMany({
+  const persons = await prisma.person.findMany({
     where: { cityId: { in: cityIds } },
     include: {
       // Include roles - these belong to the person (one-to-many)
@@ -254,10 +254,9 @@ async function extractPersons(prisma: PrismaClient, cityIds: string[]) {
           updatedAt: true,
         }
       },
-      // Include speakerTags - these belong to the person (one-to-many)
-      speakerTags: true,
-      // Include voicePrints - these belong to the person (one-to-many)
-      voicePrints: {
+      // speakerTags and voicePrints belong to the person's speaker; the dump
+      // keeps them on the person, where prisma/seed.ts reads them
+      speaker: { include: { speakerTags: true, voicePrints: {
         select: {
           id: true,
           embedding: true,
@@ -269,9 +268,10 @@ async function extractPersons(prisma: PrismaClient, cityIds: string[]) {
           // Don't include sourceSegment which would cause duplication
           sourceSegmentId: true,
         }
-      }
+      } } }
     }
   });
+  return persons.map(({ speaker, ...person }) => ({ ...person, speakerTags: speaker.speakerTags, voicePrints: speaker.voicePrints }));
 }
 
 /**
@@ -303,10 +303,9 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
         
         // Task statuses - these belong to the meeting (one-to-many)
         // TODO: Add task statuses to the seed data in a manageable way
-        taskStatuses: false,
         
         // Speaker segments with carefully selected relations
-        speakerSegments: {
+        transcript: { include: { speakerSegments: {
           include: {
             // Just include the speakerTag ID, not the full object with person
             speakerTag: {
@@ -341,7 +340,7 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
               }
             }
           }
-        },
+        } } },
         
         // Highlights with carefully selected relations
         highlights: {
@@ -461,7 +460,10 @@ async function extractMeetings(prisma: PrismaClient, pairs: { cityId: string; me
         }
       }
       
-      meetings.push(meeting);
+      // The dump keeps the transcript's fields (media, release state, speaker
+      // segments) on the meeting, where prisma/seed.ts reads them
+      const { transcript, ...meetingFields } = meeting;
+      meetings.push({ ...meetingFields, ...transcript });
     }
   }
   
