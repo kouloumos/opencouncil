@@ -37,4 +37,11 @@ describe('uploadBaseFilename', () => {
         expect(uploadBaseFilename(undefined, 'bin')).toBeNull();
         expect(uploadBaseFilename({}, 'bin')).toBeNull();
     });
+    it('gives each workspace upload without an identifier its own name', () => {
+        const first = uploadBaseFilename({ workspaceId: 'ws1' }, 'mp4');
+        const second = uploadBaseFilename({ workspaceId: 'ws1' }, 'mp4');
+        expect(first).toMatch(/^ws1_[0-9a-f-]{36}\.mp4$/);
+        expect(second).not.toBe(first);
+        expect(uploadBaseFilename({ workspaceId: 'ws1', identifier: 'jan15' }, 'mp4')).toBe('ws1_jan15.mp4');
+    });
 });

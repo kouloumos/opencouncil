@@ -48,9 +48,15 @@ export interface UploadConfig {
  * caller sent: an admin of one body must not get a key that names a meeting
  * of another body. A file for a meeting that does not exist yet carries the
  * id of its body, so two bodies never share a key for the same date.
+ *
+ * A workspace upload with no identifier gets a random one. The collision
+ * check runs when the URL is signed, not when the file lands, so two uploads
+ * that start before either ends would get the same key, and the second file
+ * would replace the first under the transcript that links to it.
  */
 export function uploadBaseFilename(config: UploadConfig | undefined, extension: string): string | null {
-    const identifier = config?.councilMeetingId ?? config?.identifier;
+    const workspaceUpload = Boolean(config?.workspaceId && !config.cityId);
+    const identifier = config?.councilMeetingId ?? config?.identifier ?? (workspaceUpload ? crypto.randomUUID() : undefined);
     const parts = [
         config?.cityId ?? config?.workspaceId,
         !config?.councilMeetingId && config?.administrativeBodyId ? config.administrativeBodyId : undefined,
