@@ -61,12 +61,12 @@ export async function PUT(request: NextRequest, props: Params) {
 
 /**
  * DELETE /api/workspaces/[workspaceId]/transcripts/[transcriptId]
- * Delete transcript (super admin only)
+ * Delete a transcript. Any member of the workspace may delete its transcripts.
  */
 export async function DELETE(request: NextRequest, props: Params) {
   const { workspaceId, transcriptId } = await props.params;
   try {
-    await withUserAuthorizedToEdit({});
+    await withUserAuthorizedToEdit({ workspaceId });
     await assertGenericWorkspace(workspaceId);
 
     await deleteTranscript(workspaceId, transcriptId);

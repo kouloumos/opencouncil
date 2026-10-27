@@ -67,7 +67,7 @@ export default async function WorkspacePage(props: {
         transcripts={transcripts} 
         workspaceId={params.workspaceId}
         canEdit={canEdit}
-        canDelete={isSuperAdmin}
+        canDelete={canEdit}
         locale={params.locale}
       />
     </div>
