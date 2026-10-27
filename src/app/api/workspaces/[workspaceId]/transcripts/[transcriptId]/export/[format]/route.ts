@@ -40,12 +40,14 @@ export async function GET(
     // Fetch full transcript with segments
     const transcript = await getTranscript(params.transcriptId, params.workspaceId);
 
-    // Create a sanitized filename
-    const sanitizedName = transcriptMeta.name
+    // The ASCII name is the fallback for clients without RFC 5987; filename*
+    // keeps a Greek name intact, where the ASCII one reduces it to underscores.
+    const asciiName = transcriptMeta.name
       .replace(/[^a-zA-Z0-9_\-]/g, '_')
       .replace(/_{2,}/g, '_')
       .toLowerCase();
-    const filename = `${sanitizedName}_transcript.${format}`;
+    const filename = `${asciiName}_transcript.${format}`;
+    const utf8Filename = encodeURIComponent(`${transcriptMeta.name}.${format}`);
 
     let buffer: Buffer;
     let contentType: string;
@@ -65,8 +67,10 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename="${filename}"; filename*=UTF-8''${utf8Filename}`,
         'Content-Length': buffer.length.toString(),
+        // Each export reads the transcript as it is now, after any inline edit.
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {

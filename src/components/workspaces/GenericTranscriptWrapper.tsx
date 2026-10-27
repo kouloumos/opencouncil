@@ -168,7 +168,9 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // The browser reads the blob after click() returns. Revoking at once can
+      // fail the download or lose its file name.
+      setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
 
       toast({
         title: tCommon('success'),
