@@ -3,6 +3,7 @@ import 'server-only';
 import { Prisma } from "@prisma/client";
 import prisma from "./prisma";
 import { publicAdministrativeBodyRelation } from "./types/administrativeBody";
+import { NotFoundError } from "@/lib/api/errors";
 
 // Define include objects with satisfies for type safety
 const transcriptWithRelationsInclude = {
@@ -215,14 +216,26 @@ export async function deleteTranscript(
   workspaceId: string,
   transcriptId: string
 ): Promise<void> {
-  try {
-    await prisma.transcript.delete({
-      where: { workspaceId_id: { workspaceId, id: transcriptId }, ...notAMeeting }
+  await prisma.$transaction(async (tx) => {
+    const transcript = await tx.transcript.findFirst({
+      where: { workspaceId, id: transcriptId, ...notAMeeting },
+      select: { speakerSegments: { select: { speakerTagId: true } } },
     });
-  } catch (error) {
-    console.error('Error deleting transcript:', error);
-    throw new Error('Failed to delete transcript');
-  }
+    if (!transcript) {
+      throw new NotFoundError('Transcript not found');
+    }
+
+    await tx.transcript.delete({
+      where: { workspaceId_id: { workspaceId, id: transcriptId } }
+    });
+
+    // The segments go with the transcript, but their speaker tags have no link
+    // to it. A tag that no other segment uses would stay behind as an orphan.
+    const speakerTagIds = [...new Set(transcript.speakerSegments.map(s => s.speakerTagId))];
+    await tx.speakerTag.deleteMany({
+      where: { id: { in: speakerTagIds }, speakerSegments: { none: {} } }
+    });
+  });
 }
 
 /**
