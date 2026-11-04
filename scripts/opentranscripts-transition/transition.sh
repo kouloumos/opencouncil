@@ -22,8 +22,8 @@
 # Run it from the root of the repository, on the commit you deploy. Any error
 # stops the script. SOURCE stays as it was in every case.
 #
-# Dry run: run the script while the old version is live, into a scratch
-# TARGET. Nothing changes for the users. Read the verify output. Drop TARGET.
+# Dry run: dry-run.sh runs this script on a restored snapshot of production,
+# on a local server, while the old version stays live.
 #
 # Cutover:
 #   1. Stop the old app, so that nothing writes to SOURCE.
