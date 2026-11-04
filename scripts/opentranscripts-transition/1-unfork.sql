@@ -28,6 +28,11 @@ BEGIN;
 -- ============================================================
 -- 1. Preconditions
 -- ============================================================
+-- A deploy of the new branch on the old database stops at the guard migration
+-- and leaves this failed record and nothing else. It does not count here.
+DELETE FROM _prisma_migrations
+WHERE migration_name = '20260101000000_opentranscripts_old_fork_guard' AND finished_at IS NULL;
+
 DO $$
 DECLARE
     n integer;
