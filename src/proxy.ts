@@ -9,6 +9,8 @@ import { isSerbianScript } from './lib/serbian/transliterate';
 import { mcpRewriteTarget } from './lib/mcp/rewrite';
 import { isHeaderlessMultipartPost } from './lib/multipartPostGuard';
 import { applySessionMirror } from './lib/auth/sessionMirror';
+import { isGenericMode } from './lib/genericMode';
+import { hiddenPageRewritePath, isGenericModePath } from './lib/genericModePaths';
 
 const i18nMiddleware = createIntlMiddleware(routing);
 
@@ -25,7 +27,21 @@ const JUNK_PATH = /^\/(wp-admin|wp-login|wp-content|wp-includes|wordpress|xmlrpc
 const APP_PATH = /^\/(?!api|_next|_vercel|qr\/|\..+).*/;
 
 
+// Paths that the matcher sends here only for the generic-mode gate. The rest
+// of the proxy has never handled them, and it still does not.
+const GATE_ONLY_PATH = /^\/api(\/|$)|\.[^/]+$/;
+
 export default async function proxy(req: NextRequest) {
+    const { pathname } = req.nextUrl;
+    if (isGenericMode() && !isGenericModePath(pathname)) {
+        if (GATE_ONLY_PATH.test(pathname)) {
+            return new NextResponse(null, { status: 404 });
+        }
+        return NextResponse.rewrite(new URL(hiddenPageRewritePath(pathname), req.url));
+    }
+    if (GATE_ONLY_PATH.test(pathname)) {
+        return undefined;
+    }
     return applySessionMirror(req, await proxyInner(req));
 }
 
@@ -254,7 +270,16 @@ export const config = {
     // `ingest` is the PostHog reverse proxy (rewrites in next.config.mjs):
     // its extensionless endpoints (/ingest/e/, /ingest/flags/) must bypass
     // basic auth and i18n routing, or events get swallowed by locale 404s.
-    matcher: ['/((?!api|ingest|_next|_vercel|.*\\..*).*)'],
+    //
+    // The API routes and the public files that name OpenCouncil come here
+    // only for the generic-mode gate (GATE_ONLY_PATH).
+    matcher: [
+        '/((?!api|ingest|_next|_vercel|.*\\..*).*)',
+        '/api/:path*',
+        '/llms.txt',
+        '/manifest.webmanifest',
+        '/sw.js',
+    ],
 };
 
 /*
