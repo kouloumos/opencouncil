@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "./prisma";
 import { BadRequestError, ConflictError, NotFoundError } from "@/lib/api/errors";
 import { isMachineAccountAddress } from "@/lib/auth/machineAccounts";
+import { transcriptState } from "@/lib/utils/transcriptState";
 
 /**
  * A workspace that is not a city. A city's workspace shares the city's id,
@@ -119,6 +120,45 @@ export async function listWorkspacesForUser(
     console.error('Error fetching workspaces for user:', error);
     throw new Error('Failed to fetch workspaces for user');
   }
+}
+
+const workspaceActivitySelect = {
+  workspaceId: true,
+  createdAt: true,
+  taskStatuses: {
+    take: 1,
+    orderBy: { createdAt: 'desc' },
+    select: { status: true },
+  },
+} satisfies Prisma.TranscriptSelect;
+
+/** What a workspace row shows besides its counts. */
+export interface WorkspaceActivity {
+  lastUploadAt: Date | null;
+  /** Transcripts whose latest task is still running. */
+  running: number;
+  /** Transcripts whose latest task failed. */
+  failed: number;
+}
+
+/** The last upload and the running and failed transcripts of each workspace, by workspace id. */
+export async function getWorkspaceActivity(workspaceIds: string[]): Promise<Record<string, WorkspaceActivity>> {
+  const transcripts = await prisma.transcript.findMany({
+    where: { workspaceId: { in: workspaceIds } },
+    select: workspaceActivitySelect,
+  });
+
+  const activity: Record<string, WorkspaceActivity> = Object.fromEntries(
+    workspaceIds.map((id) => [id, { lastUploadAt: null, running: 0, failed: 0 }]),
+  );
+  for (const transcript of transcripts) {
+    const entry = activity[transcript.workspaceId];
+    if (!entry.lastUploadAt || transcript.createdAt > entry.lastUploadAt) entry.lastUploadAt = transcript.createdAt;
+    const state = transcriptState(transcript.taskStatuses[0]?.status);
+    if (state === 'running') entry.running++;
+    if (state === 'failed') entry.failed++;
+  }
+  return activity;
 }
 
 /**

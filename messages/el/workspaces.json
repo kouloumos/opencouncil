@@ -6,14 +6,13 @@
     "createWorkspace": "Δημιουργήστε τον Προσωπικό σας Χώρο Εργασίας",
     "createWorkspaceDescription": "Δημιουργήστε έναν χώρο εργασίας για να ξεκινήσετε να ανεβάζετε και να απομαγνητοφωνείτε το περιεχόμενό σας",
     "workspaceName": "Όνομα Χώρου Εργασίας",
-    "workspaceNamePlaceholder": "Ο Προσωπικός μου Χώρος Εργασίας",
-    "create": "Δημιουργία Χώρου Εργασίας",
+    "workspaceNamePlaceholder": "π.χ. Ομάδα έρευνας",
+    "create": "Δημιουργία",
     "creating": "Δημιουργία...",
     "redirecting": "Άνοιγμα του χώρου εργασίας σας...",
     "createYourFirstWorkspace": "Δημιουργήστε τον πρώτο χώρο εργασίας για να ξεκινήσετε με τις απομαγνητοφωνήσεις",
     "workspacesDescription": "Επιλέξτε έναν χώρο εργασίας για να δείτε και να διαχειριστείτε τις απομαγνητοφωνήσεις",
     "transcriptsCount": "{count, plural, =0 {Καμία απομαγνητοφώνηση} one {# απομαγνητοφώνηση} other {# απομαγνητοφωνήσεις}}",
-    "transcriptsLabel": "{count, plural, one {απομαγνητοφώνηση} other {απομαγνητοφωνήσεις}}",
     "membersCount": "{count, plural, =0 {Κανένα μέλος} one {# μέλος} other {# μέλη}}",
     "errors": {
       "nameRequired": "Το όνομα του χώρου εργασίας είναι υποχρεωτικό",
@@ -22,7 +21,11 @@
     "success": {
       "created": "Ο χώρος εργασίας δημιουργήθηκε επιτυχώς!",
       "createdDescription": "Μπορείτε τώρα να ξεκινήσετε να ανεβάζετε απομαγνητοφωνήσεις"
-    }
+    },
+    "newWorkspace": "Νέος χώρος εργασίας",
+    "lastUpload": "τελευταίο ανέβασμα {date}",
+    "runningCount": "{count, plural, other {# σε εξέλιξη}}",
+    "failedCount": "{count, plural, one {# απέτυχε} other {# απέτυχαν}}"
   },
   "dashboard": {
     "title": "Απομαγνητοφωνήσεις",

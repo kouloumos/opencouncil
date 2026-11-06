@@ -6,14 +6,13 @@
     "createWorkspace": "Create Your Personal Workspace",
     "createWorkspaceDescription": "Create a workspace to start uploading and transcribing your content",
     "workspaceName": "Workspace Name",
-    "workspaceNamePlaceholder": "My Personal Workspace",
-    "create": "Create Workspace",
+    "workspaceNamePlaceholder": "e.g. Research team",
+    "create": "Create",
     "creating": "Creating...",
     "redirecting": "Opening your workspace...",
     "createYourFirstWorkspace": "Create your first workspace to get started with transcriptions",
     "workspacesDescription": "Select a workspace to view and manage transcripts",
     "transcriptsCount": "{count, plural, =0 {No transcripts} one {# transcript} other {# transcripts}}",
-    "transcriptsLabel": "{count, plural, one {transcript} other {transcripts}}",
     "membersCount": "{count, plural, =0 {No members} one {# member} other {# members}}",
     "errors": {
       "nameRequired": "Workspace name is required",
@@ -22,7 +21,11 @@
     "success": {
       "created": "Workspace created successfully!",
       "createdDescription": "You can now start uploading transcripts"
-    }
+    },
+    "newWorkspace": "New workspace",
+    "lastUpload": "last upload {date}",
+    "runningCount": "{count, plural, other {# running}}",
+    "failedCount": "{count, plural, other {# failed}}"
   },
   "dashboard": {
     "title": "Transcripts",

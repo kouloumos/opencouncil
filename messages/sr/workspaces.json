@@ -6,14 +6,13 @@
     "createWorkspace": "Направите свој лични радни простор",
     "createWorkspaceDescription": "Направите радни простор да бисте почели да отпремате и транскрибујете садржај",
     "workspaceName": "Назив радног простора",
-    "workspaceNamePlaceholder": "Мој лични радни простор",
-    "create": "Направи радни простор",
+    "workspaceNamePlaceholder": "нпр. Истраживачки тим",
+    "create": "Направи",
     "creating": "Прави се...",
     "redirecting": "Отвара се ваш радни простор...",
     "createYourFirstWorkspace": "Направите свој први радни простор да бисте почели са транскрипцијама",
     "workspacesDescription": "Изаберите радни простор да бисте прегледали транскрипте и управљали њима",
     "transcriptsCount": "{count, plural, =0 {Нема транскрипата} one {# транскрипт} few {# транскрипта} other {# транскрипата}}",
-    "transcriptsLabel": "{count, plural, one {транскрипт} few {транскрипта} other {транскрипата}}",
     "membersCount": "{count, plural, =0 {Нема чланова} one {# члан} few {# члана} other {# чланова}}",
     "errors": {
       "nameRequired": "Назив радног простора је обавезан",
@@ -22,7 +21,11 @@
     "success": {
       "created": "Радни простор је направљен!",
       "createdDescription": "Сада можете да отпремате транскрипте"
-    }
+    },
+    "newWorkspace": "Нови радни простор",
+    "lastUpload": "последње отпремање {date}",
+    "runningCount": "{count, plural, other {# у току}}",
+    "failedCount": "{count, plural, other {неуспешно: #}}"
   },
   "dashboard": {
     "title": "Транскрипти",

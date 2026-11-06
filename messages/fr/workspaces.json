@@ -6,14 +6,13 @@
     "createWorkspace": "Créer votre espace de travail personnel",
     "createWorkspaceDescription": "Créez un espace de travail pour commencer à téléverser et transcrire vos contenus",
     "workspaceName": "Nom de l'espace de travail",
-    "workspaceNamePlaceholder": "Mon espace de travail personnel",
-    "create": "Créer l'espace de travail",
+    "workspaceNamePlaceholder": "p. ex. Équipe de recherche",
+    "create": "Créer",
     "creating": "Création...",
     "redirecting": "Ouverture de votre espace de travail...",
     "createYourFirstWorkspace": "Créez votre premier espace de travail pour commencer vos transcriptions",
     "workspacesDescription": "Sélectionnez un espace de travail pour consulter et gérer les transcriptions",
     "transcriptsCount": "{count, plural, =0 {Aucune transcription} one {# transcription} other {# transcriptions}}",
-    "transcriptsLabel": "{count, plural, one {transcription} other {transcriptions}}",
     "membersCount": "{count, plural, =0 {Aucun membre} one {# membre} other {# membres}}",
     "errors": {
       "nameRequired": "Le nom de l'espace de travail est obligatoire",
@@ -22,7 +21,11 @@
     "success": {
       "created": "Espace de travail créé !",
       "createdDescription": "Vous pouvez maintenant téléverser des transcriptions"
-    }
+    },
+    "newWorkspace": "Nouvel espace de travail",
+    "lastUpload": "dernier ajout le {date}",
+    "runningCount": "{count, plural, other {# en cours}}",
+    "failedCount": "{count, plural, one {# a échoué} other {# ont échoué}}"
   },
   "dashboard": {
     "title": "Transcriptions",

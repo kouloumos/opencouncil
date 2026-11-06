@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { surfaceCardClass } from '@/components/ui/surface-card';
 import { DEFAULT_TIMEZONE, formatDateStamp } from '@/lib/formatters/time';
+import { transcriptState } from '@/lib/utils/transcriptState';
 import { badgeClass, badgeTone } from './styles';
 
 interface TranscriptListProps {
@@ -19,17 +20,6 @@ interface TranscriptListProps {
   canEdit: boolean;
   canDelete?: boolean;
   locale?: string;
-}
-
-type TranscriptState = 'running' | 'done' | 'failed' | null;
-
-/** What the latest task says about the transcript; null before any task ran. */
-function transcriptState(transcript: TranscriptMinimal): TranscriptState {
-  const status = transcript.taskStatuses[0]?.status;
-  if (status === 'pending') return 'running';
-  if (status === 'succeeded') return 'done';
-  if (status === 'failed') return 'failed';
-  return null;
 }
 
 export function TranscriptList({ transcripts, workspaceId, canDelete = false, locale = 'el' }: TranscriptListProps) {
@@ -86,7 +76,7 @@ export function TranscriptList({ transcripts, workspaceId, canDelete = false, lo
   return (
     <ul className={cn(surfaceCardClass, 'overflow-hidden')}>
       {transcripts.map((transcript) => {
-        const state = transcriptState(transcript);
+        const state = transcriptState(transcript.taskStatuses[0]?.status);
         const task = transcript.taskStatuses[0];
         const { day, monthYear } = formatDateStamp(transcript.createdAt, DEFAULT_TIMEZONE, locale);
         const running = state === 'running';
