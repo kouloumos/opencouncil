@@ -1,5 +1,9 @@
 import { Users, Bell, FileText, Target, TrendingUp, Calendar } from "lucide-react"
 import { StatsCard, StatsCardItem } from "@/components/ui/stats-card"
+import { isGenericMode } from "@/lib/genericMode"
+
+// OpenTranscripts sends no product news and has no notifications or petitions.
+const COUNCIL_ONLY_STATS = new Set(["Contactable", "With Notifications", "With Petitions"])
 
 interface UserStatsProps {
     totalUsers: number
@@ -64,5 +68,8 @@ export function UserStats({
         },
     ];
 
+    if (isGenericMode()) {
+        return <StatsCard items={statsItems.filter(item => !COUNCIL_ONLY_STATS.has(item.title))} columns={3} />;
+    }
     return <StatsCard items={statsItems} columns={6} />;
 } 

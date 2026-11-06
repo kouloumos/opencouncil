@@ -16,6 +16,7 @@ import { X } from "lucide-react"
 import type { UserWithAdministers } from "@/lib/db/types"
 import { machineAccountAddress, machineAccountSlug } from "@/lib/auth/machineAccounts"
 import { mapAdministersToEntities } from "@/components/admin/users/administers"
+import { isGenericMode } from "@/lib/genericMode"
 import type { AdminEntity } from "@/lib/db/adminEntities"
 import Combobox from "@/components/Combobox"
 import { toast } from "@/hooks/use-toast"
@@ -63,12 +64,16 @@ export function UserDialog<U extends UserWithAdministers>({ open, onOpenChange, 
         if (emailUnlocked) emailInput.current?.focus()
     }, [emailUnlocked])
 
+    // OpenTranscripts has no cities, parties, persons or bodies to administer;
+    // a workspace's members page manages its members.
+    const genericMode = isGenericMode()
+
     // Fetch entities when dialog opens
     useEffect(() => {
-        if (open) {
+        if (open && !genericMode) {
             fetchEntities()
         }
-    }, [open])
+    }, [open, genericMode])
 
     async function fetchEntities() {
         setLoadingEntities(true)
@@ -262,47 +267,49 @@ export function UserDialog<U extends UserWithAdministers>({ open, onOpenChange, 
                             />
                             <Label htmlFor="isSuperAdmin">Super Admin</Label>
                         </div>
-                        <div className="grid gap-2">
-                            <Label>Administers</Label>
-                            <Combobox
-                                items={availableEntities}
-                                value={null}
-                                onChange={(entity) => {
-                                    if (entity) addEntity((entity as AdminEntity).id)
-                                }}
-                                placeholder={loadingEntities ? "Loading..." : "Add entity to administer..."}
-                                searchPlaceholder="Search entities..."
-                                getItemLabel={(entity) => (entity as AdminEntity).displayName}
-                                getItemValue={(entity) => `${(entity as AdminEntity).displayName} ${(entity as AdminEntity).type}`}
-                                groups={[
-                                    { key: 'cities', label: 'Cities', items: groupedEntities.cities },
-                                    { key: 'parties', label: 'Parties', items: groupedEntities.parties },
-                                    { key: 'people', label: 'People', items: groupedEntities.people },
-                                    { key: 'bodies', label: 'Administrative bodies', items: groupedEntities.bodies },
-                                ]}
-                                disabled={loadingEntities}
-                            />
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {selectedEntities.map(entity => (
-                                    <Badge key={entity.id} variant="secondary">
-                                        {entity.type === 'city' && '🏛️'}
-                                        {entity.type === 'party' && '👥'}
-                                        {entity.type === 'person' && '👤'}
-                                        {entity.type === 'body' && '🏢'}
-                                        {' '}
-                                        {entity.displayName}
-                                        <button
-                                            type="button"
-                                            onClick={() => removeEntity(entity.id)}
-                                            aria-label={`Remove ${entity.displayName}`}
-                                            className="ml-1 hover:text-destructive"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))}
+                        {!genericMode && (
+                            <div className="grid gap-2">
+                                <Label>Administers</Label>
+                                <Combobox
+                                    items={availableEntities}
+                                    value={null}
+                                    onChange={(entity) => {
+                                        if (entity) addEntity((entity as AdminEntity).id)
+                                    }}
+                                    placeholder={loadingEntities ? "Loading..." : "Add entity to administer..."}
+                                    searchPlaceholder="Search entities..."
+                                    getItemLabel={(entity) => (entity as AdminEntity).displayName}
+                                    getItemValue={(entity) => `${(entity as AdminEntity).displayName} ${(entity as AdminEntity).type}`}
+                                    groups={[
+                                        { key: 'cities', label: 'Cities', items: groupedEntities.cities },
+                                        { key: 'parties', label: 'Parties', items: groupedEntities.parties },
+                                        { key: 'people', label: 'People', items: groupedEntities.people },
+                                        { key: 'bodies', label: 'Administrative bodies', items: groupedEntities.bodies },
+                                    ]}
+                                    disabled={loadingEntities}
+                                />
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {selectedEntities.map(entity => (
+                                        <Badge key={entity.id} variant="secondary">
+                                            {entity.type === 'city' && '🏛️'}
+                                            {entity.type === 'party' && '👥'}
+                                            {entity.type === 'person' && '👤'}
+                                            {entity.type === 'body' && '🏢'}
+                                            {' '}
+                                            {entity.displayName}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeEntity(entity.id)}
+                                                aria-label={`Remove ${entity.displayName}`}
+                                                className="ml-1 hover:text-destructive"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                     <DialogFooter className="sm:justify-between">
                         <div>

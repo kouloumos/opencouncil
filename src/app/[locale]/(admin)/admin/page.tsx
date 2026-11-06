@@ -6,9 +6,13 @@ import { ReviewsOverviewWidget, ReviewsOverviewSkeleton } from '@/components/adm
 import AdminWidgetErrorBoundary from '@/components/admin/AdminWidgetErrorBoundary';
 import { getAdminDashboardStats } from '@/lib/db/adminStats';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { GENERIC_MODE_ADMIN_PAGES, isGenericMode } from '@/lib/genericMode';
 
 export default async function Page() {
     await withUserAuthorizedToEdit({});
+    // Its statistics are OpenCouncil's: signups, petitions, notifications, cities.
+    if (isGenericMode()) redirect(GENERIC_MODE_ADMIN_PAGES[0]);
     const stats = await getAdminDashboardStats();
 
     const round1 = (n: number) => Math.round(n * 10) / 10;

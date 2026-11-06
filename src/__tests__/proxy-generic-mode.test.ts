@@ -8,6 +8,7 @@ jest.mock('@/auth', () => ({
 
 const mockIsGenericMode = jest.fn();
 jest.mock('@/lib/genericMode', () => ({
+    ...jest.requireActual('@/lib/genericMode'),
     isGenericMode: () => mockIsGenericMode(),
 }));
 

@@ -17,6 +17,7 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { GENERIC_MODE_ADMIN_PAGES, appName, isGenericMode } from "@/lib/genericMode";
 
 const menuGroups = [
     {
@@ -60,7 +61,14 @@ const menuGroups = [
     },
 ];
 
-const allUrls = menuGroups.flatMap(group => group.items.map(item => item.url));
+// OpenTranscripts has only the admin pages that the proxy serves in generic mode.
+const shownGroups = isGenericMode()
+    ? menuGroups
+        .map(group => ({ ...group, items: group.items.filter(item => (GENERIC_MODE_ADMIN_PAGES as readonly string[]).includes(item.url)) }))
+        .filter(group => group.items.length > 0)
+    : menuGroups;
+
+const allUrls = shownGroups.flatMap(group => group.items.map(item => item.url));
 
 export function AdminSidebar() {
     const { isMobile, setOpenMobile } = useSidebar();
@@ -92,7 +100,7 @@ export function AdminSidebar() {
                     as a gap above the first item — at this width the rail is a tool
                     strip, and the mark is back the moment it opens. */}
                 <Link href="/" className="flex shrink-0 items-center hover:no-underline group-data-[collapsible=icon]:hidden">
-                    <Image src="/logo.png" alt="OpenCouncil" width={120} height={120} className="h-9 w-auto object-contain sm:h-10 md:h-11" />
+                    <Image src="/logo.png" alt={appName()} width={120} height={120} className="h-9 w-auto object-contain sm:h-10 md:h-11" />
                 </Link>
             </div>
             <SidebarHeader className="flex-none p-4 group-data-[collapsible=icon]:hidden">
@@ -101,7 +109,7 @@ export function AdminSidebar() {
                 <div className="text-lg font-semibold">Admin Panel</div>
             </SidebarHeader>
             <SidebarContent className="flex-1 min-h-0">
-                {menuGroups.map(group => (
+                {shownGroups.map(group => (
                     <SidebarGroup key={group.label}>
                         <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
                         <SidebarGroupContent>

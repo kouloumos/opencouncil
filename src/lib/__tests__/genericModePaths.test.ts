@@ -26,7 +26,6 @@ describe('isGenericModePath', () => {
         '/api/dev/quick-login',
         '/api/admin/users',
         '/api/admin/cache/stats',
-        '/api/admin/entities',
         '/api/revalidate',
         '/api/cities/ws1/meetings/t1/taskStatuses/task1',
     ])('keeps %s', (path) => {
@@ -61,6 +60,7 @@ describe('isGenericModePath', () => {
         '/api/cities/ws1/meetings/t1/transcript',
         '/api/upload',
         '/api/cron/poll-decisions',
+        '/api/admin/entities',
         '/llms.txt',
         '/manifest.webmanifest',
         '/sw.js',

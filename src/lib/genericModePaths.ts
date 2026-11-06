@@ -1,4 +1,5 @@
 import { routing } from '@/i18n/routing';
+import { GENERIC_MODE_ADMIN_PAGES } from '@/lib/genericMode';
 import { LOCALE_PREFIX_RE } from '@/lib/seo-redirects';
 
 /**
@@ -13,7 +14,9 @@ const GENERIC_MODE_PATHS: RegExp[] = [
     /^\/sign-in$/,
     /^\/workspaces(\/.*)?$/,
     /^\/profile$/,
-    /^\/admin(\/(workspaces|users|cache))?$/,
+    // The dashboard sends a superadmin on to the first of them.
+    /^\/admin$/,
+    ...GENERIC_MODE_ADMIN_PAGES.map((page) => new RegExp(`^${page}$`)),
 
     // API routes.
     /^\/api\/auth\//,
@@ -22,7 +25,7 @@ const GENERIC_MODE_PATHS: RegExp[] = [
     /^\/api\/profile$/,
     /^\/api\/health$/,
     /^\/api\/dev\//,
-    /^\/api\/admin\/(users|cache|entities)(\/.*)?$/,
+    /^\/api\/admin\/(users|cache)(\/.*)?$/,
     /^\/api\/revalidate$/,
     // The task server reports progress and results here.
     /^\/api\/cities\/[^/]+\/meetings\/[^/]+\/taskStatuses\/[^/]+$/,
