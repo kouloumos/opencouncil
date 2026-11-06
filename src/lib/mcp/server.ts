@@ -4,6 +4,7 @@ import type { McpServer, ServerContext } from '@modelcontextprotocol/server';
 import { identityFromContext } from './auth';
 import { currentAdminAccess, currentMcpIdentity } from './realm-context';
 import { registerAdminTools } from './adminTools';
+import { registerWorkspaceTools } from './workspaceTools';
 import { category, run } from './toolSupport';
 import { isGenericMode } from '@/lib/genericMode';
 import { latitude, longitude } from '@/lib/zod-schemas/primitives';
@@ -114,6 +115,7 @@ function registerGetTranscriptTool(server: McpServer) {
 export function registerOpenCouncilServer(server: McpServer) {
     // OpenTranscripts has workspaces and transcripts, and no cities, councils or search index.
     if (isGenericMode()) {
+        registerWorkspaceTools(server);
         registerGetTranscriptTool(server);
         return;
     }
