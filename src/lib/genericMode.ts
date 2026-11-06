@@ -10,7 +10,7 @@ export function isGenericMode(): boolean {
 }
 
 /** The admin pages of generic mode. The proxy answers 404 for every other one. */
-export const GENERIC_MODE_ADMIN_PAGES = ['/admin/workspaces', '/admin/users', '/admin/cache'] as const;
+export const GENERIC_MODE_ADMIN_PAGES = ['/admin', '/admin/workspaces', '/admin/users', '/admin/cache'] as const;
 
 /** The product name that the app shows to its users. */
 export function appName(): 'OpenTranscripts' | 'OpenCouncil' {

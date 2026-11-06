@@ -6,14 +6,10 @@ import { subDays } from "date-fns";
 import { CUSTOMER_CITY_WHERE } from "../cityStatus";
 import { peopleOnly } from "@/lib/db/types";
 import type { SignupRow } from "../admin/signup-series";
+import { getUserGrowth, percentChange, type UserGrowth } from "./userGrowth";
 
 export interface AdminDashboardStats {
-    users: {
-        total: number;
-        newLast7Days: number;
-        newPrev7Days: number;
-        percentChange: number;
-    };
+    users: UserGrowth;
     notifications: {
         usersWithPreferences: number;
         newPreferencesThisWeek: number;
@@ -48,11 +44,6 @@ export interface EmailSignupData {
     rows: SignupRow[];
 }
 
-function percentChange(current: number, previous: number): number {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return ((current - previous) / previous) * 100;
-}
-
 export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     await withUserAuthorizedToEdit({});
 
@@ -61,9 +52,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
     const fourteenDaysAgo = subDays(now, 14);
 
     const [
-        totalUsers,
-        newLast7Days,
-        newPrev7Days,
+        users,
         usersWithPreferences,
         newPreferencesThisWeek,
         notificationsSentThisWeek,
@@ -76,9 +65,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
         searchesThisWeek,
         searchesPrevWeek,
     ] = await Promise.all([
-        prisma.user.count({ where: peopleOnly }),
-        prisma.user.count({ where: { ...peopleOnly, createdAt: { gte: sevenDaysAgo } } }),
-        prisma.user.count({ where: { ...peopleOnly, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } } }),
+        getUserGrowth(now),
         prisma.user.count({ where: { ...peopleOnly, notificationPreferences: { some: {} } } }),
         prisma.notificationPreference.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
         prisma.notificationDelivery.count({ where: { status: 'sent', sentAt: { gte: sevenDaysAgo } } }),
@@ -112,12 +99,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
         },
     };
     return {
-        users: {
-            total: totalUsers,
-            newLast7Days,
-            newPrev7Days,
-            percentChange: percentChange(newLast7Days, newPrev7Days),
-        },
+        users,
         notifications: {
             usersWithPreferences,
             newPreferencesThisWeek,

@@ -14,8 +14,6 @@ const GENERIC_MODE_PATHS: RegExp[] = [
     /^\/sign-in$/,
     /^\/workspaces(\/.*)?$/,
     /^\/profile$/,
-    // The dashboard sends a superadmin on to the first of them.
-    /^\/admin$/,
     ...GENERIC_MODE_ADMIN_PAGES.map((page) => new RegExp(`^${page}$`)),
 
     // API routes.

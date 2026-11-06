@@ -6,13 +6,13 @@ import { ReviewsOverviewWidget, ReviewsOverviewSkeleton } from '@/components/adm
 import AdminWidgetErrorBoundary from '@/components/admin/AdminWidgetErrorBoundary';
 import { getAdminDashboardStats } from '@/lib/db/adminStats';
 import { withUserAuthorizedToEdit } from '@/lib/auth';
-import { redirect } from 'next/navigation';
-import { GENERIC_MODE_ADMIN_PAGES, isGenericMode } from '@/lib/genericMode';
+import { isGenericMode } from '@/lib/genericMode';
+import { GenericAdminDashboard } from '@/components/admin/GenericAdminDashboard';
 
 export default async function Page() {
     await withUserAuthorizedToEdit({});
-    // Its statistics are OpenCouncil's: signups, petitions, notifications, cities.
-    if (isGenericMode()) redirect(GENERIC_MODE_ADMIN_PAGES[0]);
+    // OpenCouncil's numbers (signups, petitions, notifications, cities) mean nothing in generic mode.
+    if (isGenericMode()) return <GenericAdminDashboard />;
     const stats = await getAdminDashboardStats();
 
     const round1 = (n: number) => Math.round(n * 10) / 10;

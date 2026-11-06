@@ -5,6 +5,7 @@ import prisma from "./prisma";
 import { BadRequestError, ConflictError, NotFoundError } from "@/lib/api/errors";
 import { isMachineAccountAddress } from "@/lib/auth/machineAccounts";
 import { transcriptState } from "@/lib/utils/transcriptState";
+import { subDays } from "date-fns";
 
 /**
  * A workspace that is not a city. A city's workspace shares the city's id,
@@ -159,6 +160,31 @@ export async function getWorkspaceActivity(workspaceIds: string[]): Promise<Reco
     if (state === 'failed') entry.failed++;
   }
   return activity;
+}
+
+export interface WorkspaceDashboardStats {
+  workspaces: { total: number; newLast7Days: number };
+  transcripts: { total: number; newLast7Days: number };
+  tasks: { running: number; failedLast7Days: number };
+}
+
+/** The workspace numbers of the admin dashboard (admin only - no auth check here, do it in caller). */
+export async function getWorkspaceDashboardStats(now: Date = new Date()): Promise<WorkspaceDashboardStats> {
+  const sevenDaysAgo = subDays(now, 7);
+  const inGenericWorkspace = { workspace: genericWorkspaceWhere } satisfies Prisma.TranscriptWhereInput;
+  const [workspaces, newWorkspaces, transcripts, newTranscripts, running, failed] = await Promise.all([
+    prisma.workspace.count({ where: genericWorkspaceWhere }),
+    prisma.workspace.count({ where: { ...genericWorkspaceWhere, createdAt: { gte: sevenDaysAgo } } }),
+    prisma.transcript.count({ where: inGenericWorkspace }),
+    prisma.transcript.count({ where: { ...inGenericWorkspace, createdAt: { gte: sevenDaysAgo } } }),
+    prisma.taskStatus.count({ where: { status: 'pending', transcript: inGenericWorkspace } }),
+    prisma.taskStatus.count({ where: { status: 'failed', updatedAt: { gte: sevenDaysAgo }, transcript: inGenericWorkspace } }),
+  ]);
+  return {
+    workspaces: { total: workspaces, newLast7Days: newWorkspaces },
+    transcripts: { total: transcripts, newLast7Days: newTranscripts },
+    tasks: { running, failedLast7Days: failed },
+  };
 }
 
 /**
