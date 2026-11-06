@@ -4,6 +4,7 @@
 import { cookies, headers } from 'next/headers';
 import { Realm } from '@prisma/client';
 import { REALM_OVERRIDE_COOKIE, effectiveRealm, getRealmBaseUrl, metadataBaseForHost } from './realm';
+import { isGenericMode } from './genericMode';
 
 /**
  * Resolves the current request's realm from its Host header, honoring the
@@ -24,13 +25,28 @@ export async function getRealm(): Promise<Realm> {
     return effectiveRealm(host, overrideCookie);
 }
 
+/**
+ * OpenTranscripts has no realms: it serves the one domain NEXTAUTH_URL names.
+ * Its host is unknown to the realm code, which would resolve it to greece
+ * and name opencouncil.gr.
+ *
+ * Reads process.env rather than @/env.mjs, which the jest transform cannot
+ * parse: every test that reaches this module would have to mock it. env.mjs
+ * still validates NEXTAUTH_URL at startup.
+ */
+function genericModeBaseUrl(): string | null {
+    return isGenericMode() ? new URL(process.env.NEXTAUTH_URL!).origin : null;
+}
+
 /** Canonical absolute base URL for the current request's realm. */
 export async function getRealmBaseUrlFromRequest(): Promise<string> {
-    return getRealmBaseUrl(await getRealm());
+    return genericModeBaseUrl() ?? getRealmBaseUrl(await getRealm());
 }
 
 /** `metadataBaseForHost` for the current request (see it for the rule). */
 export async function getMetadataBaseFromRequest(): Promise<string> {
+    const genericBase = genericModeBaseUrl();
+    if (genericBase) return genericBase;
     const host = (await headers()).get('host');
     return metadataBaseForHost(host, await getRealm());
 }

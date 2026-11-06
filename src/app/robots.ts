@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
 import { getRealmBaseUrlFromRequest } from '@/lib/realm.server'
+import { isGenericMode } from '@/lib/genericMode'
 
 // Dynamic per realm: each domain advertises its own sitemap and canonical host,
 // resolved from the request Host (opencouncil.gr vs opencouncil.fr). Forced
@@ -16,6 +17,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         return { rules: { userAgent: '*', disallow: '/' } }
     }
     const baseUrl = await getRealmBaseUrlFromRequest()
+
+    // OpenTranscripts: the landing page is the only public page.
+    if (isGenericMode()) {
+        return {
+            rules: { userAgent: '*', allow: '/', disallow: ['/workspaces', '/profile', '/admin', '/sign-in', '/api'] },
+            sitemap: `${baseUrl}/sitemap.xml`,
+            host: baseUrl,
+        }
+    }
 
     return {
         rules: {

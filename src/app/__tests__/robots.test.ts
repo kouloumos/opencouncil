@@ -1,5 +1,7 @@
 jest.mock('next/headers', () => ({ headers: jest.fn() }));
 jest.mock('@/lib/realm.server', () => ({ getRealmBaseUrlFromRequest: jest.fn().mockResolvedValue('https://opencouncil.gr') }));
+const mockIsGenericMode = jest.fn(() => false);
+jest.mock('@/lib/genericMode', () => ({ isGenericMode: () => mockIsGenericMode() }));
 
 import { headers } from 'next/headers';
 import type { MetadataRoute } from 'next';
@@ -32,5 +34,14 @@ describe('robots rules', () => {
     it('keeps every crawler off a PR preview', async () => {
         const rule = await rulesFor('pr-819.opencouncil.dev');
         expect(crawlable(rule, transcriptExcerptPath(selector))).toBe(false);
+    });
+    it('opens only the landing page of OpenTranscripts', async () => {
+        mockIsGenericMode.mockReturnValue(true);
+        const rule = await rulesFor('opentranscripts.example');
+        mockIsGenericMode.mockReturnValue(false);
+        expect(crawlable(rule, '/')).toBe(true);
+        expect(crawlable(rule, '/workspaces/ws1')).toBe(false);
+        expect(crawlable(rule, '/profile')).toBe(false);
+        expect(crawlable(rule, '/admin')).toBe(false);
     });
 });

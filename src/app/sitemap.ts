@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next'
 import prisma from '@/lib/db/prisma'
 import { Realm } from '@prisma/client'
 import { getRealm, getRealmBaseUrlFromRequest } from '@/lib/realm.server'
+import { isGenericMode } from '@/lib/genericMode'
 import { hasExplainPage } from '@/lib/explain/availability'
 import { PUBLIC_CITY_WHERE } from '@/lib/cityStatus';
 
@@ -53,6 +54,11 @@ async function fetchSitemapData(realm: Realm): Promise<SitemapCity[]> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (process.env.SKIP_FULL_SITEMAP === 'true') {
         return []
+    }
+
+    // OpenTranscripts: the landing page is the only public page.
+    if (isGenericMode()) {
+        return [{ url: await getRealmBaseUrlFromRequest(), changeFrequency: 'monthly', priority: 1 }]
     }
 
     // Resolve the realm and its canonical base from the request Host, so

@@ -4,6 +4,7 @@ import React from "react";
 import PlausibleProvider from "next-plausible";
 import { usePathname } from "next/navigation";
 import { EMBED_PATH } from "@/lib/utils/embed";
+import { isGenericMode } from "@/lib/genericMode";
 
 // Note: must use next/navigation's usePathname (not next-intl's), because
 // this component renders in the root layout, which also wraps /_not-found —
@@ -20,8 +21,9 @@ export default function PlausibleAnalytics({ children }: { children: React.React
 
     // On embed routes force the script off; otherwise pass undefined so
     // next-plausible applies its own default (production-only) behaviour.
+    // The site is OpenCouncil's: OpenTranscripts pageviews do not belong in it.
     return (
-        <PlausibleProvider src={PLAUSIBLE_SCRIPT_SRC} enabled={isEmbed ? false : undefined}>
+        <PlausibleProvider src={PLAUSIBLE_SCRIPT_SRC} enabled={isEmbed || isGenericMode() ? false : undefined}>
             {children}
         </PlausibleProvider>
     );
