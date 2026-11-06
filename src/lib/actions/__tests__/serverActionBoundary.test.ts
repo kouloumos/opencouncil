@@ -75,7 +75,7 @@ const LEGACY_CLIENT_IMPORTS = new Set([
     'src/components/search/SearchPage.tsx -> db/people',
     'src/components/search/SearchPage.tsx -> search',
     'src/components/subject-badge.tsx -> statistics',
-    'src/components/user/sign-in.tsx -> serverSignIn',
+    'src/components/user/useEmailSignIn.ts -> serverSignIn',
 ]);
 
 /** Actions that answer for anyone, with the reason each one may. */

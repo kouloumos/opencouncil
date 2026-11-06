@@ -9,7 +9,7 @@ import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { appName } from "@/lib/genericMode"
 import { authErrorKey } from "@/lib/auth/authErrorKey"
-import { signInWithEmail } from "@/lib/serverSignIn"
+import { useEmailSignIn } from "@/components/user/useEmailSignIn"
 import { useState } from "react"
 import { MailCheck } from "lucide-react"
 import posthog from "posthog-js"
@@ -37,34 +37,11 @@ export function SignIn({
     const tCommon = useTranslations("Common")
     const searchParams = useSearchParams()
     const email = searchParams.get("email")
-    const [error, setError] = useState<string | null>(authErrorKey(searchParams.get("error"), AUTH_ERROR_KEYS, "errors.generic"))
-    const [isLoading, setIsLoading] = useState(false)
-    const [sentTo, setSentTo] = useState<string | null>(null)
+    const { submit: handleSubmit, error, setError, isLoading, sentTo, setSentTo } = useEmailSignIn({
+        callbackUrl,
+        initialError: authErrorKey(searchParams.get("error"), AUTH_ERROR_KEYS, "errors.generic"),
+    })
     const [draftEmail, setDraftEmail] = useState(email ?? "")
-
-    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault()
-        setError(null)
-        setIsLoading(true)
-
-        const formData = new FormData(e.currentTarget)
-
-        posthog.capture("sign_in_requested", { method: "email", has_callback_url: !!callbackUrl })
-
-        try {
-            await signInWithEmail(formData)
-            // The email is sent. Confirm it here rather than on Auth.js's
-            // built-in verify-request page, which is unstyled, untranslated
-            // and outside the site layout.
-            setSentTo(String(formData.get("email") ?? ""))
-        } catch (err) {
-            posthog.captureException(err)
-            setError("error")
-            console.error("Sign in error:", err)
-        } finally {
-            setIsLoading(false)
-        }
-    }
 
     function handleGoogleStart() {
         setError(null)
