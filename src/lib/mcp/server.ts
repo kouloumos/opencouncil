@@ -5,6 +5,7 @@ import { identityFromContext } from './auth';
 import { currentAdminAccess, currentMcpIdentity } from './realm-context';
 import { registerAdminTools } from './adminTools';
 import { category, run } from './toolSupport';
+import { isGenericMode } from '@/lib/genericMode';
 import { latitude, longitude } from '@/lib/zod-schemas/primitives';
 import { jsonPageFields } from '@/lib/zod-schemas/listQuery';
 import {
@@ -53,7 +54,70 @@ const renderOptionsShape = {
         .describe('Show the speaker\'s name, role and party on screen'),
 };
 
+/** get_transcript, which both modes serve: a workspace transcript is a meeting to it. */
+function registerGetTranscriptTool(server: McpServer) {
+    server.registerTool(
+        'get_transcript',
+        {
+            title: 'Get meeting transcript',
+            annotations: { readOnlyHint: true, openWorldHint: false },
+            _meta: category('meetings'),
+            description:
+                'The full transcript of a meeting as speaker segments, paginated. Speaker roles are ' +
+                'resolved as of the meeting date. Long — prefer ' +
+                'get_subject_transcript when you care about one subject. Pass personId for ' +
+                'everything one councillor said in the meeting (the way to gather their own ' +
+                'moments). Pass query for the segments that say a word, a name or a body: search ' +
+                'ranks subjects by their summaries, so a verbatim mention is reachable only here — ' +
+                'one call per meeting. Set includeUtteranceIds to get utterance ids for highlight creation. ' +
+                'This is also the whole record of a meeting that get_meeting reports with ' +
+                '`hasTranscript: true` and `summarized: false` — one that is transcribed but not yet ' +
+                'summarized, with no subjects or with the agenda document\'s items only. For such a ' +
+                'meeting this is the only record — summarize it, quote it, ' +
+                'and pick highlight utterances from it. It carries no agenda, decision or vote ' +
+                'tally, so never report those from a transcript alone.',
+            // Strict: a client that still sends the old segmentsPerPage gets an
+            // error, not the default page size and page numbers that no longer match.
+            inputSchema: z.strictObject({
+                cityId: z.string().min(1),
+                meetingId: z.string().min(1),
+                personId: z.string().optional()
+                    .describe('Only this person\'s segments (see list_people)'),
+                query: z.string().trim().min(2).max(100).optional()
+                    .describe('Only segments whose words contain every term, accent- and case-insensitive. ' +
+                        'For «was X mentioned» and «what was said about X». Combine with personId for one ' +
+                        'person\'s words on X. Matched segments carry snippets around the hits.'),
+                pageSize: jsonPageFields.pageSize.max(100).default(40)
+                    .describe('Speaker segments per page'),
+                includeUtteranceIds: z.boolean().default(false),
+                ...paginationShape,
+            }),
+        },
+        (args, ctx: ServerContext) =>
+            run(() =>
+                mcpGetTranscript(
+                    args.cityId,
+                    args.meetingId,
+                    {
+                        page: args.page,
+                        pageSize: args.pageSize,
+                        includeUtteranceIds: args.includeUtteranceIds,
+                        personId: args.personId,
+                        query: args.query,
+                    },
+                    identityFromContext(ctx)
+                )
+            )
+    );
+}
+
 export function registerOpenCouncilServer(server: McpServer) {
+    // OpenTranscripts has workspaces and transcripts, and no cities, councils or search index.
+    if (isGenericMode()) {
+        registerGetTranscriptTool(server);
+        return;
+    }
+
     server.registerTool(
         'search',
         {
@@ -353,59 +417,7 @@ export function registerOpenCouncilServer(server: McpServer) {
             run(() => mcpGetSubjectTranscript(args.subjectId, args.page, identityFromContext(ctx)))
     );
 
-    server.registerTool(
-        'get_transcript',
-        {
-            title: 'Get meeting transcript',
-            annotations: { readOnlyHint: true, openWorldHint: false },
-            _meta: category('meetings'),
-            description:
-                'The full transcript of a meeting as speaker segments, paginated. Speaker roles are ' +
-                'resolved as of the meeting date. Long — prefer ' +
-                'get_subject_transcript when you care about one subject. Pass personId for ' +
-                'everything one councillor said in the meeting (the way to gather their own ' +
-                'moments). Pass query for the segments that say a word, a name or a body: search ' +
-                'ranks subjects by their summaries, so a verbatim mention is reachable only here — ' +
-                'one call per meeting. Set includeUtteranceIds to get utterance ids for highlight creation. ' +
-                'This is also the whole record of a meeting that get_meeting reports with ' +
-                '`hasTranscript: true` and `summarized: false` — one that is transcribed but not yet ' +
-                'summarized, with no subjects or with the agenda document\'s items only. For such a ' +
-                'meeting this is the only record — summarize it, quote it, ' +
-                'and pick highlight utterances from it. It carries no agenda, decision or vote ' +
-                'tally, so never report those from a transcript alone.',
-            // Strict: a client that still sends the old segmentsPerPage gets an
-            // error, not the default page size and page numbers that no longer match.
-            inputSchema: z.strictObject({
-                cityId: z.string().min(1),
-                meetingId: z.string().min(1),
-                personId: z.string().optional()
-                    .describe('Only this person\'s segments (see list_people)'),
-                query: z.string().trim().min(2).max(100).optional()
-                    .describe('Only segments whose words contain every term, accent- and case-insensitive. ' +
-                        'For «was X mentioned» and «what was said about X». Combine with personId for one ' +
-                        'person\'s words on X. Matched segments carry snippets around the hits.'),
-                pageSize: jsonPageFields.pageSize.max(100).default(40)
-                    .describe('Speaker segments per page'),
-                includeUtteranceIds: z.boolean().default(false),
-                ...paginationShape,
-            }),
-        },
-        (args, ctx: ServerContext) =>
-            run(() =>
-                mcpGetTranscript(
-                    args.cityId,
-                    args.meetingId,
-                    {
-                        page: args.page,
-                        pageSize: args.pageSize,
-                        includeUtteranceIds: args.includeUtteranceIds,
-                        personId: args.personId,
-                        query: args.query,
-                    },
-                    identityFromContext(ctx)
-                )
-            )
-    );
+    registerGetTranscriptTool(server);
 
     // --- Prompts ----------------------------------------------------------
 

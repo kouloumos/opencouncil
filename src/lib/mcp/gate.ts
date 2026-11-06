@@ -5,8 +5,10 @@ import type { McpIdentity } from './auth';
 import { currentRealm, reachesEveryRealm, rememberCityRealm } from './realm-context';
 import { meetingLabelInCity } from '@/lib/meetingName';
 import { REALMS } from '@/lib/realm';
-import type { AppLocale } from '@/i18n/config';
+import { DEFAULT_LOCALE, type AppLocale } from '@/i18n/config';
 import { transcriptGateSelect, transcriptIsPublic } from '@/lib/db/sharing/publicContent';
+import { genericWorkspaceWhere } from '@/lib/db/workspaces';
+import { isGenericMode } from '@/lib/genericMode';
 
 /**
  * Whether the identity may see every unreleased (draft) meeting of a city:
@@ -71,6 +73,8 @@ export async function requireVisibleMeeting(
      */
     editor: boolean | null;
 }> {
+    if (isGenericMode()) return requireWorkspaceTranscript(cityId, meetingId, identity);
+
     const meeting = await prisma.councilMeeting.findFirst({
         // Realm-scoped: a connector added on one domain must not reach another
         // realm's councils. Covers meetings, subjects and transcripts, which
@@ -112,6 +116,37 @@ export async function requireVisibleMeeting(
         administrativeBodyId: meeting.administrativeBodyId,
         publicTranscript: transcriptIsPublic(meeting),
         editor,
+    };
+}
+
+/**
+ * The gate in generic mode (OpenTranscripts): `cityId` names a workspace and
+ * `meetingId` one of its transcripts. A workspace transcript has no readers,
+ * so only someone who administers the workspace sees it, as on the site.
+ */
+async function requireWorkspaceTranscript(
+    workspaceId: string,
+    transcriptId: string,
+    identity: McpIdentity
+): ReturnType<typeof requireVisibleMeeting> {
+    const transcript = await prisma.transcript.findFirst({
+        where: { workspaceId, id: transcriptId, workspace: genericWorkspaceWhere },
+        select: { name: true, createdAt: true, released: true, videoUrl: true },
+    });
+    if (!transcript || !identity || !await canUserEditCity(identity.userId, workspaceId)) {
+        throw new NotFoundError('Transcript not found');
+    }
+    return {
+        released: transcript.released,
+        dateTime: transcript.createdAt,
+        name: transcript.name,
+        locale: DEFAULT_LOCALE,
+        contentLanguage: DEFAULT_LOCALE,
+        videoUrl: transcript.videoUrl,
+        administrativeBody: null,
+        administrativeBodyId: null,
+        publicTranscript: false,
+        editor: true,
     };
 }
 

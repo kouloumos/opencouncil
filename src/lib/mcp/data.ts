@@ -50,6 +50,7 @@ import { meetingDisplayName, meetingLabel, meetingLabelInCity } from '@/lib/meet
 import { getCityTimezone } from '@/lib/db/cityTimezone';
 import { originalScheduledDate, originalScheduledDates } from '@/lib/db/meetingLifecycle';
 import { publicRecordFields } from '@/lib/meetingPublic';
+import { isGenericMode } from '@/lib/genericMode';
 
 /** Built per request: the hint must point at the host the caller is using. */
 function authHint(): string {
@@ -64,7 +65,7 @@ function authHint(): string {
  */
 const urls = {
     city: (cityId: string) => `${cityBaseUrl(cityId)}/${cityId}`,
-    meeting: (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}/${cityId}/${meetingId}`,
+    meeting: (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}${transcriptPath(cityId, meetingId)}`,
     subject: (cityId: string, meetingId: string, subjectId: string) =>
         `${cityBaseUrl(cityId)}/${cityId}/${meetingId}/subjects/${subjectId}`,
     person: (cityId: string, personId: string) => `${cityBaseUrl(cityId)}/${cityId}/people/${personId}`,
@@ -72,8 +73,13 @@ const urls = {
     highlights: (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}/${cityId}/${meetingId}/highlights`,
     /** Deep-link to the moment something was said — the site's player seeks to ?t=. */
     moment: (cityId: string, meetingId: string, seconds: number) =>
-        `${cityBaseUrl(cityId)}/${cityId}/${meetingId}?t=${Math.floor(seconds)}`,
+        `${cityBaseUrl(cityId)}${transcriptPath(cityId, meetingId)}?t=${Math.floor(seconds)}`,
 };
+
+/** Where the site shows a meeting, or in generic mode a workspace transcript. */
+function transcriptPath(cityId: string, meetingId: string): string {
+    return isGenericMode() ? `/workspaces/${cityId}/transcripts/${meetingId}` : `/${cityId}/${meetingId}`;
+}
 
 /** Turn contribution markdown ("[text](REF:UTTERANCE:id)") into plain text. */
 function stripRefLinks(text: string): string {
@@ -698,15 +704,16 @@ export async function mcpGetTranscript(
     // Speaker filter: "everything this councillor said in this meeting", which
     // is otherwise unreachable — a long meeting runs to 100+ transcript pages.
     // Scoped to the meeting's own municipality, so this can't confirm the
-    // existence of people in other cities (or realms).
+    // existence of people in other cities (or realms). Read from the Speaker
+    // base table: a person shares its speaker's id, and a workspace has speakers only.
     let speakerName: string | null = null;
     if (options.personId) {
-        const person = await prisma.person.findFirst({
-            where: { id: options.personId, cityId },
+        const speaker = await prisma.speaker.findFirst({
+            where: { id: options.personId, workspaceId: cityId },
             select: { name: true },
         });
-        if (!person) throw new NotFoundError('Person not found in this municipality');
-        speakerName = person.name;
+        if (!speaker) throw new NotFoundError('Person not found in this municipality');
+        speakerName = speaker.name;
     }
     const bySpeaker = options.personId
         ? allSegments.filter(segment => segment.speakerTag.personId === options.personId)
@@ -727,12 +734,12 @@ export async function mcpGetTranscript(
 
     // Resolve speaker names for the page's segments in one query
     const personIds = [...new Set(pageSegments.map(s => s.speakerTag.personId).filter((id): id is string => !!id))];
-    const persons = await prisma.person.findMany({
+    const speakers = await prisma.speaker.findMany({
         where: { id: { in: personIds } },
-        select: { id: true, name: true, roles: roleWithRelationsInclude },
+        select: { id: true, name: true, person: { select: { roles: roleWithRelationsInclude } } },
     });
-    const personNames = new Map(persons.map(person => [person.id, person.name]));
-    const personRoles = new Map(persons.map(person => [person.id, getRoleLabelAt(person.roles, t, meetingDate)]));
+    const personNames = new Map(speakers.map(speaker => [speaker.id, speaker.name]));
+    const personRoles = new Map(speakers.map(speaker => [speaker.id, speaker.person ? getRoleLabelAt(speaker.person.roles, t, meetingDate) : null]));
 
     return {
         cityId,

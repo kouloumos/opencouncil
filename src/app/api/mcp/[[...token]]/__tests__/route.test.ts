@@ -224,4 +224,11 @@ describe('/api/mcp route in generic mode (OpenTranscripts)', () => {
         expect(response.status).toBe(200);
         expect((await rpc(response)).result?.serverInfo).toBeDefined();
     });
+
+    it('lists only the tools that work on workspaces', async () => {
+        mockToken.mockResolvedValue(SUPERADMIN_TOKEN);
+        mockRights.mockResolvedValue(ALL_RIGHTS);
+
+        expect(await toolNames({ authorization: 'Bearer mcp_test123' })).toEqual(['get_transcript']);
+    });
 });
