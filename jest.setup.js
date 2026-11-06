@@ -1,5 +1,10 @@
 require('@testing-library/jest-dom');
 
+// The nix shell exports .env, which on an OpenTranscripts checkout sets
+// generic mode. Every test runs in council mode, as in CI, unless it mocks
+// generic mode itself.
+delete process.env.NEXT_PUBLIC_APP_MODE;
+
 // jsdom (used by the .test.tsx component project) doesn't expose
 // TextEncoder/TextDecoder, which some libraries reference. Node provides them
 // natively, so this is a no-op in the node project. Heavier Web globals
