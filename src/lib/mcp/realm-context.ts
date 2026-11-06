@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Realm } from '@prisma/client';
 import { getRealmBaseUrl, isRealmApexHost } from '@/lib/realm';
+import { isGenericMode } from '@/lib/genericMode';
 import type { McpIdentity } from './auth';
 import type { McpAdminAccess } from './adminAccess';
 
@@ -82,6 +83,12 @@ export function cityBaseUrl(cityId: string): string {
     const realm = mcpRealmStore.getStore()?.cityRealms.get(cityId);
     if (!realm || realm === currentRealm() || !isRealmApexHost(new URL(origin).hostname)) return origin;
     return getRealmBaseUrl(realm);
+}
+
+/** Where the site shows a meeting, or in generic mode a workspace transcript. */
+export function transcriptUrl(cityId: string, meetingId: string): string {
+    const path = isGenericMode() ? `/workspaces/${cityId}/transcripts/${meetingId}` : `/${cityId}/${meetingId}`;
+    return `${cityBaseUrl(cityId)}${path}`;
 }
 
 /** The current request's identity; null when anonymous or outside a request. */

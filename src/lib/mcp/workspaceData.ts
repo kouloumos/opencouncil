@@ -4,7 +4,7 @@ import { countTranscripts, listTranscripts } from '@/lib/db/transcripts';
 import { paginationOf } from '@/lib/zod-schemas/listQuery';
 import type { McpIdentity } from './auth';
 import { requireAdminAccess, requireCityAdmin } from './adminAccess';
-import { currentBaseUrl } from './realm-context';
+import { currentBaseUrl, transcriptUrl } from './realm-context';
 
 /**
  * The read side of the MCP server in generic mode (OpenTranscripts): the
@@ -51,7 +51,7 @@ export async function mcpListTranscripts(
                 latestTask: task
                     ? { type: task.type, status: task.status, stage: task.stage, percentComplete: task.percentComplete, updatedAt: task.updatedAt }
                     : null,
-                url: `${currentBaseUrl()}/workspaces/${args.cityId}/transcripts/${transcript.id}`,
+                url: transcriptUrl(args.cityId, transcript.id),
             };
         }),
     };

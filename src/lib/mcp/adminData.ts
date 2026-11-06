@@ -30,7 +30,9 @@ import { requireAdminAccess, requireBodyAdmin, requireCityAdmin, requireMeetingA
 import { requireVisibleMeeting } from './gate';
 import { mcpTaskSummary } from './taskSummary';
 import { requireCityBodies, requireRealmCity } from './realmGuards';
-import { cityBaseUrl, currentBaseUrl, currentRealm, rememberCityRealm } from './realm-context';
+import { cityBaseUrl, currentBaseUrl, currentRealm, rememberCityRealm, transcriptUrl } from './realm-context';
+import { isGenericMode } from '@/lib/genericMode';
+import { assertGenericWorkspace } from '@/lib/db/workspaces';
 import { meetingDisplayName, meetingLabel } from '@/lib/meetingName';
 import { getCityTimezone } from '@/lib/db/cityTimezone';
 import { landingSubjectsTag } from '@/lib/db/subject';
@@ -45,7 +47,6 @@ import { isNewsPhase } from '@/lib/notifications/freshness';
  * writes below them check nothing.
  */
 
-const meetingUrl = (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}/${cityId}/${meetingId}`;
 
 // --- Meetings -------------------------------------------------------------
 
@@ -82,7 +83,7 @@ export async function mcpCreateMeeting(identity: McpIdentity, args: CreateMeetin
         dateTime: meeting.dateTime.toISOString(),
         administrativeBody: meeting.administrativeBody?.name ?? null,
         released: meeting.transcript.released,
-        url: meetingUrl(meeting.cityId, meeting.id),
+        url: transcriptUrl(meeting.cityId, meeting.id),
         ...(processAgendaStatus && { processAgendaStatus }),
         next: 'The meeting is saved as a draft: only administrators see it, and no subscriber is notified '
             + 'until it is released. Transcription and release are done on the site, on the admin page of the meeting.',
@@ -131,7 +132,7 @@ export async function mcpUpdateMeeting(identity: McpIdentity, args: UpdateMeetin
         agendaUrl: meeting.agendaUrl,
         administrativeBody: meeting.administrativeBody?.name ?? null,
         released: meeting.transcript.released,
-        url: meetingUrl(meeting.cityId, meeting.id),
+        url: transcriptUrl(meeting.cityId, meeting.id),
     };
 }
 
@@ -151,21 +152,35 @@ export async function mcpStartTask(identity: McpIdentity, args: StartTaskToolArg
         meetingId,
         // The transcribe core stores the video it was given on the meeting.
         ...(request.type === 'transcribe' && request.videoUrl && { youtubeUrl: request.videoUrl }),
-        url: meetingUrl(cityId, meetingId),
+        url: transcriptUrl(cityId, meetingId),
         // Fixed text, not a read of the meeting: the job is already submitted, and the
         // agent decides before it starts, from get_meeting's live `notifications`.
         ...(isNewsPhase(request.type) && { notifications: TASK_NOTIFICATIONS_NOTE }),
-        next: 'The task runs on the task server and takes minutes. Poll get_meeting: its `tasks` list '
-            + 'carries the status, and a failed task carries the error.',
+        next: isGenericMode()
+            ? 'The task runs on the task server and takes minutes. Poll list_transcripts: the latest task of '
+                + 'the transcript carries the status, and get_transcript reads the result.'
+            : 'The task runs on the task server and takes minutes. Poll get_meeting: its `tasks` list '
+                + 'carries the status, and a failed task carries the error.',
     };
 }
 
 /** Where an uploaded file goes next, per kind. */
-const UPLOAD_NEXT_STEP: Record<CreateUploadUrlToolArgs['kind'], string> = {
-    agenda: 'pass publicUrl as agendaUrl to create_meeting or update_meeting.',
-    recording: 'pass publicUrl as youtubeUrl (the recording of the meeting) to create_meeting or update_meeting, '
-        + 'or as videoUrl to start_task with type transcribe.',
-};
+const UPLOAD_NEXT_STEP: Record<CreateUploadUrlToolArgs['kind'], string> = isGenericMode()
+    ? {
+        agenda: 'a transcript has no agenda.',
+        recording: 'pass publicUrl as videoUrl to start_task with type transcribe.',
+    }
+    : {
+        agenda: 'pass publicUrl as agendaUrl to create_meeting or update_meeting.',
+        recording: 'pass publicUrl as youtubeUrl (the recording of the meeting) to create_meeting or update_meeting, '
+            + 'or as videoUrl to start_task with type transcribe.',
+    };
+
+/** The uploads of a city, or in generic mode of a workspace. */
+async function requireUploadOwner(cityId: string): Promise<void> {
+    if (isGenericMode()) await assertGenericWorkspace(cityId);
+    else await requireRealmCity(cityId);
+}
 
 /**
  * Upload URLs for a meeting file, with the same naming, formats and size
@@ -173,7 +188,7 @@ const UPLOAD_NEXT_STEP: Record<CreateUploadUrlToolArgs['kind'], string> = {
  */
 export async function mcpCreateUploadUrl(identity: McpIdentity, args: CreateUploadUrlToolArgs) {
     await requireCityAdmin(identity, args.cityId);
-    await requireRealmCity(args.cityId);
+    await requireUploadOwner(args.cityId);
 
     const plan = await startUpload(
         { cityId: args.cityId, kind: args.kind, identifier: args.identifier }, args.format, args.sizeBytes,
@@ -190,7 +205,7 @@ export async function mcpCreateUploadUrl(identity: McpIdentity, args: CreateUplo
 
 export async function mcpCompleteUpload(identity: McpIdentity, args: CompleteUploadToolArgs) {
     await requireCityAdmin(identity, args.cityId);
-    await requireRealmCity(args.cityId);
+    await requireUploadOwner(args.cityId);
     if (!args.key.startsWith(`uploads/${args.cityId}_`)) {
         throw new BadRequestError(`The key ${args.key} is not an upload of ${args.cityId}`);
     }

@@ -37,6 +37,7 @@ import { cityPopulationSchema } from '@/lib/zod-schemas/cityPopulation';
  */
 export function registerAdminTools(server: McpServer, access: McpAdminAccess) {
     registerMeetingAdminTools(server);
+    registerUploadAdminTools(server);
     registerTaskAdminTools(server);
     if (access.superadmin) {
         registerCityAdminTools(server);
@@ -83,7 +84,19 @@ function registerMeetingAdminTools(server: McpServer) {
         },
         (args, ctx: ServerContext) => run(() => mcpUpdateMeeting(identityFromContext(ctx), args))
     );
+}
 
+/**
+ * The admin tools of generic mode (OpenTranscripts): uploads and the tasks of a
+ * workspace transcript. A workspace has no meetings to create, so the meeting
+ * tools stay out.
+ */
+export function registerGenericAdminTools(server: McpServer) {
+    registerUploadAdminTools(server);
+    registerTaskAdminTools(server);
+}
+
+function registerUploadAdminTools(server: McpServer) {
     server.registerTool(
         'create_upload_url',
         {

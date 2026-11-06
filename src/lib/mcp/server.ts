@@ -3,7 +3,7 @@ import { AdministrativeBodyType, Realm } from '@prisma/client';
 import type { McpServer, ServerContext } from '@modelcontextprotocol/server';
 import { identityFromContext } from './auth';
 import { currentAdminAccess, currentMcpIdentity } from './realm-context';
-import { registerAdminTools } from './adminTools';
+import { registerAdminTools, registerGenericAdminTools } from './adminTools';
 import { registerWorkspaceTools } from './workspaceTools';
 import { category, run } from './toolSupport';
 import { isGenericMode } from '@/lib/genericMode';
@@ -117,6 +117,7 @@ export function registerOpenCouncilServer(server: McpServer) {
     if (isGenericMode()) {
         registerWorkspaceTools(server);
         registerGetTranscriptTool(server);
+        registerGenericAdminTools(server);
         return;
     }
 

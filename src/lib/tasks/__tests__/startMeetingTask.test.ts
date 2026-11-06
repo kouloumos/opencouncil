@@ -1,13 +1,17 @@
 /** @jest-environment node */
 
 const mockMeetingFindUnique = jest.fn();
+const mockTranscriptFindUnique = jest.fn();
 
 jest.mock('../../db/prisma', () => ({
     __esModule: true,
     default: {
         councilMeeting: { findUnique: (...args: unknown[]) => mockMeetingFindUnique(...args) },
+        transcript: { findUnique: (...args: unknown[]) => mockTranscriptFindUnique(...args) },
     },
 }));
+jest.mock('../transcribeGeneric', () => ({ requestTranscribeTranscript: jest.fn() }));
+jest.mock('@/lib/genericMode', () => ({ ...jest.requireActual('@/lib/genericMode'), isGenericMode: jest.fn().mockReturnValue(false) }));
 jest.mock('../processAgendaInternal', () => ({ requestProcessAgendaInternal: jest.fn() }));
 jest.mock('../transcribeInternal', () => ({ requestTranscribeInternal: jest.fn() }));
 jest.mock('../fixTranscriptInternal', () => ({ requestFixTranscriptInternal: jest.fn() }));
@@ -18,6 +22,8 @@ import { requestProcessAgendaInternal } from '../processAgendaInternal';
 import { requestTranscribeInternal } from '../transcribeInternal';
 import { requestFixTranscriptInternal } from '../fixTranscriptInternal';
 import { requestSummarizeInternal } from '../summarizeInternal';
+import { requestTranscribeTranscript } from '../transcribeGeneric';
+import { isGenericMode } from '@/lib/genericMode';
 import { PipelineBusyError, TaskAlreadyExistsError } from '../types';
 import { ApiError, BadRequestError, ConflictError, NotFoundError } from '../../api/errors';
 
@@ -109,5 +115,46 @@ describe('startMeetingTask', () => {
         const failure = startMeetingTask('athens', 'm1', { type: 'transcribe' });
         await expect(failure).rejects.toBeInstanceOf(ApiError);
         await expect(failure).rejects.toThrow(/queue full/);
+    });
+});
+
+describe('startMeetingTask in generic mode (OpenTranscripts)', () => {
+    beforeEach(() => {
+        (isGenericMode as jest.Mock).mockReturnValue(true);
+        mockTranscriptFindUnique.mockResolvedValue({ videoUrl: 'https://cdn.example/recording.mp3' });
+        (requestTranscribeTranscript as jest.Mock).mockResolvedValue(TASK);
+    });
+
+    afterEach(() => {
+        (isGenericMode as jest.Mock).mockReturnValue(false);
+    });
+
+    it('transcribes the recording of the transcript by default, or the one passed', async () => {
+        await startMeetingTask('ws1', 't1', { type: 'transcribe' });
+        expect(requestTranscribeTranscript).toHaveBeenCalledWith('ws1', 't1', { youtubeUrl: 'https://cdn.example/recording.mp3', force: false });
+
+        await startMeetingTask('ws1', 't1', { type: 'transcribe', videoUrl: 'https://cdn.example/other.mp4', force: true });
+        expect(requestTranscribeTranscript).toHaveBeenLastCalledWith('ws1', 't1', { youtubeUrl: 'https://cdn.example/other.mp4', force: true });
+        expect(mockMeetingFindUnique).not.toHaveBeenCalled();
+    });
+
+    it('refuses the steps that only a council meeting has', async () => {
+        await expect(startMeetingTask('ws1', 't1', { type: 'summarize' })).rejects.toThrow(BadRequestError);
+        expect(requestSummarizeInternal).not.toHaveBeenCalled();
+    });
+
+    it('refuses an unknown transcript, and one with no recording', async () => {
+        mockTranscriptFindUnique.mockResolvedValueOnce(null);
+        await expect(startMeetingTask('ws1', 'missing', { type: 'transcribe' })).rejects.toThrow(NotFoundError);
+
+        mockTranscriptFindUnique.mockResolvedValueOnce({ videoUrl: null });
+        await expect(startMeetingTask('ws1', 't1', { type: 'transcribe' })).rejects.toThrow(BadRequestError);
+    });
+
+    it('points a stuck task to the tasks page of the workspace', async () => {
+        (requestTranscribeTranscript as jest.Mock).mockRejectedValue(new TaskAlreadyExistsError('transcribe', 'already_running'));
+
+        await expect(startMeetingTask('ws1', 't1', { type: 'transcribe' }))
+            .rejects.toThrow(/list_transcripts lists the tasks.*\/workspaces\/ws1\/admin\/tasks/);
     });
 });

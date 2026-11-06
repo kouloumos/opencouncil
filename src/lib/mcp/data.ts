@@ -16,7 +16,7 @@ import {
     getAdministrativeBodiesWithPublicMeetings,
 } from '@/lib/db/administrativeBodies';
 import { getSubject, getDiscussionSecondsForSubjects, getHotSubjectsCached } from '@/lib/db/subject';
-import { cityBaseUrl, currentBaseUrl, currentRealm, rememberCityRealm } from './realm-context';
+import { cityBaseUrl, currentBaseUrl, currentRealm, rememberCityRealm, transcriptUrl } from './realm-context';
 import { REALMS } from '@/lib/realm';
 import { requireSuperadmin } from './adminAccess';
 import { listCitiesWithCounts } from '@/lib/db/citiesAdmin';
@@ -50,7 +50,6 @@ import { meetingDisplayName, meetingLabel, meetingLabelInCity } from '@/lib/meet
 import { getCityTimezone } from '@/lib/db/cityTimezone';
 import { originalScheduledDate, originalScheduledDates } from '@/lib/db/meetingLifecycle';
 import { publicRecordFields } from '@/lib/meetingPublic';
-import { isGenericMode } from '@/lib/genericMode';
 
 /** Built per request: the hint must point at the host the caller is using. */
 function authHint(): string {
@@ -65,7 +64,7 @@ function authHint(): string {
  */
 const urls = {
     city: (cityId: string) => `${cityBaseUrl(cityId)}/${cityId}`,
-    meeting: (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}${transcriptPath(cityId, meetingId)}`,
+    meeting: transcriptUrl,
     subject: (cityId: string, meetingId: string, subjectId: string) =>
         `${cityBaseUrl(cityId)}/${cityId}/${meetingId}/subjects/${subjectId}`,
     person: (cityId: string, personId: string) => `${cityBaseUrl(cityId)}/${cityId}/people/${personId}`,
@@ -73,13 +72,8 @@ const urls = {
     highlights: (cityId: string, meetingId: string) => `${cityBaseUrl(cityId)}/${cityId}/${meetingId}/highlights`,
     /** Deep-link to the moment something was said — the site's player seeks to ?t=. */
     moment: (cityId: string, meetingId: string, seconds: number) =>
-        `${cityBaseUrl(cityId)}${transcriptPath(cityId, meetingId)}?t=${Math.floor(seconds)}`,
+        `${transcriptUrl(cityId, meetingId)}?t=${Math.floor(seconds)}`,
 };
-
-/** Where the site shows a meeting, or in generic mode a workspace transcript. */
-function transcriptPath(cityId: string, meetingId: string): string {
-    return isGenericMode() ? `/workspaces/${cityId}/transcripts/${meetingId}` : `/${cityId}/${meetingId}`;
-}
 
 /** Turn contribution markdown ("[text](REF:UTTERANCE:id)") into plain text. */
 function stripRefLinks(text: string): string {
