@@ -185,25 +185,29 @@
   },
   "landing": {
     "generic": {
-      "tagline": "Téléversez, transcrivez et modifiez vos vidéos",
-      "features": {
-        "upload": {
-          "title": "Téléversement simple",
-          "description": "Téléversez une vidéo ou un audio depuis votre ordinateur, ou collez un lien"
-        },
-        "transcribe": {
-          "title": "Transcription automatique",
-          "description": "Notre système convertit automatiquement vos médias en texte"
-        },
-        "edit": {
-          "title": "Modifier et collaborer",
-          "description": "Modifiez les transcriptions et collaborez avec votre équipe"
-        }
-      },
-      "signIn": "Se connecter",
-      "signInHint": "Connectez-vous pour utiliser OpenTranscripts",
-      "goToWorkspaces": "Accéder aux espaces de travail",
-      "accessWorkspaces": "Accédez à vos espaces de transcription"
+      "title": "Téléversez, transcrivez et modifiez vos enregistrements",
+      "description": "Téléversez un enregistrement, transformez-le en texte avec reconnaissance des intervenants et corrigez-le sur la même page.",
+      "submit": "Continuer",
+      "goToWorkspaces": "Aller aux espaces de travail",
+      "walkthrough": {
+        "label": "De l’enregistrement au texte",
+        "caption": "Les étapes de l’enregistrement au texte : téléversement, transcription avec intervenants, correction, export.",
+        "upload": "Téléversement",
+        "transcribe": "Transcription",
+        "edit": "Correction",
+        "export": "Export",
+        "uploaded": "Téléversé",
+        "unknownSpeaker": "Intervenant inconnu {number}",
+        "speakerName": "Hélène M.",
+        "question": "Comment était le quartier à l’époque, avant les immeubles ?",
+        "answerStart": "Des maisons avec des cours, et tout le monde se",
+        "answerWrong": "connaissez",
+        "answerRight": "connaissait",
+        "answerEnd": ".",
+        "exportTitle": "Entretien de terrain",
+        "docxHint": "Texte avec intervenants",
+        "srtHint": "Sous-titres horodatés"
+      }
     }
   },
   "settings": {

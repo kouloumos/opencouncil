@@ -1,115 +1,102 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { FileText, Upload, Edit, LogIn, ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2, MailCheck } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { Link } from '@/i18n/routing';
+import { Button } from '@/components/ui/button';
+import { ErrorLine } from '@/components/ui/error-line';
+import { useEmailSignIn } from '@/components/user/useEmailSignIn';
+import { primaryPillClass } from '@/components/workspaces/styles';
+import { cn } from '@/lib/utils';
+import { TranscriptionWalkthrough } from './TranscriptionWalkthrough';
+
+/** Where a visitor lands after the sign-in link. */
+const AFTER_SIGN_IN = '/workspaces';
 
 export function GenericLandingPage() {
   const t = useTranslations('workspaces.landing.generic');
   const { data: session, status } = useSession();
-  const router = useRouter();
-
-  const handleButtonClick = () => {
-    if (session) {
-      router.push('/workspaces');
-    } else {
-      router.push('/sign-in?callbackUrl=' + encodeURIComponent('/workspaces'));
-    }
-  };
-
-  const isLoading = status === 'loading';
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Hero Section */}
-      <div className="flex-1 flex items-center justify-center px-4 py-16">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
-          {/* Logo/Title */}
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-              OpenTranscripts
-            </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-              {t('tagline')}
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="grid md:grid-cols-3 gap-6 mt-12">
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <Upload className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg">{t('features.upload.title')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('features.upload.description')}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <FileText className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg">{t('features.transcribe.title')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('features.transcribe.description')}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <Edit className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg">{t('features.edit.title')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('features.edit.description')}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* CTA */}
-          <div className="pt-8">
-            <Button 
-              size="lg" 
-              onClick={handleButtonClick}
-              className="gap-2"
-              disabled={isLoading}
-            >
-              {session ? (
-                <>
-                  <ArrowRight className="w-5 h-5" />
+    // The layout provides <main>. On a large monitor the hero fills the
+    // screen below the header and scales up as one piece, to the header's width.
+    <div className="flex w-full min-[1800px]:min-h-[calc(100svh-5rem)] min-[1800px]:items-center">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-12 px-4 py-14 sm:px-6 lg:gap-14 lg:py-20 min-[1800px]:[zoom:1.15]">
+        <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-5">
+          <h1 className="text-[34px] font-semibold leading-[1.12] tracking-[-0.025em] sm:text-[44px]">{t('title')}</h1>
+          <p className="text-[17px] leading-relaxed text-muted-foreground">{t('description')}</p>
+          <div className="mt-1.5">
+            {status === 'loading' ? (
+              <div className="h-[62px]" />
+            ) : session ? (
+              <Button asChild className={cn(primaryPillClass, 'min-h-12 px-6 text-[15px]')}>
+                <Link href={AFTER_SIGN_IN} className="hover:no-underline">
                   {t('goToWorkspaces')}
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  {t('signIn')}
-                </>
-              )}
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4">
-              {session ? t('accessWorkspaces') : t('signInHint')}
-            </p>
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+                </Link>
+              </Button>
+            ) : (
+              <LandingSignIn submitLabel={t('submit')} />
+            )}
           </div>
+        </div>
+
+        <div className="min-w-0 flex-[1_1_480px]">
+          <TranscriptionWalkthrough />
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t py-6 px-4">
-        <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} OpenTranscripts. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   );
 }
 
+/** The email sign-in of the sign-in page, as one field on the landing page. */
+function LandingSignIn({ submitLabel }: { submitLabel: string }) {
+  const t = useTranslations('SignIn');
+  const { submit, error, isLoading, sentTo, setSentTo } = useEmailSignIn({ callbackUrl: AFTER_SIGN_IN });
+
+  if (sentTo) {
+    return (
+      <div className="flex max-w-[480px] items-start gap-3 rounded-2xl border border-foreground/15 bg-background p-4" role="status">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted" aria-hidden>
+          <MailCheck className="h-5 w-5" />
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="font-semibold">{t('checkEmail.title')}</span>
+          <span className="text-sm text-muted-foreground">
+            {t.rich('checkEmail.description', {
+              email: sentTo,
+              strong: (chunks) => <strong className="break-words font-semibold text-foreground">{chunks}</strong>,
+            })}
+          </span>
+          <button type="button" className="mt-1 self-start text-sm font-medium underline underline-offset-2" onClick={() => setSentTo(null)}>
+            {t('checkEmail.useDifferentEmail')}
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="flex max-w-[480px] flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-foreground/15 bg-background p-1.5 shadow-[0_12px_28px_-18px_rgba(12,10,9,0.35)] focus-within:border-foreground/40">
+        <label htmlFor="landing-email" className="sr-only">{t('emailPlaceholder')}</label>
+        <input
+          id="landing-email"
+          type="email"
+          name="email"
+          required
+          autoComplete="email"
+          placeholder={t('emailPlaceholder')}
+          disabled={isLoading}
+          className="h-12 min-w-0 flex-[1_1_200px] rounded-full bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground"
+        />
+        <input type="hidden" name="callbackUrl" value={AFTER_SIGN_IN} />
+        <Button type="submit" disabled={isLoading} className={cn(primaryPillClass, 'min-h-12 px-6 text-[15px]')}>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-label={t('loading')} /> : submitLabel}
+        </Button>
+      </div>
+      {error && <ErrorLine>{t(error)}</ErrorLine>}
+    </form>
+  );
+}

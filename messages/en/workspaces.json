@@ -185,25 +185,29 @@
   },
   "landing": {
     "generic": {
-      "tagline": "Upload, transcribe, and edit your videos",
-      "features": {
-        "upload": {
-          "title": "Easy Upload",
-          "description": "Upload video or audio from your computer or paste a link"
-        },
-        "transcribe": {
-          "title": "Automatic Transcription",
-          "description": "Let our system automatically convert your media to text"
-        },
-        "edit": {
-          "title": "Edit & Collaborate",
-          "description": "Edit transcripts and collaborate with your team"
-        }
-      },
-      "signIn": "Sign In",
-      "signInHint": "Sign in to start using OpenTranscripts",
+      "title": "Upload, transcribe and edit your recordings",
+      "description": "Upload a recording, turn it into text with speaker recognition and correct it on the same page.",
+      "submit": "Continue",
       "goToWorkspaces": "Go to Workspaces",
-      "accessWorkspaces": "Access your transcription workspaces"
+      "walkthrough": {
+        "label": "From recording to text",
+        "caption": "The steps from a recording to text: upload, transcription with speakers, correction, export.",
+        "upload": "Upload",
+        "transcribe": "Transcription",
+        "edit": "Correction",
+        "export": "Export",
+        "uploaded": "Uploaded",
+        "unknownSpeaker": "Unknown Speaker {number}",
+        "speakerName": "Helen M.",
+        "question": "What was the neighbourhood like back then, before the apartment blocks?",
+        "answerStart": "Houses with yards, and everyone",
+        "answerWrong": "knowed",
+        "answerRight": "knew",
+        "answerEnd": " each other.",
+        "exportTitle": "Field interview",
+        "docxHint": "Text with speakers",
+        "srtHint": "Subtitles with timings"
+      }
     }
   },
   "settings": {
