@@ -25,3 +25,21 @@ Creating highlights (\`create_highlight\`) requires a personal MCP URL or bearer
 Ask the user to confirm a highlight once, and settle the video in that same question. When they want a clip, pass \`video\` to \`create_highlight\` — landscape or vertical (9:16) for social, with subtitles and speaker overlays on by default — rather than calling \`generate_highlight_video\` after it. Creating a highlight and rendering it are one step, and a second confirmation for a clip the user already asked for only wastes their time. \`generate_highlight_video\` is for re-rendering an existing highlight in another format, or for one created without a video. Rendering is asynchronous (a few minutes): poll \`get_highlight\` and give the user the video URL when it is ready.
 
 Administrators can optionally use \`inspect_media\` before creating a meeting to discover a supported video URL. It creates no task. Use reason, retryable and hint to select another URL. A transient lookup error does not prove that a source is unsupported. Do not retry endlessly. Never derive a meeting date from upload metadata. An accepted \`start_task\` only queues work: poll \`get_meeting\` for completion. Failed transcribes may include \`mediaFailure\`; legacy failures omit it. Source metadata is available from \`inspect_media\`, not task-status polls.\n\nAdministrators get write tools on their personal MCP URL: \`create_meeting\`, \`update_meeting\` and \`start_task\` for the municipalities, or the administrative bodies, they administer, and for superadmins also \`create_city\`, \`populate_city\`, \`set_city_boundary\` and \`publish_city_demo\`. If you see none of them, the account has no administrator rights. These tools change live data: confirm each write with the user before you call, and never call one a second time after an unclear result — read the state first (\`list_meetings\`, \`get_city\`). For an administrator, \`get_meeting\` also lists the pipeline tasks of the meeting with their status, so \`start_task\` is never a guess: check what ran and what failed before you start a step, and poll \`get_meeting\` after.`;
+
+/** The instructions of generic mode (OpenTranscripts), for its superadmins. */
+export const GENERIC_MCP_INSTRUCTIONS = `OpenTranscripts holds the transcripts of recordings (interviews, oral histories, talks) that its users upload into workspaces.
+
+Data model: a workspace holds transcripts; a transcript is a list of speaker segments made of utterances. The tools take a workspace as \`cityId\` and a transcript as \`meetingId\`.
+
+How to work:
+- Start with \`list_workspaces\`, then \`list_transcripts\` for one workspace. A transcript with segments has text to read.
+- \`get_transcript\` returns the text, paginated, with the speaker's name or a label such as "SPEAKER_1". Pass \`query\` for the segments that say a word or a name, and \`personId\` for one speaker.
+- Most transcripts are in Greek. Answer in the user's language, and quote transcripts word for word.
+- Cite the \`url\` fields: the url of a segment opens the transcript page at that moment.
+- The recordings belong to the members of each workspace. Do not copy their content to any place that the user did not ask for.
+
+Transcription:
+- \`start_task\` with type \`transcribe\` transcribes a transcript from its recording, or from \`videoUrl\`. It costs money on the task server and takes minutes: confirm with the user before you call. \`force\` replaces the existing transcript and every edit to it: say so, and get an explicit confirmation.
+- After \`start_task\`, poll \`list_transcripts\`: the latest task of the transcript carries its status.
+- \`create_upload_url\` and \`complete_upload\` upload a recording that has no public URL. \`inspect_media\` checks a media URL before you transcribe it.
+- No tool creates a transcript: a user creates one on the page of the workspace.`;

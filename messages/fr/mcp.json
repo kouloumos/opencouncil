@@ -1,7 +1,9 @@
 {
     "metadata": {
         "title": "OpenCouncil MCP — Interrogez votre assistant IA sur votre commune",
-        "description": "Connectez Claude, ChatGPT ou tout assistant IA que vous utilisez à OpenCouncil et demandez ce qui se discute et se décide dans les conseils municipaux."
+        "description": "Connectez Claude, ChatGPT ou tout assistant IA que vous utilisez à OpenCouncil et demandez ce qui se discute et se décide dans les conseils municipaux.",
+        "genericTitle": "OpenTranscripts MCP",
+        "genericDescription": "L'adresse MCP personnelle des administrateurs d'OpenTranscripts."
     },
     "home": "Accueil",
     "breadcrumb": "OpenCouncil MCP",
@@ -48,7 +50,7 @@
         "create": "Créer l'adresse",
         "creating": "Création…",
         "createdTitle": "Votre adresse MCP personnelle",
-        "createdNote": "Copiez-la maintenant — elle n'est affichée qu'une seule fois. Traitez-la comme un mot de passe : quiconque la possède agit en votre nom sur OpenCouncil. Vous pouvez la révoquer à tout moment.",
+        "createdNote": "Copiez-la maintenant — elle n'est affichée qu'une seule fois. Traitez-la comme un mot de passe : quiconque la possède agit en votre nom sur {appName}. Vous pouvez la révoquer à tout moment.",
         "yourTokens": "Vos adresses",
         "createdAt": "Créée",
         "lastUsed": "Dernière utilisation",
@@ -56,7 +58,8 @@
         "revoke": "Révoquer",
         "revoked": "Révoquée",
         "empty": "Vous n'avez pas encore créé d'adresse personnelle.",
-        "addressLabel": "Adresse {index}"
+        "addressLabel": "Adresse {index}",
+        "genericDescription": "Connectez votre assistant IA à OpenTranscripts : il voit les espaces de travail et leurs transcriptions, et lance de nouvelles transcriptions. L'accès est réservé aux administrateurs. Créez une adresse MCP personnelle et ajoutez-la à votre assistant."
     },
     "examples": {
         "title": "Ensuite, demandez",

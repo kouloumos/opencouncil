@@ -6,7 +6,7 @@ import { verifyMcpToken, identityFromAuthInfo } from '@/lib/mcp/auth';
 import { mayUseGenericModeMcp, resolveAdminAccess } from '@/lib/mcp/adminAccess';
 import { isGenericMode } from '@/lib/genericMode';
 import { instrumentMcpAnalytics } from '@/lib/mcp/analytics';
-import { MCP_INSTRUCTIONS } from '@/lib/mcp/instructions';
+import { GENERIC_MCP_INSTRUCTIONS, MCP_INSTRUCTIONS } from '@/lib/mcp/instructions';
 import { mcpRealmStore, requestContext } from '@/lib/mcp/realm-context';
 import { getRealm } from '@/lib/realm.server';
 
@@ -22,8 +22,8 @@ const baseHandler = createMcpHandler(
         instrumentMcpAnalytics(server);
     },
     {
-        serverInfo: { name: 'opencouncil', version: '1.0.0' },
-        instructions: MCP_INSTRUCTIONS,
+        serverInfo: { name: isGenericMode() ? 'opentranscripts' : 'opencouncil', version: '1.0.0' },
+        instructions: isGenericMode() ? GENERIC_MCP_INSTRUCTIONS : MCP_INSTRUCTIONS,
     }
 );
 

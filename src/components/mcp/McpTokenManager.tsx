@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { appName } from "@/lib/genericMode";
 import { CopyButton } from "./CopyButton";
 import { createMcpToken, revokeMcpToken } from "@/app/[locale]/(other)/mcp/actions";
 import { formatDate } from "@/lib/formatters/time";
@@ -104,7 +105,7 @@ export function McpTokenManager({ initialTokens, mcpBaseUrl }: { initialTokens: 
                                         <code className="mt-3 block break-all rounded-lg bg-black/50 px-3 py-2.5 font-mono text-xs leading-relaxed text-white/90">
                                             {created.url}
                                         </code>
-                                        <p className="mt-3 text-xs leading-relaxed text-white/50">{t("createdNote")}</p>
+                                        <p className="mt-3 text-xs leading-relaxed text-white/50">{t("createdNote", { appName: appName() })}</p>
                                     </div>
                                 )}
                             </li>

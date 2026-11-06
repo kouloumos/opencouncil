@@ -55,6 +55,11 @@ const renderOptionsShape = {
         .describe('Show the speaker\'s name, role and party on screen'),
 };
 
+const GENERIC_GET_TRANSCRIPT_DESCRIPTION =
+    'The text of a transcript as speaker segments, paginated. Pass the workspace as cityId and the transcript '
+    + 'as meetingId (see list_transcripts). Pass personId, the id of a workspace speaker, for the segments of one '
+    + 'speaker, and query for the segments that say a word or a name. Set includeUtteranceIds for the utterance ids.';
+
 /** get_transcript, which both modes serve: a workspace transcript is a meeting to it. */
 function registerGetTranscriptTool(server: McpServer) {
     server.registerTool(
@@ -63,7 +68,7 @@ function registerGetTranscriptTool(server: McpServer) {
             title: 'Get meeting transcript',
             annotations: { readOnlyHint: true, openWorldHint: false },
             _meta: category('meetings'),
-            description:
+            description: isGenericMode() ? GENERIC_GET_TRANSCRIPT_DESCRIPTION :
                 'The full transcript of a meeting as speaker segments, paginated. Speaker roles are ' +
                 'resolved as of the meeting date. Long — prefer ' +
                 'get_subject_transcript when you care about one subject. Pass personId for ' +

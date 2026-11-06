@@ -27,6 +27,7 @@ import {
     setCityBoundaryToolInput,
 } from './adminToolSchemas';
 import { category, run } from './toolSupport';
+import { isGenericMode } from '@/lib/genericMode';
 import { cityPopulationSchema } from '@/lib/zod-schemas/cityPopulation';
 
 /**
@@ -96,6 +97,27 @@ export function registerGenericAdminTools(server: McpServer) {
     registerTaskAdminTools(server);
 }
 
+/** The descriptions of generic mode (OpenTranscripts), where a workspace is the cityId and a transcript the meetingId. */
+const GENERIC_DESCRIPTIONS = {
+    createUploadUrl:
+        'Get short-lived URLs to upload a recording (an mp4, .mov or .mp3, at most 40 GiB) of a workspace that you '
+        + 'administer, as cityId with kind recording. Use it when the recording has no public URL that the task '
+        + 'server can read. A file of up to partSize bytes goes up in one PUT, and `completion` is null. A bigger '
+        + 'file goes up in parts, one PUT per part, and complete_upload then joins them. The answer\'s `next` gives '
+        + 'the steps. Then pass `publicUrl` as videoUrl to start_task.',
+    inspectMedia:
+        'Optionally inspect a public media URL before you transcribe it. No task or callback is created. The '
+        + 'lookup can take up to 150 seconds. Use reason, retryable and hint to choose another URL. A transient '
+        + 'error does not mean that the source is unsupported. Do not retry endlessly.',
+    startTask:
+        'Transcribe a transcript of a workspace that you administer: pass type transcribe, the workspace as cityId '
+        + 'and the transcript as meetingId. The other types do not apply to a transcript and are refused. It '
+        + 'transcribes the recording of the transcript, or videoUrl. It spends real money on the task server and '
+        + 'takes minutes: confirm with the user before you call, and read list_transcripts first. A running task is '
+        + 'refused: wait for it. A transcript that has segments is refused unless `force` is passed. `force` DELETES '
+        + 'the existing transcript and every edit to it: say so to the user and get an explicit confirmation.',
+};
+
 function registerUploadAdminTools(server: McpServer) {
     server.registerTool(
         'create_upload_url',
@@ -103,7 +125,7 @@ function registerUploadAdminTools(server: McpServer) {
             title: 'Create upload URLs for a meeting file',
             annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
             _meta: category('admin'),
-            description:
+            description: isGenericMode() ? GENERIC_DESCRIPTIONS.createUploadUrl :
                 'Get short-lived URLs to upload the agenda or the recording (video or audio) of a meeting to the file '
                 + 'storage of OpenCouncil, in a municipality that you administer. Use it when the file has no public '
                 + 'URL that the task server can read: an email attachment, a download link that expires, a video '
@@ -141,7 +163,7 @@ function registerTaskAdminTools(server: McpServer) {
             title: 'Inspect a media URL',
             annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
             _meta: category('admin'),
-            description: 'Optionally inspect a public media URL before creating a meeting or starting transcription. '
+            description: isGenericMode() ? GENERIC_DESCRIPTIONS.inspectMedia : 'Optionally inspect a public media URL before creating a meeting or starting transcription. '
                 + 'Any administrator can inspect without a city or meeting. No task or callback is created. '
                 + 'The lookup can take up to 150 seconds. Use reason, retryable and hint to choose another URL. '
                 + 'A transient error does not mean that the source is unsupported. Do not retry endlessly. '
@@ -156,7 +178,7 @@ function registerTaskAdminTools(server: McpServer) {
             title: 'Start a pipeline task',
             annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
             _meta: category('admin'),
-            description:
+            description: isGenericMode() ? GENERIC_DESCRIPTIONS.startTask :
                 'Start one step of the processing pipeline for a meeting in a municipality, or of an administrative body, that you administer, '
                 + 'as the admin page of the meeting does. The steps, in order: `processAgenda` reads the subjects '
                 + 'from the agenda PDF; `transcribe` turns the video into a transcript (and starts fixTranscript '

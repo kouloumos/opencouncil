@@ -1,7 +1,9 @@
 {
     "metadata": {
         "title": "OpenCouncil MCP — Ask your AI assistant about your municipality",
-        "description": "Connect Claude, ChatGPT or any AI assistant you use to OpenCouncil and ask what is being discussed and decided in municipal councils."
+        "description": "Connect Claude, ChatGPT or any AI assistant you use to OpenCouncil and ask what is being discussed and decided in municipal councils.",
+        "genericTitle": "OpenTranscripts MCP",
+        "genericDescription": "The personal MCP address of the OpenTranscripts administrators."
     },
     "home": "Home",
     "breadcrumb": "OpenCouncil MCP",
@@ -48,7 +50,7 @@
         "create": "Create address",
         "creating": "Creating…",
         "createdTitle": "Your personal MCP address",
-        "createdNote": "Copy it now — it is shown only once. Treat it like a password: anyone who has it acts as you on OpenCouncil. You can revoke it at any time.",
+        "createdNote": "Copy it now — it is shown only once. Treat it like a password: anyone who has it acts as you on {appName}. You can revoke it at any time.",
         "yourTokens": "Your addresses",
         "createdAt": "Created",
         "lastUsed": "Last used",
@@ -56,7 +58,8 @@
         "revoke": "Revoke",
         "revoked": "Revoked",
         "empty": "You have not created a personal address yet.",
-        "addressLabel": "Address {index}"
+        "addressLabel": "Address {index}",
+        "genericDescription": "Connect your AI assistant to OpenTranscripts: it sees the workspaces and their transcripts, and starts new transcriptions. Access is for administrators only. Create a personal MCP address and add it to your assistant."
     },
     "examples": {
         "title": "Then just ask",

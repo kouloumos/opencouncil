@@ -10,7 +10,7 @@ import { McpTokenManager } from "@/components/mcp/McpTokenManager";
 import { withCanonicalUrl } from "@/lib/utils/hreflang";
 import { ArrowRight } from "lucide-react";
 import { notFound } from "next/navigation";
-import { isGenericMode } from "@/lib/genericMode";
+import { appName, isGenericMode } from "@/lib/genericMode";
 import { mayUseGenericModeMcp } from "@/lib/mcp/adminAccess";
 
 // Both entry points read the locale from params and pass it explicitly:
@@ -22,14 +22,16 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
     const { locale } = await props.params;
     const t = await getTranslations({ locale, namespace: "mcp.metadata" });
+    const title = isGenericMode() ? t("genericTitle") : t("title");
+    const description = isGenericMode() ? t("genericDescription") : t("description");
     return withCanonicalUrl("/mcp", {
-        title: t("title"),
-        description: t("description"),
+        title,
+        description,
         openGraph: {
-            title: t("title"),
-            description: t("description"),
+            title,
+            description,
             type: "website",
-            siteName: "OpenCouncil",
+            siteName: appName(),
         },
     });
 }
@@ -53,7 +55,7 @@ export default async function McpPage(props: { params: Promise<{ locale: string 
         if (!user || !mayUseGenericModeMcp({ superadmin: user.isSuperAdmin })) notFound();
         return (
             <div className="mx-auto max-w-3xl px-4 pb-28 pt-8 sm:px-6 lg:pb-20">
-                <TokensSection title={t("tokens.title")} description={t("tokens.description")} className="mt-0">
+                <TokensSection title={t("tokens.title")} description={t("tokens.genericDescription")} className="mt-0">
                     <McpTokenManager initialTokens={tokens} mcpBaseUrl={serverUrl} />
                 </TokensSection>
             </div>
