@@ -17,6 +17,11 @@ import { env } from '@/env.mjs';
 export async function generateMetadata(props: {
     params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
+    // The root layout's generic metadata names OpenTranscripts; the texts below name OpenCouncil.
+    if (env.NEXT_PUBLIC_APP_MODE === 'generic') {
+        return {};
+    }
+
     const { locale } = await props.params;
     const t = await getTranslations({ locale, namespace: 'metadata.landing' });
 
