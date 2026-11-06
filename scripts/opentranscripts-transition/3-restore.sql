@@ -103,6 +103,29 @@ SELECT pg_temp.restore_table('VoicePrint', '{"speakerId": "personId"}');
 SELECT pg_temp.restore_table('TaskStatus', '{"transcriptId": "councilMeetingId", "workspaceId": "cityId"}');
 SELECT pg_temp.restore_table('Administers', '{"workspaceId": "cityId"}', ARRAY['cityId']);
 
+-- The old code let a progress callback that came after the result set a
+-- succeeded transcribe back to pending. Such a task holds its result and its
+-- transcript has segments, so the transcription is done. The new code reads a
+-- pending task with a result as an import that never finished: it refuses
+-- another transcribe of that transcript, and an admin replay would import the
+-- result again over the users' edits. verify.sh expects exactly this change.
+DO $$
+DECLARE
+    fixed integer;
+BEGIN
+    UPDATE "TaskStatus" ts SET status = 'succeeded'
+    WHERE ts.id IN (SELECT id FROM ot_stash."TaskStatus")
+      AND ts.type = 'transcribe'
+      AND ts.status = 'pending'
+      AND ts."responseBody" IS NOT NULL
+      AND EXISTS (
+          SELECT 1 FROM "SpeakerSegment" s
+          WHERE s."cityId" = ts."cityId" AND s."meetingId" = ts."councilMeetingId"
+      );
+    GET DIAGNOSTICS fixed = ROW_COUNT;
+    RAISE NOTICE 'Marked % finished transcribe task(s) as succeeded', fixed;
+END $$;
+
 -- What migration 20261002120000_add_speaker_identifications did to every tag
 -- that existed then: a tag updated after its import was edited by a person.
 UPDATE "SpeakerTag" SET "personSetBy" = 'user'

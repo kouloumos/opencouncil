@@ -84,9 +84,19 @@ check "TopicLabel" \
 check "VoicePrint" \
     'SELECT id, embedding, "sourceAudioUrl", "startTimestamp", "endTimestamp", "speakerId", "sourceSegmentId" FROM "VoicePrint"' \
     'SELECT id, embedding, "sourceAudioUrl", "startTimestamp", "endTimestamp", "personId", "sourceSegmentId" FROM "VoicePrint"'
+# 3-restore.sql marks a finished transcribe that the old code left pending as succeeded.
+old_task_query=$(cat <<'SQL'
+SELECT id,
+       CASE WHEN type = 'transcribe' AND status::text = 'pending' AND "responseBody" IS NOT NULL
+                 AND EXISTS (SELECT 1 FROM "SpeakerSegment" s WHERE s."workspaceId" = ts."workspaceId" AND s."transcriptId" = ts."transcriptId")
+            THEN 'succeeded' ELSE status::text END,
+       type, stage, "percentComplete", "requestBody", "responseBody", version, "transcriptId", "workspaceId", "createdAt", "updatedAt"
+FROM "TaskStatus" ts
+SQL
+)
 check "TaskStatus" \
-    'SELECT id, status, type, stage, "percentComplete", "requestBody", "responseBody", version, "transcriptId", "workspaceId", "createdAt", "updatedAt" FROM "TaskStatus"' \
-    'SELECT id, status, type, stage, "percentComplete", "requestBody", "responseBody", version, "councilMeetingId", "cityId", "createdAt", "updatedAt" FROM "TaskStatus"'
+    "$old_task_query" \
+    'SELECT id, status::text, type, stage, "percentComplete", "requestBody", "responseBody", version, "councilMeetingId", "cityId", "createdAt", "updatedAt" FROM "TaskStatus"'
 
 # Council data and accounts.
 check "CouncilMeeting" \
