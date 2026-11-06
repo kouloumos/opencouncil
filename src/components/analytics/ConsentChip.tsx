@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/routing";
 import { identifyPostHogUser } from "./identifyUser";
 import { ANALYTICS_CHOICE_KEY, REOPEN_CONSENT_EVENT } from "@/lib/utils/analyticsConsent";
+import { appName } from "@/lib/genericMode";
 
 // Deliberately ignorable consent chip: until a choice is made, PostHog runs
 // in cookieless mode (nothing stored on the device), so dismissal or
@@ -68,7 +69,7 @@ export default function ConsentChip() {
                 <Cookie className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="space-y-3">
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                        {t("message")}{" "}
+                        {t("message", { appName: appName() })}{" "}
                         <Link
                             href="/privacy"
                             className="underline underline-offset-2 hover:text-foreground"

@@ -1,6 +1,6 @@
 {
     "title": "Optional analytics cookies",
-    "message": "We use optional cookies to understand how OpenCouncil is used. If you decline, measurement continues fully anonymously, without cookies.",
+    "message": "We use optional cookies to understand how {appName} is used. If you decline, measurement continues fully anonymously, without cookies.",
     "learnMore": "Learn more",
     "accept": "Accept",
     "decline": "No thanks"
