@@ -1,6 +1,7 @@
 import { env } from '@/env.mjs';
+import { appName } from '@/lib/genericMode';
 
-/** A mailbox that OpenCouncil sends email from. */
+/** A mailbox that the app sends email from. */
 export type EmailSender = 'auth' | 'notifications' | 'operations' | 'noreply';
 
 /**
@@ -12,5 +13,5 @@ export type EmailSender = 'auth' | 'notifications' | 'operations' | 'noreply';
  * this module must not import server-only code.
  */
 export function emailFrom(sender: EmailSender): string {
-    return env.EMAIL_FROM_OVERRIDE ?? `OpenCouncil <${sender}@opencouncil.gr>`;
+    return env.EMAIL_FROM_OVERRIDE ?? `${appName()} <${sender}@opencouncil.gr>`;
 }

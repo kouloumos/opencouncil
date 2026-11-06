@@ -11,6 +11,7 @@ import {
 import * as React from "react"
 import { klitiki } from "@/lib/utils"
 import { getRealmContactPhone } from "@/lib/realm"
+import { appName, isGenericMode } from "@/lib/genericMode"
 
 interface UserInviteEmailProps {
     name: string
@@ -18,7 +19,8 @@ interface UserInviteEmailProps {
 }
 
 export const UserInviteEmail = ({ name, inviteUrl }: UserInviteEmailProps) => {
-    const previewText = `Καλώς ήρθατε στο OpenCouncil`
+    const product = appName()
+    const previewText = `Καλώς ήρθατε στο ${product}`
 
     return (
         <Html>
@@ -26,25 +28,28 @@ export const UserInviteEmail = ({ name, inviteUrl }: UserInviteEmailProps) => {
             <Preview>{previewText}</Preview>
             <Body style={main}>
                 <Container style={container}>
-                    <Heading style={h1}>Καλώς ήρθατε στο OpenCouncil</Heading>
+                    <Heading style={h1}>Καλώς ήρθατε στο {product}</Heading>
                     <Text style={text}>Γεια σας {klitiki(name)},</Text>
                     <Text style={text}>
-                        Έχετε προσκληθεί για να εγγραφείτε στο OpenCouncil. Κάντε κλικ στον
+                        Έχετε προσκληθεί για να εγγραφείτε στο {product}. Κάντε κλικ στον
                         παρακάτω σύνδεσμο για να συνδεθείτε και να ξεκινήσετε:
                     </Text>
                     <Link
                         href={inviteUrl}
                         style={button}
                     >
-                        Σύνδεση στο OpenCouncil
+                        Σύνδεση στο {product}
                     </Link>
                     <Text style={text}>
-                        Αν χρειάζεστε βοήθεια, απαντήστε σε αυτό το email ή καλέστε μας στο {getRealmContactPhone("greece")}.
+                        {/* The phone is OpenCouncil's. */}
+                        {isGenericMode()
+                            ? 'Αν χρειάζεστε βοήθεια, απαντήστε σε αυτό το email.'
+                            : <>Αν χρειάζεστε βοήθεια, απαντήστε σε αυτό το email ή καλέστε μας στο {getRealmContactPhone("greece")}.</>}
                     </Text>
                     <Text style={text}>
                         Με εκτίμηση,
                         <br />
-                        Η ομάδα του OpenCouncil
+                        Η ομάδα του {product}
                     </Text>
                 </Container>
             </Body>

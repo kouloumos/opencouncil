@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email/resend"
 import { env } from "@/env.mjs"
 import prisma from "@/lib/db/prisma"
 import { signInUrlForRequest } from "@/lib/auth/signInUrl"
+import { appName } from "@/lib/genericMode"
 
 /**
  * `request` repoints the link at the host the admin is inviting from, as
@@ -47,7 +48,7 @@ export async function sendInviteEmail(email: string, name: string | null | undef
         const sendResult = await sendEmail({
             from: 'auth',
             to: email,
-            subject: "Πρόσκληση: Συνδεθείτε στο OpenCouncil",
+            subject: `Πρόσκληση: Συνδεθείτε στο ${appName()}`,
             html: emailHtml,
         })
         if (!sendResult.success) throw new Error("Email send failed")

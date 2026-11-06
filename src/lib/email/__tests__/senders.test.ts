@@ -1,11 +1,16 @@
 const mockEnv: { EMAIL_FROM_OVERRIDE?: string } = {};
 jest.mock('@/env.mjs', () => ({ env: mockEnv }));
+const mockIsGenericMode = jest.fn(() => false);
+jest.mock('@/lib/genericMode', () => ({
+    appName: () => (mockIsGenericMode() ? 'OpenTranscripts' : 'OpenCouncil'),
+}));
 
 import { emailFrom } from '@/lib/email/senders';
 
 describe('emailFrom', () => {
     afterEach(() => {
         delete mockEnv.EMAIL_FROM_OVERRIDE;
+        mockIsGenericMode.mockReturnValue(false);
     });
 
     it('sends each sender from its own opencouncil.gr mailbox', () => {
@@ -17,5 +22,10 @@ describe('emailFrom', () => {
         mockEnv.EMAIL_FROM_OVERRIDE = 'Fork <onboarding@resend.dev>';
         expect(emailFrom('auth')).toBe('Fork <onboarding@resend.dev>');
         expect(emailFrom('noreply')).toBe('Fork <onboarding@resend.dev>');
+    });
+
+    it('names OpenTranscripts as the sender in generic mode', () => {
+        mockIsGenericMode.mockReturnValue(true);
+        expect(emailFrom('auth')).toBe('OpenTranscripts <auth@opencouncil.gr>');
     });
 });

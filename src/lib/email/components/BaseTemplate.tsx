@@ -12,6 +12,7 @@ import {
 } from '@react-email/components';
 import { DEFAULT_LOCALE, type AppLocale } from '@/i18n/config';
 import { emailCopy } from '../copy';
+import { appName, isGenericMode } from '@/lib/genericMode';
 
 /**
  * The one-line strapline under the footer rule. Localized separately from the
@@ -26,6 +27,19 @@ const TAGLINE: Record<AppLocale, string> = {
     'sr-Latn': 'Digitalna demokratija',
 };
 
+/**
+ * OpenTranscripts mails its own logo from its own host, and has no strapline:
+ * "Digital Democracy" is OpenCouncil's. Reads process.env rather than
+ * @/env.mjs, which the jest transform cannot parse and which every test of an
+ * email would then have to mock; env.mjs still validates NEXTAUTH_URL at startup.
+ */
+function brand(locale: string): { name: string; logoUrl: string; tagline: string | null } {
+    if (isGenericMode()) {
+        return { name: appName(), logoUrl: `${process.env.NEXTAUTH_URL}/logo.png`, tagline: null };
+    }
+    return { name: appName(), logoUrl: 'https://opencouncil.gr/logo.png', tagline: emailCopy(TAGLINE, locale, DEFAULT_LOCALE) };
+}
+
 interface BaseTemplateProps {
     children: React.ReactNode;
     previewText?: string;
@@ -38,11 +52,11 @@ export const BaseTemplate = ({
     locale = DEFAULT_LOCALE,
     // Destructured after `locale` so the default can read it: a template that
     // passes a locale but no preview text still gets its own language.
-    previewText = `OpenCouncil - ${emailCopy(TAGLINE, locale, DEFAULT_LOCALE)}`,
+    previewText = [brand(locale).name, brand(locale).tagline].filter(Boolean).join(' - '),
 }: BaseTemplateProps): React.ReactElement => (
     <Html lang={locale}>
         <Head>
-            <title>OpenCouncil</title>
+            <title>{brand(locale).name}</title>
             <Preview>{previewText}</Preview>
         </Head>
         <Body style={{
@@ -60,8 +74,8 @@ export const BaseTemplate = ({
             }}>
                 <Section style={{ textAlign: 'center' }}>
                     <Img
-                        src="https://opencouncil.gr/logo.png"
-                        alt="OpenCouncil"
+                        src={brand(locale).logoUrl}
+                        alt={brand(locale).name}
                         width="150"
                         height="auto"
                         style={{
@@ -82,8 +96,8 @@ export const BaseTemplate = ({
                     color: '#6b7280',
                     fontSize: '12px',
                 }}>
-                    <Text>© {new Date().getFullYear()} OpenCouncil. All rights reserved.</Text>
-                    <Text>{emailCopy(TAGLINE, locale, DEFAULT_LOCALE)}</Text>
+                    <Text>© {new Date().getFullYear()} {brand(locale).name}. All rights reserved.</Text>
+                    {brand(locale).tagline && <Text>{brand(locale).tagline}</Text>}
                 </Section>
             </Container>
         </Body>

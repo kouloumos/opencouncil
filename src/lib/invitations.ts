@@ -30,7 +30,7 @@ export async function sendWorkspaceInviteEmail(
   const result = await sendEmail({
     from: "auth",
     to: email,
-    subject: `Invitation to join ${workspaceName} workspace`,
+    subject: `Πρόσκληση στο χώρο εργασίας ${workspaceName}`,
     html: emailHtml,
   });
   if (!result.success) {
