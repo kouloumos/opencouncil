@@ -1,0 +1,290 @@
+/** @jest-environment node */
+
+const mockRequestFixTranscriptInternal = jest.fn();
+const mockRequestFixTranscript = jest.fn();
+const mockSendAutoFixAlert = jest.fn();
+const mockTaskFindUnique = jest.fn();
+const mockMeetingUpdate = jest.fn();
+const mockSpeakerTagCreate = jest.fn();
+const mockPersonFindUnique = jest.fn();
+const mockSpeakerFindUnique = jest.fn();
+const mockSpeakerSegmentCreate = jest.fn();
+
+// Mock all transitive dependencies of transcribe.ts before import
+jest.mock('../../db/prisma', () => ({
+  __esModule: true,
+  default: {
+    taskStatus: {
+      findUnique: (...args: unknown[]) => mockTaskFindUnique(...args),
+    },
+    transcript: {
+      update: (...args: unknown[]) => mockMeetingUpdate(...args),
+    },
+    $transaction: (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        person: { findUnique: (...args: unknown[]) => mockPersonFindUnique(...args) },
+        speaker: { findUnique: (...args: unknown[]) => mockSpeakerFindUnique(...args) },
+        speakerTag: { create: (...args: unknown[]) => mockSpeakerTagCreate(...args) },
+        speakerSegment: { create: (...args: unknown[]) => mockSpeakerSegmentCreate(...args) },
+      }),
+  },
+}));
+jest.mock('../../auth', () => ({ withUserAuthorizedToEdit: jest.fn() }));
+jest.mock('../transcribeInternal', () => ({
+  requestTranscribeInternal: jest.fn(),
+  deleteExistingSpeakerData: jest.fn(),
+}));
+jest.mock('../fixTranscriptInternal', () => ({
+  requestFixTranscriptInternal: (...args: unknown[]) => mockRequestFixTranscriptInternal(...args),
+}));
+// Mocked so a test can assert it is never reached: it gates on the user
+// session, which a task-server callback does not have.
+jest.mock('../fixTranscript', () => ({
+  requestFixTranscript: (...args: unknown[]) => mockRequestFixTranscript(...args),
+}));
+jest.mock('../../discord', () => ({
+  sendTaskAdminAlert: (...args: unknown[]) => mockSendAutoFixAlert(...args),
+}));
+
+import { handleTranscribeResult } from '../transcribe';
+
+const CITY_ID = 'city-1';
+const MEETING_ID = 'meeting-1';
+
+const task = {
+  id: 'task-1',
+  cityId: CITY_ID,
+  councilMeetingId: MEETING_ID,
+<<<<<<<
+  councilMeeting: {
+    id: MEETING_ID,
+    cityId: CITY_ID,
+    name_en: 'Test Meeting',
+    city: { name_en: 'Test City', realm: 'greece' },
+=======
+  transcript: {
+    councilMeeting: {
+      id: MEETING_ID,
+      cityId: CITY_ID,
+      name_en: 'Test Meeting',
+      city: { name_en: 'Test City' },
+    },
+>>>>>>>
+    speakerSegments: [],
+  },
+};
+
+// Minimal successful transcribe result: one speaker, one utterance
+const response = {
+  videoUrl: 'https://cdn.example/video.mp4',
+  audioUrl: 'https://cdn.example/audio.mp3',
+  muxPlaybackId: 'mux-1',
+  transcript: {
+    transcription: {
+      utterances: [{ start: 0, end: 1, speaker: 0, text: 'hello', drift: 0 }],
+      speakers: [{ speaker: 0, match: null }],
+    },
+  },
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockTaskFindUnique.mockResolvedValue(task);
+  mockMeetingUpdate.mockResolvedValue({ id: MEETING_ID });
+  mockSpeakerTagCreate.mockResolvedValue({ id: 'tag-1' });
+  mockPersonFindUnique.mockResolvedValue(undefined);
+  mockSpeakerSegmentCreate.mockResolvedValue({ id: 'segment-1' });
+  mockRequestFixTranscriptInternal.mockResolvedValue({ id: 'fix-task-1' });
+  mockSendAutoFixAlert.mockResolvedValue(undefined);
+});
+
+describe('handleTranscribeResult — fixTranscript auto-chain', () => {
+  it('auto-triggers fixTranscript with force after a successful import', async () => {
+    await handleTranscribeResult('task-1', response as never);
+
+    expect(mockRequestFixTranscriptInternal).toHaveBeenCalledTimes(1);
+    expect(mockRequestFixTranscriptInternal).toHaveBeenCalledWith(MEETING_ID, CITY_ID, { force: true });
+    // The gated entry point authorizes against the user session. The callback
+    // carries a callback token and no session, so it must never go that way.
+    expect(mockRequestFixTranscript).not.toHaveBeenCalled();
+    expect(mockSendAutoFixAlert).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when the fixTranscript trigger fails, and sends a Discord alert', async () => {
+    mockRequestFixTranscriptInternal.mockRejectedValue(new Error('task server unreachable'));
+
+    // Must resolve: a throw here would mark the succeeded transcribe task as failed
+    await expect(handleTranscribeResult('task-1', response as never)).resolves.toBeUndefined();
+
+    expect(mockSendAutoFixAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        taskType: 'fixTranscript',
+        cityId: CITY_ID,
+        meetingId: MEETING_ID,
+        error: expect.stringContaining('task server unreachable'),
+      })
+    );
+  });
+
+  it('stringifies non-Error throws in the alert instead of crashing', async () => {
+    mockRequestFixTranscriptInternal.mockRejectedValue('ECONNREFUSED');
+
+    await expect(handleTranscribeResult('task-1', response as never)).resolves.toBeUndefined();
+
+    expect(mockSendAutoFixAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('ECONNREFUSED') })
+    );
+  });
+
+  it('does not throw even when the failure alert itself rejects', async () => {
+    mockRequestFixTranscriptInternal.mockRejectedValue(new Error('task server unreachable'));
+    mockSendAutoFixAlert.mockRejectedValue(new Error('discord down'));
+
+    await expect(handleTranscribeResult('task-1', response as never)).resolves.toBeUndefined();
+  });
+
+  it('does not trigger fixTranscript when the import itself fails', async () => {
+    mockTaskFindUnique.mockResolvedValue(null); // handler throws 'Task not found'
+
+    await expect(handleTranscribeResult('task-1', response as never)).rejects.toThrow('Task not found');
+
+    expect(mockRequestFixTranscriptInternal).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleTranscribeResult — utterance confidence scores', () => {
+  const withUtterance = (utterance: Record<string, unknown>) => ({
+    ...response,
+    transcript: {
+      transcription: {
+        utterances: [utterance],
+        speakers: [{ speaker: 0, match: null }],
+      },
+    },
+  });
+
+  const createdUtterances = () =>
+    mockSpeakerSegmentCreate.mock.calls[0][0].data.utterances.createMany.data;
+
+  it('stores the confidence scores carried by transcribe v4 results', async () => {
+    const scored = withUtterance({
+      start: 0, end: 1, speaker: 0, text: 'hello', drift: 0,
+      confidence: 0.97, minWordConfidence: 0.61, totalConfidence: 0.55,
+    });
+
+    await handleTranscribeResult('task-1', scored as never);
+
+    expect(createdUtterances()).toEqual([
+      expect.objectContaining({ confidence: 0.97, minWordConfidence: 0.61, totalConfidence: 0.55 }),
+    ]);
+  });
+
+  it('rounds the scores to 4 significant figures', async () => {
+    // exp() and running products emit full-precision doubles, which gzip poorly
+    const scored = withUtterance({
+      start: 0, end: 1, speaker: 0, text: 'hello', drift: 0,
+      confidence: 0.9712345678901234, minWordConfidence: 0.6149999999999999, totalConfidence: 0.5500000000000001,
+    });
+
+    await handleTranscribeResult('task-1', scored as never);
+
+    expect(createdUtterances()).toEqual([
+      expect.objectContaining({ confidence: 0.9712, minWordConfidence: 0.615, totalConfidence: 0.55 }),
+    ]);
+  });
+
+  it('stores null min and total scores when replaying a pre-v4 result', async () => {
+    // Results stored by transcribe versions before 4 carry only the mean confidence
+    const preV4 = withUtterance({ start: 0, end: 1, speaker: 0, text: 'hello', drift: 0, confidence: 0.9 });
+
+    await handleTranscribeResult('task-1', preV4 as never);
+
+    expect(createdUtterances()).toEqual([
+      expect.objectContaining({ confidence: 0.9, minWordConfidence: null, totalConfidence: null }),
+    ]);
+  });
+});
+
+describe('handleTranscribeResult — voiceprint identifications', () => {
+  const withSpeakers = (speakers: unknown[]) => ({
+    ...response,
+    transcript: { transcription: { ...response.transcript.transcription, speakers } },
+  });
+
+  it('keeps a voiceprint match as the tag\'s voiceprint identification, with its score', async () => {
+    mockPersonFindUnique.mockResolvedValue({ id: 'anna' });
+
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: 'anna', confidence: { anna: 87.5, babis: 12 } }]) as never);
+
+    expect(mockSpeakerTagCreate).toHaveBeenCalledWith({
+      data: {
+        label: 'SPEAKER_0',
+        speaker: { connect: { id: 'anna' } },
+        personSetBy: 'voiceprint',
+        identifications: { create: { method: 'voiceprint', personId: 'anna', actionable: true, confidence: 87.5 } },
+      },
+    });
+  });
+
+  it('records no identification and no source for an unmatched speaker', async () => {
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: null, confidence: {} }]) as never);
+
+    const { data } = mockSpeakerTagCreate.mock.calls[0][0];
+    expect(data).toEqual({ label: 'Άγνωστος Ομιλητής 1' });
+  });
+
+  it('labels an unmatched speaker in the UI language of the realm of the city', async () => {
+    mockTaskFindUnique.mockResolvedValue({ ...task, councilMeeting: { ...task.councilMeeting, city: { name_en: 'Kraków', realm: 'poland' } } });
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: null, confidence: {} }]) as never);
+
+    expect(mockSpeakerTagCreate.mock.calls[0][0].data).toEqual({ label: 'Unknown Speaker 1' });
+  });
+
+  it('records no identification when the matched person no longer exists', async () => {
+    mockPersonFindUnique.mockResolvedValue(null);
+
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: 'ghost', confidence: { ghost: 90 } }]) as never);
+
+    const { data } = mockSpeakerTagCreate.mock.calls[0][0];
+    expect(Object.keys(data)).toEqual(['label']);
+  });
+});
+
+describe('handleTranscribeResult — a transcript that is not a council meeting', () => {
+  const workspaceTask = { ...task, transcript: { councilMeeting: null, speakerSegments: [] } };
+  const withSpeakers = (speakers: unknown[]) => ({
+    ...response,
+    transcript: { transcription: { ...response.transcript.transcription, speakers } },
+  });
+
+  beforeEach(() => {
+    mockTaskFindUnique.mockResolvedValue(workspaceTask);
+  });
+
+  it('imports the segments into the transcript and starts no fixTranscript', async () => {
+    await handleTranscribeResult('task-1', response as never);
+
+    expect(mockSpeakerSegmentCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        transcript: { connect: { workspaceId_id: { workspaceId: CITY_ID, id: MEETING_ID } } },
+      }),
+    }));
+    expect(mockRequestFixTranscriptInternal).not.toHaveBeenCalled();
+  });
+
+  it('connects a voiceprint match to the speaker, with no identification', async () => {
+    mockSpeakerFindUnique.mockResolvedValue({ id: 'speaker-1' });
+
+    await handleTranscribeResult('task-1', withSpeakers([{ speaker: 0, match: 'speaker-1', confidence: { 'speaker-1': 90 } }]) as never);
+
+    expect(mockPersonFindUnique).not.toHaveBeenCalled();
+    expect(mockSpeakerTagCreate).toHaveBeenCalledWith({
+      data: {
+        label: 'SPEAKER_0',
+        speaker: { connect: { id: 'speaker-1' } },
+        personSetBy: 'voiceprint',
+      },
+    });
+  });
+});
