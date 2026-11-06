@@ -42,6 +42,7 @@ Procedures for working with the deployed environments.
 
 - **[guides/preview-deployments.md](./guides/preview-deployments.md)** — Automated per-PR preview environments: GitHub Actions flow, NixOS droplet, port mapping, Caddy config
 - **[guides/cachix-setup.md](./guides/cachix-setup.md)** — Nix binary cache configuration for preview deployment builds
+- **[OpenTranscripts rebase](../.claude/skills/opentranscripts-rebase/SKILL.md)** — How the fork kouloumos/opencouncil (OpenTranscripts) follows OpenCouncil main: the fork rules for conflicts, the checks, the migration rehearsal on a copy of production, and the deploy. Run it as the `opentranscripts-rebase` skill.
 - **[admin-alerts.md](./admin-alerts.md)** — Discord webhook setup for system event notifications
 - **[google-calendar-setup.md](./google-calendar-setup.md)** — OAuth 2.0 setup for Google Calendar integration
 
