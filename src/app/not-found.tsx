@@ -1,13 +1,11 @@
 "use client"
 import Link from 'next/link'
-import { useRealm } from '@/hooks/useRealm'
-import { getRealmContactPhone, telHref } from '@/lib/realm'
+import { isGenericMode } from '@/lib/genericMode'
+import { SupportContacts } from '@/components/layout/SupportContacts'
 import { Button } from '@/components/ui/button'
-import { Home, Search, ArrowLeft, Phone, Mail } from 'lucide-react'
+import { Home, Search, ArrowLeft } from 'lucide-react'
 
 export default function NotFound() {
-    const contactPhone = getRealmContactPhone(useRealm())
-
     return (
         <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-background">
             {/* Content */}
@@ -40,12 +38,14 @@ export default function NotFound() {
                         </Link>
                     </Button>
 
-                    <Button asChild variant="outline" size="lg" className="min-w-[200px]">
-                        <Link href="/search">
-                            <Search className="w-4 h-4 mr-2" />
-                            Αναζήτηση
-                        </Link>
-                    </Button>
+                    {!isGenericMode() && (
+                        <Button asChild variant="outline" size="lg" className="min-w-[200px]">
+                            <Link href="/search">
+                                <Search className="w-4 h-4 mr-2" />
+                                Αναζήτηση
+                            </Link>
+                        </Button>
+                    )}
                 </div>
 
                 {/* Go Back Link */}
@@ -59,29 +59,16 @@ export default function NotFound() {
                     </button>
                 </div>
 
-                {/* Additional Help */}
-                <div className="mt-12 p-6 bg-muted/50 rounded-lg border border-border">
-                    <h3 className="text-lg font-medium mb-4">Χρειάζεστε βοήθεια;</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Αν πιστεύετε ότι αυτό είναι λάθος, μπορείτε να επικοινωνήσετε μαζί μας.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                        <a
-                            href={telHref(contactPhone)}
-                            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <Phone className="w-4 h-4 mr-2" />
-                            {contactPhone}
-                        </a>
-                        <a
-                            href="mailto:hello@opencouncil.gr"
-                            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <Mail className="w-4 h-4 mr-2" />
-                            hello@opencouncil.gr
-                        </a>
+                {/* The help box offers OpenCouncil's contacts. */}
+                {!isGenericMode() && (
+                    <div className="mt-12 p-6 bg-muted/50 rounded-lg border border-border">
+                        <h3 className="text-lg font-medium mb-4">Χρειάζεστε βοήθεια;</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Αν πιστεύετε ότι αυτό είναι λάθος, μπορείτε να επικοινωνήσετε μαζί μας.
+                        </p>
+                        <SupportContacts />
                     </div>
-                </div>
+                )}
             </div>
         </div>
     )

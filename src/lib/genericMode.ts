@@ -8,3 +8,8 @@ import { publicEnv } from '@/lib/publicEnv';
 export function isGenericMode(): boolean {
     return publicEnv.NEXT_PUBLIC_APP_MODE === 'generic';
 }
+
+/** The product name that the app shows to its users. */
+export function appName(): 'OpenTranscripts' | 'OpenCouncil' {
+    return isGenericMode() ? 'OpenTranscripts' : 'OpenCouncil';
+}

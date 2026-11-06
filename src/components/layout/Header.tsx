@@ -19,7 +19,7 @@ import { TopicIcon } from '@/components/TopicIcon';
 import { headerControlClass } from './headerControl';
 import { TrackedLink } from '@/components/analytics/TrackedLink';
 import { notificationsSignupHref } from '@/lib/utils/notificationsSignupHref';
-import { publicEnv } from '@/lib/publicEnv';
+import { appName, isGenericMode } from '@/lib/genericMode';
 
 export interface PathElement {
     name: string
@@ -129,8 +129,8 @@ const Header = ({ path, neighbours, showSidebarTrigger = false, currentEntity, c
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const searchOverlayRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const isGenericMode = publicEnv.NEXT_PUBLIC_APP_MODE === 'generic';
-    const appName = isGenericMode ? 'OpenTranscripts' : 'OpenCouncil';
+    const genericMode = isGenericMode();
+    const productName = appName();
 
     const subjectContext = useSubjectHeaderOptional();
     const subjectHeader = subjectContext?.subjectHeader ?? null;
@@ -282,13 +282,13 @@ const Header = ({ path, neighbours, showSidebarTrigger = false, currentEntity, c
             <Link href="/" className="flex shrink-0 items-center gap-2 hover:no-underline">
                 <Image
                     src='/logo.png'
-                    alt={appName}
+                    alt={productName}
                     width={120}
                     height={120}
                     className="h-9 w-auto object-contain sm:h-10 md:h-11"
                 />
                 {dynamicPath.length === 0 && (
-                    <span className="text-base sm:text-lg md:text-xl">{appName}</span>
+                    <span className="text-base sm:text-lg md:text-xl">{productName}</span>
                 )}
             </Link>
             {inset && renderSeal()}
@@ -381,7 +381,7 @@ const Header = ({ path, neighbours, showSidebarTrigger = false, currentEntity, c
 
     const renderControls = () => (
         <div className="ml-auto flex shrink-0 items-center gap-1">
-            {!isGenericMode && (
+            {!genericMode && (<>
             <button
                 onClick={() => setIsSearchOpen(true)}
                 className={cn(headerControlClass, 'w-9 sm:w-auto sm:px-3')}
@@ -391,7 +391,6 @@ const Header = ({ path, neighbours, showSidebarTrigger = false, currentEntity, c
                 <Search className="h-4 w-4 shrink-0" />
                 <span className="hidden lg:inline text-sm">{t('search')}</span>
             </button>
-            )}
             {/* From `lg` the bar has room to name these, so they come back out of
                 the account menu — which hides them at the same width. Below it
                 they would be more unlabelled glyphs, which is what the
@@ -427,10 +426,11 @@ const Header = ({ path, neighbours, showSidebarTrigger = false, currentEntity, c
                     <span className="text-sm">{t('explainShort')}</span>
                 </Link>
             )}
+            </>)}
             <UserDropdown
                 currentEntity={currentEntity}
                 city={cityElement?.city}
-                showExplain={showExplain}
+                showExplain={showExplain && !genericMode}
             />
         </div>
     );

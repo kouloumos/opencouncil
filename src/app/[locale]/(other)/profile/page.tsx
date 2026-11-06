@@ -18,6 +18,7 @@ import { getLinkedProviders } from "@/lib/db/accounts";
 import { ConnectedAccounts } from "@/components/profile/ConnectedAccounts";
 import { Metadata } from "next";
 import { env } from "@/env.mjs";
+import { isGenericMode } from "@/lib/genericMode";
 
 // Personalized page behind sign-in — nothing to index.
 export const metadata: Metadata = {
@@ -37,11 +38,13 @@ export default async function ProfilePage() {
         claimed,
         consent: consents.get(person.id) ?? null,
     }));
+    // OpenTranscripts has neither highlights nor notifications.
+    const genericMode = isGenericMode();
     const [t, highlightsAllowed, signedUp, linkedProviders, requestHeaders] = await Promise.all([
         getTranslations("Profile"),
-        canAccessMyHighlights(),
+        genericMode ? false : canAccessMyHighlights(),
         // Only the settings view invites; the onboarding form does not ask.
-        user.onboarded ? hasNotificationPreference(user.id) : true,
+        user.onboarded && !genericMode ? hasNotificationPreference(user.id) : true,
         getLinkedProviders(user.id),
         headers(),
     ]);

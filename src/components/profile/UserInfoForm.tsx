@@ -14,6 +14,7 @@ import { formatNumericDateTime } from "@/lib/formatters/time";
 import { setVoicePrintConsent } from "@/lib/actions/personConsent";
 import { cn } from "@/lib/utils";
 import { DPO_EMAIL } from "@/lib/dpo";
+import { isGenericMode } from "@/lib/genericMode";
 import { ErrorLine } from "@/components/ui/error-line";
 import { SaveStatus } from "@/components/profile/SettingsChrome";
 import { postProfile } from "@/components/profile/profile-api";
@@ -66,6 +67,8 @@ export function UserInfoForm({ user, isOnboarded, persons = [] }: UserInfoFormPr
     const t = useTranslations("Profile");
     const locale = useLocale();
     const router = useRouter();
+    // OpenTranscripts sends no messages to a phone, and its users write to no OpenCouncil address.
+    const genericMode = isGenericMode();
     const claimed = persons.filter((p) => p.claimed);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
@@ -142,7 +145,8 @@ export function UserInfoForm({ user, isOnboarded, persons = [] }: UserInfoFormPr
     async function saveDetails(): Promise<"saved" | "needs_code" | "phone" | "failed"> {
         const result = await postProfile({
             name: formData.name,
-            phone: phoneValidity.isEmpty ? null : formData.phone,
+            // Without the field, no phone key: the route keeps the stored number.
+            ...(genericMode ? {} : { phone: phoneValidity.isEmpty ? null : formData.phone }),
             onboarded: true,
         });
         if (result.ok) {
@@ -256,12 +260,13 @@ export function UserInfoForm({ user, isOnboarded, persons = [] }: UserInfoFormPr
                         id="email"
                         readOnly
                         value={user.email}
-                        aria-describedby="email-hint"
+                        aria-describedby={genericMode ? undefined : "email-hint"}
                         className="h-11 bg-muted/60 text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
-                    <p id="email-hint" className="text-xs leading-[1.4] text-muted-foreground">{t("emailChangeTooltip")}</p>
+                    {!genericMode && <p id="email-hint" className="text-xs leading-[1.4] text-muted-foreground">{t("emailChangeTooltip")}</p>}
                 </div>
 
+                {!genericMode && (
                 <div className="flex flex-col gap-1.5">
                     <Label htmlFor="phone" className="text-[13px] font-medium">
                         {t("phone")}
@@ -298,6 +303,7 @@ export function UserInfoForm({ user, isOnboarded, persons = [] }: UserInfoFormPr
                         </p>
                     ) : null}
                 </div>
+                )}
             </div>
 
             <Dialog open={verifyingPhone !== null} onOpenChange={(open) => !open && closeVerify()}>

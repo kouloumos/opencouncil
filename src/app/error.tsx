@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect } from 'react'
-import { useRealm } from '@/hooks/useRealm'
-import { getRealmContactPhone, telHref } from '@/lib/realm'
+import { isGenericMode } from '@/lib/genericMode'
+import { SupportContacts } from '@/components/layout/SupportContacts'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Home, RotateCcw, AlertTriangle, Phone, Mail } from 'lucide-react'
+import { Home, RotateCcw, AlertTriangle } from 'lucide-react'
 
 interface ErrorPageProps {
     error: Error & { digest?: string }
@@ -13,8 +13,6 @@ interface ErrorPageProps {
 }
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
-    const contactPhone = getRealmContactPhone(useRealm())
-
     useEffect(() => {
         // Log to console for client-side diagnostics; onRequestError handles server-side alerting.
         console.error(error)
@@ -51,31 +49,19 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
                     </Button>
                 </div>
 
-                <div className="mt-12 p-6 bg-muted/50 rounded-lg border border-border">
-                    <h3 className="text-lg font-medium mb-4">Χρειάζεστε βοήθεια;</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Αν το πρόβλημα επιμένει, επικοινωνήστε μαζί μας
-                        {error.digest ? (
-                            <> και αναφέρετε τον κωδικό: <code className="text-xs font-mono bg-background px-1.5 py-0.5 rounded">{error.digest}</code></>
-                        ) : '.'}
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                        <a
-                            href={telHref(contactPhone)}
-                            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <Phone className="w-4 h-4 mr-2" />
-                            {contactPhone}
-                        </a>
-                        <a
-                            href="mailto:hello@opencouncil.gr"
-                            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <Mail className="w-4 h-4 mr-2" />
-                            hello@opencouncil.gr
-                        </a>
+                {/* The help box offers OpenCouncil's contacts. */}
+                {!isGenericMode() && (
+                    <div className="mt-12 p-6 bg-muted/50 rounded-lg border border-border">
+                        <h3 className="text-lg font-medium mb-4">Χρειάζεστε βοήθεια;</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Αν το πρόβλημα επιμένει, επικοινωνήστε μαζί μας
+                            {error.digest ? (
+                                <> και αναφέρετε τον κωδικό: <code className="text-xs font-mono bg-background px-1.5 py-0.5 rounded">{error.digest}</code></>
+                            ) : '.'}
+                        </p>
+                        <SupportContacts />
                     </div>
-                </div>
+                )}
             </div>
         </div>
     )

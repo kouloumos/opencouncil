@@ -1227,7 +1227,7 @@
         "discardDraftButton": "Одбаци"
     },
     "SignIn": {
-        "title": "Пријава на OpenCouncil",
+        "title": "Пријава на {appName}",
         "emailPlaceholder": "Унесите своју имејл адресу",
         "submit": "Настави путем имејла",
         "loading": "Молимо сачекајте...",

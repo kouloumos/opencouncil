@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Bell, Clapperboard, User, type LucideIcon } from "lucide-react";
+import { Bell, Clapperboard, FolderOpen, User, type LucideIcon } from "lucide-react";
 import { canAccessMyHighlights } from "@/lib/db/highlights";
+import { isGenericMode } from "@/lib/genericMode";
 
 /**
  * The account menu, shared by every surface that offers one: the header
@@ -23,6 +24,12 @@ export const ACCOUNT_LINKS: AccountLink[] = [
     { href: "/profile", labelKey: "profile", icon: User },
     { href: "/profile/highlights", labelKey: "myHighlights", icon: Clapperboard, gate: 'highlights' },
     { href: "/profile?tab=notifications", labelKey: "notifications", icon: Bell },
+];
+
+/** OpenTranscripts has no highlights and no notifications. */
+export const GENERIC_ACCOUNT_LINKS: AccountLink[] = [
+    { href: "/workspaces", labelKey: "myWorkspaces", icon: FolderOpen },
+    { href: "/profile", labelKey: "profile", icon: User },
 ];
 
 // Shared only while a call is in flight: the three menus can be mounted at
@@ -51,9 +58,10 @@ export function useAccountLinks(): AccountLink[] {
     const { data: session } = useSession();
     const userId = session?.user?.id;
     const [highlightsAllowed, setHighlightsAllowed] = useState(false);
+    const genericMode = isGenericMode();
 
     useEffect(() => {
-        if (!userId) {
+        if (!userId || genericMode) {
             setHighlightsAllowed(false);
             return;
         }
@@ -63,7 +71,8 @@ export function useAccountLinks(): AccountLink[] {
             .then(allowed => { if (current) setHighlightsAllowed(allowed); })
             .catch(() => { if (current) setHighlightsAllowed(false); });
         return () => { current = false; };
-    }, [userId]);
+    }, [userId, genericMode]);
 
+    if (genericMode) return GENERIC_ACCOUNT_LINKS;
     return ACCOUNT_LINKS.filter(link => link.gate !== 'highlights' || highlightsAllowed);
 }

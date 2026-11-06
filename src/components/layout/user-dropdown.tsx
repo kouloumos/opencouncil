@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Bell, HelpCircle, LogIn, LogOut, Pencil, Plug } from "lucide-react"
 import { useAccountLinks } from "./account-links"
+import { isGenericMode } from "@/lib/genericMode"
 // The locale-aware router: next/navigation's would push a bare "/sign-in",
 // dropping the locale prefix and landing the user on the Greek sign-in page.
 import { Link, useRouter } from "@/i18n/routing"
@@ -98,7 +99,8 @@ export default function UserDropdown({ currentEntity, city, showExplain = false 
     // no place in the bar at any width, so it stays here.
     const installItem = <InstallAppMenuItem install={install} onShowSteps={() => setInstallStepsOpen(true)} />;
     const installSteps = <InstallStepsDialog open={installStepsOpen} onOpenChange={setInstallStepsOpen} platform={install.platform} />;
-    const appLinks = (
+    // None of these belong to OpenTranscripts.
+    const appLinks = isGenericMode() ? null : (
         <>
             <DropdownMenuSeparator />
             {installItem}

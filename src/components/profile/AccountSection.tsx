@@ -7,6 +7,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DPO_EMAIL } from "@/lib/dpo";
+import { isGenericMode } from "@/lib/genericMode";
 import { ErrorLine } from "@/components/ui/error-line";
 import { SettingsBody, SettingsCard } from "@/components/profile/SettingsChrome";
 
@@ -44,6 +45,8 @@ export function AccountSection() {
 
     return (
         <div className="flex flex-col gap-4">
+            {/* The address is OpenCouncil's. */}
+            {!isGenericMode() && (
             <SettingsCard title={t("yourData")}>
                 <SettingsBody className="pt-1">
                     <p className="text-[14px] leading-[1.5] text-muted-foreground">
@@ -55,6 +58,7 @@ export function AccountSection() {
                     </p>
                 </SettingsBody>
             </SettingsCard>
+            )}
 
             <SettingsCard
                 title={tAccount("signOut")}

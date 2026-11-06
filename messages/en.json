@@ -1227,7 +1227,7 @@
         "discardDraftButton": "Discard"
     },
     "SignIn": {
-        "title": "Sign in to OpenCouncil",
+        "title": "Sign in to {appName}",
         "emailPlaceholder": "Enter your email",
         "submit": "Continue with Email",
         "loading": "Please wait...",

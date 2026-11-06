@@ -1227,7 +1227,7 @@
     "discardDraftButton": "Supprimer"
   },
   "SignIn": {
-    "title": "Connexion à OpenCouncil",
+    "title": "Connexion à {appName}",
     "emailPlaceholder": "Saisissez votre e-mail",
     "submit": "Continuer avec l'e-mail",
     "loading": "Veuillez patienter...",

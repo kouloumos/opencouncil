@@ -11,6 +11,7 @@ import { CommunicationPreferences } from "@/components/profile/CommunicationPref
 import { NotificationPreferencesSection } from "@/components/profile/NotificationPreferencesSection";
 import { SectionHeading, SettingsBody, SettingsCard } from "@/components/profile/SettingsChrome";
 import { UserInfoForm, type ConsentPerson } from "@/components/profile/UserInfoForm";
+import { isGenericMode } from "@/lib/genericMode";
 
 type TabKey = "personal" | "notifications" | "communication" | "account";
 
@@ -20,7 +21,8 @@ const TABS: Array<{ value: TabKey; icon: LucideIcon; label: string; lead: string
     { value: "communication", icon: MessageCircle, label: "tabCommunication", lead: "communicationLead" },
     { value: "account", icon: Settings2, label: "tabAccount", lead: "accountLead" },
 ];
-const TAB_VALUES = TABS.map((tab) => tab.value);
+/** OpenTranscripts has no notifications and does not contact its users. */
+const GENERIC_TAB_KEYS: TabKey[] = ["personal", "account"];
 
 // One row shape for the tabs and the links beside them, so the rail reads
 // as one list. Active is the brand orange at a tint, the way the account
@@ -65,18 +67,19 @@ export function ProfileSettings({
     const t = useTranslations("Profile");
     const tAccount = useTranslations("account");
     const hasLinks = highlightsAllowed || aside !== undefined;
+    const tabs = isGenericMode() ? TABS.filter((tab) => GENERIC_TAB_KEYS.includes(tab.value)) : TABS;
 
     return (
         <Tabs
             defaultValue="personal"
             searchParam="tab"
-            values={TAB_VALUES}
+            values={tabs.map((tab) => tab.value)}
             className="mt-7 lg:mt-9 lg:grid lg:grid-cols-[248px_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-10"
         >
             <TabsList
                 className="-mx-4 h-auto items-stretch gap-1 rounded-none bg-transparent px-4 py-0 pb-1 text-muted-foreground scrollbar-hide lg:mx-0 lg:flex-col lg:px-0 lg:pb-0"
             >
-                {TABS.map(({ value, icon: Icon, label }) => (
+                {tabs.map(({ value, icon: Icon, label }) => (
                     <TabsTrigger
                         key={value}
                         value={value}
@@ -94,7 +97,7 @@ export function ProfileSettings({
             {promo !== undefined && <PromoSlot>{promo}</PromoSlot>}
 
             <div className="mt-5 min-w-0 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0">
-                {TABS.map(({ value, label, lead }) => (
+                {tabs.map(({ value, label, lead }) => (
                     <TabsContent key={value} value={value} className="mt-0">
                         <SectionHeading title={t(label)} lead={t(lead)} />
                         {value === "personal" && (

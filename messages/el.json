@@ -1227,7 +1227,7 @@
         "discardDraftButton": "Απόρριψη"
     },
     "SignIn": {
-        "title": "Σύνδεση στο OpenCouncil",
+        "title": "Σύνδεση στο {appName}",
         "emailPlaceholder": "Εισάγετε το email σας",
         "submit": "Συνέχεια με Email",
         "loading": "Παρακαλώ περιμένετε...",

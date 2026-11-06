@@ -25,6 +25,7 @@ import { UNKNOWN_SPEAKER_COLOR } from '@/lib/utils';
 import { SegmentShareButton } from '@/components/sharing/SegmentShareButton';
 import { excerptSourceIsVisible } from '@/lib/sharing/excerptSelector';
 import { revealUtterance } from '@/lib/utils/scrollAnchor';
+import { isGenericMode } from '@/lib/genericMode';
 
 // The new utterance is in the DOM only after React commits the updated
 // segment; both add paths have always allowed a beat for that. The click
@@ -257,8 +258,9 @@ const SpeakerSegment = React.memo(function SpeakerSegment({ segment, isFirstSegm
         // Copy what the reader sees: the displayed utterances are localized to
         // the active Serbian script, so the clipboard must match.
         const mainText = segment.utterances.map(u => localize(u.text)).join(' ');
-        const attribution = tCopy('copySourceAttribution');
-        const text = mainText ? `${mainText}\n\n${attribution}` : attribution;
+        // The attribution names OpenCouncil; an OpenTranscripts user copies their own transcript.
+        const attribution = isGenericMode() ? '' : tCopy('copySourceAttribution');
+        const text = [mainText, attribution].filter(Boolean).join('\n\n');
         navigator.clipboard.writeText(text).then(() => {
             toast({ description: tCopy('segmentCopied') });
         }).catch(console.error);

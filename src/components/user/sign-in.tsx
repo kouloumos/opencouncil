@@ -7,6 +7,7 @@ import { OrDivider } from "@/components/ui/or-divider"
 import { GoogleSignInButton } from "@/components/user/GoogleSignInButton"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { appName } from "@/lib/genericMode"
 import { authErrorKey } from "@/lib/auth/authErrorKey"
 import { signInWithEmail } from "@/lib/serverSignIn"
 import { useState } from "react"
@@ -100,7 +101,7 @@ export function SignIn({
     return (
         <Card className={CARD_CLASS}>
             <CardHeader>
-                <h2 className="text-2xl font-semibold text-center">{t("title")}</h2>
+                <h2 className="text-2xl font-semibold text-center">{t("title", { appName: appName() })}</h2>
             </CardHeader>
             <form onSubmit={handleSubmit}>
                 <CardContent>
