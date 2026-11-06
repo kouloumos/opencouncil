@@ -13,6 +13,7 @@
     "createYourFirstWorkspace": "Créez votre premier espace de travail pour commencer vos transcriptions",
     "workspacesDescription": "Sélectionnez un espace de travail pour consulter et gérer les transcriptions",
     "transcriptsCount": "{count, plural, =0 {Aucune transcription} one {# transcription} other {# transcriptions}}",
+    "transcriptsLabel": "{count, plural, one {transcription} other {transcriptions}}",
     "membersCount": "{count, plural, =0 {Aucun membre} one {# membre} other {# membres}}",
     "errors": {
       "nameRequired": "Le nom de l'espace de travail est obligatoire",
@@ -34,7 +35,11 @@
     "deleteSuccess": "Transcription supprimée",
     "deleteError": "Échec de la suppression de la transcription",
     "transcribing": "Transcription en cours",
-    "failed": "Échec"
+    "failed": "Échec",
+    "segmentsCount": "{count, plural, one {# segment} other {# segments}}",
+    "ready": "Prête",
+    "deleteTranscript": "Supprimer : {name}",
+    "settings": "Paramètres"
   },
   "upload": {
     "title": "Téléverser une nouvelle transcription",
@@ -200,5 +205,16 @@
       "goToWorkspaces": "Accéder aux espaces de travail",
       "accessWorkspaces": "Accédez à vos espaces de transcription"
     }
+  },
+  "settings": {
+    "title": "Paramètres de l’espace de travail",
+    "members": "Membres",
+    "tasks": "Tâches",
+    "membersLead": "Les membres consultent, corrigent, téléversent et suppriment les transcriptions de cet espace.",
+    "tasksLead": "Les tâches de transcription de cet espace, avec leur statut.",
+    "inviteDescription": "Nous envoyons un e-mail avec un lien de connexion. Le lien ouvre cet espace de travail.",
+    "membersList": "Membres de l’espace",
+    "removeMember": "Retirer : {name}",
+    "remove": "Retirer"
   }
 }

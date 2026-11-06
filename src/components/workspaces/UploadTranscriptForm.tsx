@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +9,7 @@ import { LinkOrDrop } from '@/components/ui/link-or-drop';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { fieldClass, primaryPillClass } from './styles';
 
 interface UploadTranscriptFormProps {
   workspaceId: string;
@@ -92,61 +92,70 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Upload className="w-5 h-5" />
-          {t('title')}
-        </CardTitle>
-        <CardDescription>
-          {t('dropFiles')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">{t('transcriptName')}</Label>
+    <section
+      aria-labelledby="upload-title"
+      className="flex flex-col gap-4 rounded-2xl border-[1.5px] border-dashed border-stone-300 bg-muted/35 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-3.5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--orange)/0.1)] text-[hsl(var(--orange-deep))]" aria-hidden>
+          <Upload className="h-5 w-5" />
+        </span>
+        <span className="flex flex-col gap-0.5">
+          <span id="upload-title" className="text-[15px] font-semibold">{t('title')}</span>
+          <span className="text-[13px] text-muted-foreground">{t('dropFiles')}</span>
+        </span>
+      </div>
+
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleCreate();
+        }}
+      >
+        <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+          <Label htmlFor="name" className="text-[13px] font-medium">{t('transcriptName')}</Label>
           <Input
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('transcriptNamePlaceholder')}
             disabled={isCreating}
+            className={fieldClass}
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="video">{t('videoLabel')}</Label>
+        <div className="flex min-w-[280px] flex-[2] flex-col gap-1.5">
+          <Label htmlFor="video" className="text-[13px] font-medium">{t('videoLabel')}</Label>
           <LinkOrDrop
             id="video"
             value={videoUrl}
             onUrlChange={setVideoUrl}
             placeholder={t('linkPlaceholder')}
             disabled={isCreating}
+            inputClassName={fieldClass}
             // A workspace admin passes the city check of the upload: the
             // admin row of a workspace names it in cityId.
             config={{ cityId: workspaceId, kind: 'recording' }}
           />
         </div>
 
-        <Button 
-          onClick={handleCreate} 
+        <Button
+          type="submit"
           disabled={isCreating || !name.trim() || !videoUrl.trim()}
-          className="w-full"
+          className={primaryPillClass}
         >
           {isCreating ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
               {t('uploading')}
             </>
           ) : (
-            <>
-              <Upload className="w-4 h-4 mr-2" />
-              {t('uploadButton')}
-            </>
+            t('uploadButton')
           )}
         </Button>
-      </CardContent>
-    </Card>
+      </form>
+    </section>
   );
 }
 

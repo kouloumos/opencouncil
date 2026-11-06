@@ -7,7 +7,8 @@ import { UploadTranscriptForm } from '@/components/workspaces/UploadTranscriptFo
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/routing';
-import { Settings, List } from 'lucide-react';
+import { Settings } from 'lucide-react';
+import { secondaryPillClass } from '@/components/workspaces/styles';
 
 export default async function WorkspacePage(props: {
   params: Promise<{ workspaceId: string; locale: string }>
@@ -29,41 +30,38 @@ export default async function WorkspacePage(props: {
   const isSuperAdmin = user.isSuperAdmin || false;
   const transcripts = await listTranscripts(params.workspaceId);
   const t = await getTranslations('workspaces.list');
+  const tDashboard = await getTranslations('workspaces.dashboard');
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold">{workspace.name}</h1>
-          {isSuperAdmin && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/workspaces/${params.workspaceId}/admin/tasks`}>
-                  <List className="h-4 w-4 mr-2" />
-                  Tasks
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/workspaces/${params.workspaceId}/admin`}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Admin
-                </Link>
-              </Button>
-            </div>
-          )}
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pb-16 pt-7 sm:px-6">
+      <nav aria-label={t('title')} className="text-[13px] text-muted-foreground">
+        <Link href="/workspaces" className="text-muted-foreground hover:text-foreground hover:no-underline">{t('title')}</Link>
+        <span aria-hidden className="mx-2">/</span>
+        <span className="text-foreground">{workspace.name}</span>
+      </nav>
+
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.015em]">{workspace.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t('transcriptsCount', { count: transcripts.length })}
+            {' · '}
+            {t('membersCount', { count: workspace.administrators.length })}
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          {t('transcriptsCount', { count: transcripts.length })}
-        </p>
+        {isSuperAdmin && (
+          <Button asChild className={secondaryPillClass}>
+            <Link href={`/workspaces/${params.workspaceId}/admin`} className="hover:no-underline">
+              <Settings className="mr-2 h-4 w-4" aria-hidden />
+              {tDashboard('settings')}
+            </Link>
+          </Button>
+        )}
       </div>
 
-      {canEdit && (
-        <div className="mb-8">
-          <UploadTranscriptForm workspaceId={params.workspaceId} />
-        </div>
-      )}
+      {canEdit && <UploadTranscriptForm workspaceId={params.workspaceId} />}
 
-      <TranscriptList 
+      <TranscriptList
         transcripts={transcripts} 
         workspaceId={params.workspaceId}
         canEdit={canEdit}

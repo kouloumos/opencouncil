@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { cn } from '@/lib/utils';
+import { surfaceCardClass } from '@/components/ui/surface-card';
+import { fieldClass, primaryPillClass } from './styles';
 
 export function CreateWorkspaceCard() {
   const [name, setName] = useState('');
@@ -68,73 +70,58 @@ export function CreateWorkspaceCard() {
   // Show loading state while navigating
   if (isNavigating) {
     return (
-      <Card className="border-2 border-dashed">
-        <CardContent className="py-12">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="relative">
-              <CheckCircle2 className="w-12 h-12 text-green-500" />
-              <Loader2 className="w-6 h-6 absolute -bottom-1 -right-1 animate-spin text-primary" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">
-                {t('success.created')}
-              </h3>
-              <p className="text-muted-foreground max-w-md">
-                {t('redirecting')}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className={cn(surfaceCardClass, 'flex flex-col items-center gap-4 px-6 py-12 text-center')}>
+        <div className="relative">
+          <CheckCircle2 className="h-12 w-12 text-green-600" aria-hidden />
+          <Loader2 className="absolute -bottom-1 -right-1 h-6 w-6 animate-spin text-[hsl(var(--orange-deep))]" aria-hidden />
+        </div>
+        <div className="flex flex-col gap-2">
+          <h3 className="text-lg font-semibold">{t('success.created')}</h3>
+          <p className="max-w-md text-muted-foreground">{t('redirecting')}</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          {t('createWorkspace')}
-        </CardTitle>
-        <CardDescription>
-          {t('createWorkspaceDescription')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="workspace-name">{t('workspaceName')}</Label>
+    <section className={cn(surfaceCardClass, 'overflow-hidden')}>
+      <div className="px-5 pt-5">
+        <h3 className="text-[15px] font-semibold leading-snug">{t('createWorkspace')}</h3>
+        <p className="mt-1 text-[13px] leading-[1.45] text-muted-foreground">{t('createWorkspaceDescription')}</p>
+      </div>
+      <form
+        className="flex flex-wrap items-end gap-3 px-5 pb-5 pt-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleCreate();
+        }}
+      >
+        <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+          <Label htmlFor="workspace-name" className="text-[13px] font-medium">{t('workspaceName')}</Label>
           <Input
             id="workspace-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('workspaceNamePlaceholder')}
             disabled={isCreating}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleCreate();
-              }
-            }}
+            className={fieldClass}
           />
         </div>
-        <Button 
-          onClick={handleCreate} 
-          disabled={isCreating || !name.trim()}
-          className="w-full"
-        >
+        <Button type="submit" disabled={isCreating || !name.trim()} className={primaryPillClass}>
           {isCreating ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
               {t('creating')}
             </>
           ) : (
             <>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
               {t('create')}
             </>
           )}
         </Button>
-      </CardContent>
-    </Card>
+      </form>
+    </section>
   );
 }
 

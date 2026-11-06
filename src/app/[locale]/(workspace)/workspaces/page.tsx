@@ -3,9 +3,6 @@ import { getCurrentUser } from '@/lib/auth';
 import { listWorkspacesForUser } from '@/lib/db/workspaces';
 import { WorkspaceList } from '@/components/workspaces/WorkspaceList';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
-import { env } from '@/env.mjs';
 import { CreateWorkspaceCard } from '@/components/workspaces/CreateWorkspaceCard';
 
 export default async function WorkspacesPage(props: {
@@ -23,43 +20,16 @@ export default async function WorkspacesPage(props: {
   const t = await getTranslations('workspaces.list');
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
-        <p className="text-muted-foreground">
-          {workspaces.length > 0 
-            ? t('workspacesDescription')
-            : t('noWorkspaces')
-          }
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 pb-16 pt-8 sm:px-6 lg:pt-10">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.015em]">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">
+          {workspaces.length > 0 ? t('workspacesDescription') : t('noWorkspaces')}
         </p>
       </div>
-      
-      {/* Show create workspace card if user has no workspaces */}
-      {workspaces.length === 0 && (
-        <div className="mb-6">
-          <CreateWorkspaceCard />
-        </div>
-      )}
-      
-      {workspaces.length === 0 && env.NEXT_PUBLIC_APP_MODE === 'generic' ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <AlertCircle className="w-12 h-12 text-muted-foreground" />
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">
-                  {t('noWorkspaces')}
-                </h3>
-                <p className="text-muted-foreground max-w-md">
-                  {t('createYourFirstWorkspace')}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <WorkspaceList workspaces={workspaces} />
-      )}
+
+      {/* A user creates a workspace only while they have none. */}
+      {workspaces.length === 0 ? <CreateWorkspaceCard /> : <WorkspaceList workspaces={workspaces} />}
     </div>
   );
 }

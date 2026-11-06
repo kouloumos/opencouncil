@@ -13,6 +13,7 @@
     "createYourFirstWorkspace": "Create your first workspace to get started with transcriptions",
     "workspacesDescription": "Select a workspace to view and manage transcripts",
     "transcriptsCount": "{count, plural, =0 {No transcripts} one {# transcript} other {# transcripts}}",
+    "transcriptsLabel": "{count, plural, one {transcript} other {transcripts}}",
     "membersCount": "{count, plural, =0 {No members} one {# member} other {# members}}",
     "errors": {
       "nameRequired": "Workspace name is required",
@@ -34,7 +35,11 @@
     "deleteSuccess": "Transcript deleted successfully",
     "deleteError": "Failed to delete transcript",
     "transcribing": "Transcribing",
-    "failed": "Failed"
+    "failed": "Failed",
+    "segmentsCount": "{count, plural, one {# segment} other {# segments}}",
+    "ready": "Ready",
+    "deleteTranscript": "Delete: {name}",
+    "settings": "Settings"
   },
   "upload": {
     "title": "Upload New Transcript",
@@ -200,6 +205,16 @@
       "goToWorkspaces": "Go to Workspaces",
       "accessWorkspaces": "Access your transcription workspaces"
     }
+  },
+  "settings": {
+    "title": "Workspace settings",
+    "members": "Members",
+    "tasks": "Tasks",
+    "membersLead": "Members view, correct, upload and delete the transcripts of this workspace.",
+    "tasksLead": "The transcription tasks of this workspace, with their status.",
+    "inviteDescription": "We send an email with a sign-in link. The link opens this workspace.",
+    "membersList": "Members of this workspace",
+    "removeMember": "Remove: {name}",
+    "remove": "Remove"
   }
 }
-

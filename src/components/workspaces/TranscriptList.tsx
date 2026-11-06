@@ -1,16 +1,17 @@
 'use client';
 
 import { Link } from '@/i18n/routing';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { TranscriptMinimal } from '@/lib/db/transcripts';
-import { FileText, Clock, Trash2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { FileText, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { el } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { surfaceCardClass } from '@/components/ui/surface-card';
+import { DEFAULT_TIMEZONE, formatDateStamp } from '@/lib/formatters/time';
+import { badgeClass, badgeTone } from './styles';
 
 interface TranscriptListProps {
   transcripts: TranscriptMinimal[];
@@ -20,17 +21,25 @@ interface TranscriptListProps {
   locale?: string;
 }
 
-export function TranscriptList({ transcripts, workspaceId, canEdit, canDelete = false, locale = 'el' }: TranscriptListProps) {
+type TranscriptState = 'running' | 'done' | 'failed' | null;
+
+/** What the latest task says about the transcript; null before any task ran. */
+function transcriptState(transcript: TranscriptMinimal): TranscriptState {
+  const status = transcript.taskStatuses[0]?.status;
+  if (status === 'pending') return 'running';
+  if (status === 'succeeded') return 'done';
+  if (status === 'failed') return 'failed';
+  return null;
+}
+
+export function TranscriptList({ transcripts, workspaceId, canDelete = false, locale = 'el' }: TranscriptListProps) {
   const t = useTranslations('workspaces.dashboard');
   const tCommon = useTranslations('workspaces.common');
   const router = useRouter();
   const { toast } = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function handleDelete(transcript: TranscriptMinimal, e: React.MouseEvent) {
-    e.preventDefault(); // Prevent navigation to transcript page
-    e.stopPropagation();
-
+  async function handleDelete(transcript: TranscriptMinimal) {
     if (!confirm(t('confirmDelete', { name: transcript.name }))) {
       return;
     }
@@ -64,74 +73,77 @@ export function TranscriptList({ transcripts, workspaceId, canEdit, canDelete = 
       setDeletingId(null);
     }
   }
-  
+
   if (transcripts.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
-            {t('noTranscriptsDescription')}
-          </p>
-        </CardContent>
-      </Card>
+      <div className={cn(surfaceCardClass, 'px-6 py-12 text-center')}>
+        <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+        <p className="text-muted-foreground">{t('noTranscriptsDescription')}</p>
+      </div>
     );
   }
 
   return (
-    <div className="grid gap-4">
-      {transcripts.map((transcript) => (
-        <div key={transcript.id} className="relative">
-          <Link href={`/workspaces/${workspaceId}/transcripts/${transcript.id}`}>
-            <Card className="hover:bg-accent transition-colors cursor-pointer">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                      <FileText className="w-5 h-5 flex-shrink-0" />
-                      <span className="truncate">{transcript.name}</span>
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-4 mt-2 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {formatDistanceToNow(new Date(transcript.createdAt), { 
-                          addSuffix: true,
-                          locale: locale === 'el' ? el : undefined 
-                        })}
-                      </span>
-                      {transcript._count && (
-                        <>
-                          <span>{transcript._count.speakerSegments} segments</span>
-                          <span>{transcript._count.taskStatuses} tasks</span>
-                        </>
-                      )}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {transcript.released && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Published
-                      </span>
-                    )}
-                    {canDelete && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleDelete(transcript, e)}
-                        disabled={deletingId === transcript.id}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
-        </div>
-      ))}
-    </div>
+    <ul className={cn(surfaceCardClass, 'overflow-hidden')}>
+      {transcripts.map((transcript) => {
+        const state = transcriptState(transcript);
+        const task = transcript.taskStatuses[0];
+        const { day, monthYear } = formatDateStamp(transcript.createdAt, DEFAULT_TIMEZONE, locale);
+        const running = state === 'running';
+        return (
+          <li
+            key={transcript.id}
+            className={cn('flex items-center gap-2 border-b border-border pr-3 last:border-b-0', running && 'bg-[hsl(var(--orange)/0.04)]')}
+          >
+            <Link
+              href={`/workspaces/${workspaceId}/transcripts/${transcript.id}`}
+              className="group flex min-w-0 flex-1 items-center gap-4 py-3.5 pl-4 pr-2 text-foreground hover:no-underline sm:pl-5"
+            >
+              <span className="flex w-12 shrink-0 flex-col items-center gap-0.5 tabular-nums sm:w-14">
+                <span className={cn('text-[22px] leading-none tracking-tight', running && 'text-[hsl(var(--orange))]')}>{day}</span>
+                <span className="text-[9px] font-extrabold tracking-[0.14em] text-muted-foreground">{monthYear}</span>
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="truncate text-[15px] font-medium transition-colors group-hover:text-[hsl(var(--orange))]">{transcript.name}</span>
+                {running ? (
+                  <span className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                    <span className="h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-border" aria-hidden>
+                      <span
+                        className="block h-full rounded-full bg-[hsl(var(--orange))] transition-[width]"
+                        style={{ width: `${Math.round(task?.percentComplete ?? 0)}%` }}
+                      />
+                    </span>
+                    <span className="shrink-0">
+                      {[task?.stage, task?.percentComplete != null ? `${Math.round(task.percentComplete)}%` : null].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {t('segmentsCount', { count: transcript._count.speakerSegments })}
+                  </span>
+                )}
+              </span>
+              {state && (
+                <span className={cn(badgeClass, badgeTone[state])}>
+                  {state === 'running' ? t('transcribing') : state === 'done' ? t('ready') : t('failed')}
+                </span>
+              )}
+            </Link>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDelete(transcript)}
+                disabled={deletingId === transcript.id}
+                aria-label={t('deleteTranscript', { name: transcript.name })}
+                className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </Button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
-

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { AccountSection } from "@/components/profile/AccountSection";
 import { CommunicationPreferences } from "@/components/profile/CommunicationPreferences";
 import { NotificationPreferencesSection } from "@/components/profile/NotificationPreferencesSection";
-import { SectionHeading, SettingsBody, SettingsCard } from "@/components/profile/SettingsChrome";
+import { SectionHeading, SettingsBody, SettingsCard, railRowClass } from "@/components/profile/SettingsChrome";
 import { UserInfoForm, type ConsentPerson } from "@/components/profile/UserInfoForm";
 import { isGenericMode } from "@/lib/genericMode";
 
@@ -23,12 +23,6 @@ const TABS: Array<{ value: TabKey; icon: LucideIcon; label: string; lead: string
 ];
 /** OpenTranscripts has no notifications and does not contact its users. */
 const GENERIC_TAB_KEYS: TabKey[] = ["personal", "account"];
-
-// One row shape for the tabs and the links beside them, so the rail reads
-// as one list. Active is the brand orange at a tint, the way the account
-// menu marks what the viewer can edit.
-const railRowClass =
-    "flex w-full shrink-0 items-center gap-2.5 rounded-full border border-transparent px-3.5 py-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground hover:no-underline lg:rounded-xl lg:px-3 lg:py-2.5";
 
 /**
  * The settings: a rail of tabs and, from `lg`, the links that belong next

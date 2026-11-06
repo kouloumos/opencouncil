@@ -9,6 +9,15 @@ import { surfaceCardClass } from "@/components/ui/surface-card";
  * type scale and one card, so the four tabs read as one page.
  */
 
+// One row shape for the tabs and the links beside them, so the rail reads
+// as one list. Active is the brand orange at a tint, the way the account
+// menu marks what the viewer can edit.
+export const railRowClass =
+    "flex w-full shrink-0 items-center gap-2.5 rounded-full border border-transparent px-3.5 py-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.04] hover:text-foreground hover:no-underline lg:rounded-xl lg:px-3 lg:py-2.5";
+
+/** The active row of a settings rail. */
+export const railRowActiveClass = "border-[hsl(var(--orange))]/25 bg-[hsl(var(--orange))]/[0.08] text-foreground";
+
 /** A tab's title and its one-line lead, above the cards. */
 export function SectionHeading({ title, lead }: { title: string; lead: string }) {
     return (

@@ -64,13 +64,6 @@ export default function WorkspaceTasksAdmin({ workspaceId }: WorkspaceTasksAdmin
     }
   };
 
-  return (
-    <div>
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-4">Task Statuses</h3>
-        <TaskList tasks={taskStatuses} onDelete={handleDeleteTask} isLoading={isLoadingTasks} />
-      </div>
-    </div>
-  );
+  return <TaskList tasks={taskStatuses} onDelete={handleDeleteTask} isLoading={isLoadingTasks} />;
 }
 
