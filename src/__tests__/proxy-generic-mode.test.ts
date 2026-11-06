@@ -26,10 +26,14 @@ describe('proxy in generic mode', () => {
         expect(new URL(res!.headers.get('x-middleware-rewrite')!).pathname).toBe('/el/not-found/in/generic/mode');
     });
 
-    it.each(['/api/search', '/api/mcp', '/llms.txt', '/manifest.webmanifest'])('answers 404 for %s', async (path) => {
+    it.each(['/api/search', '/api/cities', '/llms.txt', '/manifest.webmanifest'])('answers 404 for %s', async (path) => {
         const res = await get(path);
 
         expect(res!.status).toBe(404);
+    });
+
+    it('lets the MCP server through to its route, which answers superadmins only', async () => {
+        expect(await get('/api/mcp')).toBeUndefined();
     });
 
     it('lets the task server callback through to its route', async () => {

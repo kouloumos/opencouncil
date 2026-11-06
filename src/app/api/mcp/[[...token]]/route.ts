@@ -3,7 +3,8 @@ import { Realm } from '@prisma/client';
 import type { AuthInfo } from '@modelcontextprotocol/server';
 import { registerOpenCouncilServer } from '@/lib/mcp/server';
 import { verifyMcpToken, identityFromAuthInfo } from '@/lib/mcp/auth';
-import { resolveAdminAccess } from '@/lib/mcp/adminAccess';
+import { mayUseGenericModeMcp, resolveAdminAccess } from '@/lib/mcp/adminAccess';
+import { isGenericMode } from '@/lib/genericMode';
 import { instrumentMcpAnalytics } from '@/lib/mcp/analytics';
 import { MCP_INSTRUCTIONS } from '@/lib/mcp/instructions';
 import { mcpRealmStore, requestContext } from '@/lib/mcp/realm-context';
@@ -95,6 +96,15 @@ async function handler(
     // Resolved here for the same reason as the identity: it decides which
     // admin tools the synchronous registration advertises.
     const adminAccess = await resolveAdminAccess(identity);
+    // OpenTranscripts has no public data, so its server answers its admins only.
+    if (isGenericMode()) {
+        if (!identity) {
+            return Response.json({ error: 'Authentication required: connect with a personal MCP URL from the /mcp page.' }, { status: 401 });
+        }
+        if (!mayUseGenericModeMcp(adminAccess)) {
+            return Response.json({ error: 'This MCP server is open to superadmins only.' }, { status: 403 });
+        }
+    }
     const context = requestContext(realm, req.headers.get('host'), identity, { adminAccess });
     return mcpRealmStore.run(context, () => authedHandler(request));
 }

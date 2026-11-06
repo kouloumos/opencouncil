@@ -14,6 +14,8 @@ const GENERIC_MODE_PATHS: RegExp[] = [
     /^\/sign-in$/,
     /^\/workspaces(\/.*)?$/,
     /^\/profile$/,
+    // Its token page; the page itself admits superadmins only.
+    /^\/mcp$/,
     ...GENERIC_MODE_ADMIN_PAGES.map((page) => new RegExp(`^${page}$`)),
 
     // API routes.
@@ -23,6 +25,9 @@ const GENERIC_MODE_PATHS: RegExp[] = [
     /^\/api\/profile$/,
     /^\/api\/health$/,
     /^\/api\/dev\//,
+    // The MCP server, at /mcp, /mcp/{token} or /api/mcp; it answers superadmins only.
+    /^\/mcp\/mcp_[A-Za-z0-9_-]+$/,
+    /^\/api\/mcp(\/mcp_[A-Za-z0-9_-]+)?$/,
     /^\/api\/admin\/(users|cache)(\/.*)?$/,
     /^\/api\/revalidate$/,
     // The task server reports progress and results here.

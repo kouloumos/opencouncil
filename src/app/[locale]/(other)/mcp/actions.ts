@@ -1,7 +1,9 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { UnauthorizedError } from "@/lib/api/errors";
+import { ForbiddenError, UnauthorizedError } from "@/lib/api/errors";
+import { isGenericMode } from "@/lib/genericMode";
+import { mayUseGenericModeMcp } from "@/lib/mcp/adminAccess";
 import { createUserMcpToken, listUserMcpTokens, revokeUserMcpToken } from "@/lib/db/mcpTokens";
 
 /**
@@ -15,6 +17,7 @@ import { createUserMcpToken, listUserMcpTokens, revokeUserMcpToken } from "@/lib
 export async function createMcpToken() {
     const user = await getCurrentUser();
     if (!user) throw new UnauthorizedError();
+    if (isGenericMode() && !mayUseGenericModeMcp({ superadmin: user.isSuperAdmin })) throw new ForbiddenError();
 
     const token = await createUserMcpToken(user.id);
     return {

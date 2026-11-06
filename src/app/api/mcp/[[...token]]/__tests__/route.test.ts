@@ -9,6 +9,7 @@ jest.mock('@/lib/db/prisma', () => ({ __esModule: true, default: {} }));
 jest.mock('@/lib/db/mcpTokens', () => ({ validateUserMcpToken: jest.fn() }));
 jest.mock('@/lib/db/highlights-core', () => ({ getUserCityRights: jest.fn(), meetingHasBodyIn: jest.fn() }));
 jest.mock('@/lib/mcp/analytics', () => ({ instrumentMcpAnalytics: jest.fn() }));
+jest.mock('@/lib/genericMode', () => ({ ...jest.requireActual('@/lib/genericMode'), isGenericMode: jest.fn().mockReturnValue(false) }));
 jest.mock('@/lib/mcp/data', () => ({
     mcpListCities: jest.fn(), mcpGetCity: jest.fn(), mcpListPeople: jest.fn(), mcpGetPerson: jest.fn(),
     mcpGetParty: jest.fn(), mcpListMeetings: jest.fn(), mcpGetMeeting: jest.fn(), mcpGetSubject: jest.fn(),
@@ -27,6 +28,7 @@ import { mcpListCities } from '@/lib/mcp/data';
 import { validateUserMcpToken } from '@/lib/db/mcpTokens';
 import { getUserCityRights } from '@/lib/db/highlights-core';
 import { currentMcpIdentity, currentRealm } from '@/lib/mcp/realm-context';
+import { isGenericMode } from '@/lib/genericMode';
 
 const mockListCities = mcpListCities as jest.MockedFunction<typeof mcpListCities>;
 const mockToken = validateUserMcpToken as jest.MockedFunction<typeof validateUserMcpToken>;
@@ -178,5 +180,48 @@ describe('/api/mcp route (mcp-handler)', () => {
         const response = await send('tools/list', {}, { path: '/api/mcp/not-a-token' });
 
         expect(response.status).toBe(404);
+    });
+});
+
+describe('/api/mcp route in generic mode (OpenTranscripts)', () => {
+    const mockGenericMode = isGenericMode as jest.MockedFunction<typeof isGenericMode>;
+    const initialize = (options?: { authorization?: string }) => send('initialize', {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'jest', version: '0.0.0' },
+    }, options);
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockGenericMode.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        mockGenericMode.mockReturnValue(false);
+    });
+
+    it('refuses an anonymous caller', async () => {
+        const response = await initialize();
+
+        expect(response.status).toBe(401);
+    });
+
+    it('refuses a token whose owner is not a superadmin', async () => {
+        mockToken.mockResolvedValue(PERSONAL_TOKEN);
+        mockRights.mockResolvedValue({ all: false, cityIds: new Set(['ws1']), bodies: new Map<string, string>() });
+
+        const response = await initialize({ authorization: 'Bearer mcp_test123' });
+
+        expect(response.status).toBe(403);
+    });
+
+    it('answers a superadmin', async () => {
+        mockToken.mockResolvedValue(SUPERADMIN_TOKEN);
+        mockRights.mockResolvedValue(ALL_RIGHTS);
+
+        const response = await initialize({ authorization: 'Bearer mcp_test123' });
+
+        expect(response.status).toBe(200);
+        expect((await rpc(response)).result?.serverInfo).toBeDefined();
     });
 });

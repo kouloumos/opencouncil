@@ -9,6 +9,9 @@ import { ConnectPanel } from "@/components/mcp/ConnectPanel";
 import { McpTokenManager } from "@/components/mcp/McpTokenManager";
 import { withCanonicalUrl } from "@/lib/utils/hreflang";
 import { ArrowRight } from "lucide-react";
+import { notFound } from "next/navigation";
+import { isGenericMode } from "@/lib/genericMode";
+import { mayUseGenericModeMcp } from "@/lib/mcp/adminAccess";
 
 // Both entry points read the locale from params and pass it explicitly:
 // without it, getTranslations races the [locale] layout's setRequestLocale
@@ -44,6 +47,18 @@ export default async function McpPage(props: { params: Promise<{ locale: string 
     const user = await getCurrentUser();
     const tokens = user ? await listUserMcpTokens(user.id) : [];
     const serverUrl = await mcpBaseUrl();
+
+    // OpenTranscripts opens MCP to superadmins only: the page holds their tokens and nothing else.
+    if (isGenericMode()) {
+        if (!user || !mayUseGenericModeMcp({ superadmin: user.isSuperAdmin })) notFound();
+        return (
+            <div className="mx-auto max-w-3xl px-4 pb-28 pt-8 sm:px-6 lg:pb-20">
+                <TokensSection title={t("tokens.title")} description={t("tokens.description")} className="mt-0">
+                    <McpTokenManager initialTokens={tokens} mcpBaseUrl={serverUrl} />
+                </TokensSection>
+            </div>
+        );
+    }
 
     return (
         <div className="mx-auto max-w-3xl px-4 pb-28 sm:px-6 lg:pb-20">
@@ -108,28 +123,42 @@ export default async function McpPage(props: { params: Promise<{ locale: string 
             </section>
 
             {/* personal access */}
-            <section className="mt-16 rounded-2xl bg-[#14110D] p-6 text-white sm:p-8">
-                <h2 className="!text-left !text-2xl !font-bold tracking-tight text-white sm:!text-3xl">
-                    {t("tokens.title")}
-                </h2>
-                <p className="mt-3 leading-relaxed text-white/70">{t("tokens.description")}</p>
-                <div className="mt-6">
-                    {user ? (
-                        <McpTokenManager initialTokens={tokens} mcpBaseUrl={serverUrl} />
-                    ) : (
-                        <div className="flex flex-wrap items-center gap-4">
-                            <p className="text-sm text-white/60">{t("tokens.signInPrompt")}</p>
-                            <Link
-                                href="/sign-in?callbackUrl=/mcp"
-                                className="unstyled group inline-flex items-center gap-2 rounded-full bg-orange px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange/90"
-                            >
-                                {t("tokens.signIn")}
-                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            </section>
+            <TokensSection title={t("tokens.title")} description={t("tokens.description")}>
+                {user ? (
+                    <McpTokenManager initialTokens={tokens} mcpBaseUrl={serverUrl} />
+                ) : (
+                    <div className="flex flex-wrap items-center gap-4">
+                        <p className="text-sm text-white/60">{t("tokens.signInPrompt")}</p>
+                        <Link
+                            href="/sign-in?callbackUrl=/mcp"
+                            className="unstyled group inline-flex items-center gap-2 rounded-full bg-orange px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange/90"
+                        >
+                            {t("tokens.signIn")}
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                    </div>
+                )}
+            </TokensSection>
         </div>
+    );
+}
+
+function TokensSection({
+    title,
+    description,
+    className = "mt-16",
+    children,
+}: {
+    title: string;
+    description: string;
+    className?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className={`${className} rounded-2xl bg-[#14110D] p-6 text-white sm:p-8`}>
+            <h2 className="!text-left !text-2xl !font-bold tracking-tight text-white sm:!text-3xl">{title}</h2>
+            <p className="mt-3 leading-relaxed text-white/70">{description}</p>
+            <div className="mt-6">{children}</div>
+        </section>
     );
 }

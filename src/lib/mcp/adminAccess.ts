@@ -30,6 +30,16 @@ export async function resolveAdminAccess(identity: McpIdentity): Promise<McpAdmi
 }
 
 /**
+ * Who may use the MCP server in generic mode (OpenTranscripts): superadmins
+ * only, for now. A workspace member already has the workspace id in
+ * `cityIds`, as a city admin has the city's, so opening MCP to members
+ * changes only this check; the guards of each tool stay as they are.
+ */
+export function mayUseGenericModeMcp(access: Pick<McpAdminAccess, 'superadmin'> | null): boolean {
+    return access?.superadmin === true;
+}
+
+/**
  * Tool handlers call one of the guards below, whatever tools/list
  * advertised: a client can call a tool that was never advertised. The route
  * handler resolved the access from the database in this same request, so the
