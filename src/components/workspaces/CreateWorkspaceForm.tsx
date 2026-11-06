@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { fieldClass, primaryPillClass } from './styles';
+import { captureEvent } from '@/lib/analytics/capture';
 
 /** The last row of the workspace list: any signed-in user can create a workspace. */
 export function CreateWorkspaceForm() {
@@ -43,6 +44,7 @@ export function CreateWorkspaceForm() {
       }
 
       const workspace = await response.json();
+      captureEvent('workspace_created');
 
       // Show navigating state immediately
       setIsNavigating(true);

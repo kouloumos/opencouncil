@@ -21,6 +21,7 @@ import { ArrowLeft, Download, Loader2, XCircle } from 'lucide-react';
 import { useRouter } from '@/i18n/routing';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from 'next-intl';
+import { captureEvent } from '@/lib/analytics/capture';
 
 interface GenericTranscriptData {
   meetingData: MeetingData;
@@ -156,6 +157,7 @@ export function GenericTranscriptWrapper({ data }: GenericTranscriptWrapperProps
       if (!response.ok) {
         throw new Error('Failed to export transcript');
       }
+      captureEvent('transcript_exported', { format });
 
       // Get the blob from the response
       const blob = await response.blob();

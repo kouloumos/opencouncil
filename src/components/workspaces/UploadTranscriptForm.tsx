@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { fieldClass, primaryPillClass } from './styles';
+import { captureEvent } from '@/lib/analytics/capture';
 
 interface UploadTranscriptFormProps {
   workspaceId: string;
@@ -72,6 +73,7 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
       if (!transcribeResponse.ok) {
         throw new Error('Failed to start transcription');
       }
+      captureEvent('transcription_requested');
 
       toast({
         title: t('success.title'),

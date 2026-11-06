@@ -13,6 +13,7 @@ import { surfaceCardClass } from '@/components/ui/surface-card';
 import { DEFAULT_TIMEZONE, formatDateStamp } from '@/lib/formatters/time';
 import { transcriptState } from '@/lib/utils/transcriptState';
 import { badgeClass, badgeTone } from './styles';
+import { captureEvent } from '@/lib/analytics/capture';
 
 interface TranscriptListProps {
   transcripts: TranscriptMinimal[];
@@ -45,6 +46,7 @@ export function TranscriptList({ transcripts, workspaceId, canDelete = false, lo
       if (!response.ok) {
         throw new Error('Failed to delete transcript');
       }
+      captureEvent('transcript_deleted');
 
       toast({
         title: tCommon('success'),

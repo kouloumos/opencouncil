@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getInitials } from '@/lib/formatters/name';
 import { SettingsCard } from '@/components/profile/SettingsChrome';
 import { fieldClass, primaryPillClass, secondaryPillClass } from './styles';
+import { captureEvent } from '@/lib/analytics/capture';
 
 interface Member {
   id: string;
@@ -78,6 +79,7 @@ export function WorkspaceAdminPanel({ workspaceId }: WorkspaceAdminPanelProps) {
         const error = await response.json();
         throw new Error(error.error || t('errors.inviteFailed'));
       }
+      captureEvent('workspace_member_invited');
 
       toast({
         title: t('success.invited'),
