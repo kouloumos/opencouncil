@@ -10,7 +10,7 @@ import { isMachineAccountAddress } from "@/lib/auth/machineAccounts";
  * its admins are the city's admins, and deleting it deletes the city, so the
  * /workspaces pages and routes act only on these.
  */
-const genericWorkspaceWhere = { city: { is: null } } satisfies Prisma.WorkspaceWhereInput;
+export const genericWorkspaceWhere = { city: { is: null } } satisfies Prisma.WorkspaceWhereInput;
 
 // Define include objects with satisfies for type safety
 const workspaceWithRelationsInclude = {

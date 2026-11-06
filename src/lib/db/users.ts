@@ -8,6 +8,7 @@ import { claimedLink } from "@/lib/db/personClaim";
 import { isMachineAccountAddress } from "@/lib/auth/machineAccounts";
 import { findMachineAccount } from "@/lib/db/machineAccounts";
 import { peopleOnly, userWithAdministersInclude, type UserWithAdministers } from "@/lib/db/types";
+import { genericWorkspaceWhere } from "@/lib/db/workspaces";
 
 const userWithRelationsInclude = {
     ...userWithAdministersInclude,
@@ -27,6 +28,9 @@ const userWithRelationsInclude = {
 
 
 export type UserWithRelations = Prisma.UserGetPayload<{ include: typeof userWithRelationsInclude }>;
+
+/** A membership of a workspace that is not a city. */
+const workspaceMembership = { workspace: { is: genericWorkspaceWhere } } satisfies Prisma.AdministersWhereInput;
 
 export type AdminUserData = Partial<Pick<User, 'email' | 'name' | 'isSuperAdmin' | 'onboarded'>> & {
     administers?: Prisma.AdministersUncheckedCreateWithoutUserInput[]
@@ -150,7 +154,10 @@ export async function updateUser(id: string, data: AdminUserData): Promise<UserW
                     select: { personId: true, claimedAt: true },
                 });
                 const claimedAtByPerson = new Map(claimed.map((row) => [row.personId, row.claimedAt]));
-                await tx.administers.deleteMany({ where: { userId: id } });
+                // The form lists cities, parties, persons and bodies, never a
+                // workspace that is not a city. Its members stay members; the
+                // workspace's own members page adds and removes them.
+                await tx.administers.deleteMany({ where: { userId: id, NOT: workspaceMembership } });
                 return tx.user.update({
                     where: { id },
                     data: {

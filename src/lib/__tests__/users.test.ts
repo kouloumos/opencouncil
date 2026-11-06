@@ -232,7 +232,10 @@ describe('users db layer - normalization and duplicate handling', () => {
         administers: [{ personId: 'person-1' }, { personId: 'person-2' }, { cityId: 'city-1' }],
       });
 
-      expect(tx.administers.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+      // Workspace memberships are not in the form; the save keeps them.
+      expect(tx.administers.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', NOT: { workspace: { is: { city: { is: null } } } } },
+      });
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
