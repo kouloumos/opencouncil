@@ -1,15 +1,17 @@
 import "server-only";
 import { assertGenericWorkspace, getWorkspaceActivity, listWorkspaces } from '@/lib/db/workspaces';
-import { countTranscripts, listTranscripts } from '@/lib/db/transcripts';
+import { revalidatePath } from 'next/cache';
+import { countTranscripts, createTranscript, listTranscripts } from '@/lib/db/transcripts';
 import { paginationOf } from '@/lib/zod-schemas/listQuery';
 import type { McpIdentity } from './auth';
 import { requireAdminAccess, requireCityAdmin } from './adminAccess';
 import { currentBaseUrl, transcriptUrl } from './realm-context';
 
 /**
- * The read side of the MCP server in generic mode (OpenTranscripts): the
- * workspaces a caller administers and their transcripts. A workspace is to
- * these tools what a city is to the council tools, so the guards are the same.
+ * The tools of the MCP server in generic mode (OpenTranscripts) that have no
+ * council counterpart: the workspaces a caller administers, their transcripts,
+ * and a new transcript. A workspace is to these tools what a city is to the
+ * council tools, so the guards are the same.
  */
 
 export async function mcpListWorkspaces(identity: McpIdentity) {
@@ -54,5 +56,25 @@ export async function mcpListTranscripts(
                 url: transcriptUrl(args.cityId, transcript.id),
             };
         }),
+    };
+}
+
+/** A new transcript in a workspace, as the upload form of the workspace page creates one. */
+export async function mcpCreateTranscript(
+    identity: McpIdentity,
+    args: { cityId: string; name: string; videoUrl?: string }
+) {
+    await requireCityAdmin(identity, args.cityId);
+    await assertGenericWorkspace(args.cityId);
+    const transcript = await createTranscript({ workspaceId: args.cityId, name: args.name, videoUrl: args.videoUrl });
+    revalidatePath(`/workspaces/${args.cityId}`);
+    return {
+        cityId: args.cityId,
+        meetingId: transcript.id,
+        name: transcript.name,
+        videoUrl: transcript.videoUrl,
+        url: transcriptUrl(args.cityId, transcript.id),
+        next: 'The transcript is empty. Pass meetingId to start_task with type transcribe: it transcribes '
+            + (transcript.videoUrl ? 'this videoUrl.' : 'the videoUrl that you pass to it.'),
     };
 }

@@ -1,7 +1,7 @@
 import type { McpServer, ServerContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { identityFromContext } from './auth';
-import { mcpListTranscripts, mcpListWorkspaces } from './workspaceData';
+import { mcpCreateTranscript, mcpListTranscripts, mcpListWorkspaces } from './workspaceData';
 import { category, run } from './toolSupport';
 import { jsonPageFields } from '@/lib/zod-schemas/listQuery';
 
@@ -42,5 +42,25 @@ export function registerWorkspaceTools(server: McpServer) {
             }),
         },
         (args, ctx: ServerContext) => run(() => mcpListTranscripts(identityFromContext(ctx), args))
+    );
+
+    server.registerTool(
+        'create_transcript',
+        {
+            title: 'Create transcript',
+            annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+            _meta: category('admin'),
+            description:
+                'Create an empty transcript in a workspace that you administer, for one recording, as the upload form of '
+                + 'the workspace page does. Pass the public URL of the recording as videoUrl: a link, or the publicUrl '
+                + 'of create_upload_url. Then start_task with type transcribe fills it. Call list_transcripts first: '
+                + 'a second call creates a second transcript. Confirm the name with the user before you call.',
+            inputSchema: z.object({
+                cityId: z.string().min(1).describe('The workspace id (see list_workspaces)'),
+                name: z.string().trim().min(1).max(200).describe('The name of the transcript, as the workspace page shows it'),
+                videoUrl: z.url().optional().describe('The public URL of the recording'),
+            }),
+        },
+        (args, ctx: ServerContext) => run(() => mcpCreateTranscript(identityFromContext(ctx), args))
     );
 }

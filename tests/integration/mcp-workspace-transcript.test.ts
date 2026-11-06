@@ -3,11 +3,12 @@
 // workspace transcript the way it reads a council meeting, and the workspace
 // tools list what a caller administers.
 jest.mock('@/lib/genericMode', () => ({ ...jest.requireActual('@/lib/genericMode'), isGenericMode: () => true }))
+jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }))
 
 import { Realm } from '@prisma/client'
 import prisma from '@/lib/db/prisma'
 import { mcpGetTranscript } from '@/lib/mcp/data'
-import { mcpListTranscripts, mcpListWorkspaces } from '@/lib/mcp/workspaceData'
+import { mcpCreateTranscript, mcpListTranscripts, mcpListWorkspaces } from '@/lib/mcp/workspaceData'
 import { mcpRealmStore, requestContext } from '@/lib/mcp/realm-context'
 import { resolveAdminAccess } from '@/lib/mcp/adminAccess'
 import { ensureTestDb, resetDatabase } from '../helpers/test-db'
@@ -143,5 +144,26 @@ describe('MCP workspace listings - integration', () => {
             .rejects.toThrow()
         await expect(asCaller(superadmin, () => mcpListTranscripts({ userId: superadmin }, { cityId: 'c1', page: 1, pageSize: 10 })))
             .rejects.toThrow('Workspace not found')
+    })
+
+    test('creates a transcript with its recording, for start_task to fill', async () => {
+        const created = await asCaller(member, () => mcpCreateTranscript({ userId: member }, {
+            cityId: 'ws1', name: 'Second interview', videoUrl: 'https://cdn.example/second.mp3',
+        }))
+
+        expect(created).toMatchObject({ cityId: 'ws1', name: 'Second interview', videoUrl: 'https://cdn.example/second.mp3' })
+        expect(created.url).toMatch(new RegExp(`/workspaces/ws1/transcripts/${created.meetingId}$`))
+        expect(await prisma.transcript.findUnique({
+            where: { workspaceId_id: { workspaceId: 'ws1', id: created.meetingId } },
+            select: { name: true, released: true },
+        })).toEqual({ name: 'Second interview', released: false })
+    })
+
+    test('creates no transcript in a workspace the caller does not administer, or in a city', async () => {
+        await expect(asCaller(member, () => mcpCreateTranscript({ userId: member }, { cityId: 'ws2', name: 'x' })))
+            .rejects.toThrow()
+        await expect(asCaller(superadmin, () => mcpCreateTranscript({ userId: superadmin }, { cityId: 'c1', name: 'x' })))
+            .rejects.toThrow('Workspace not found')
+        expect(await prisma.transcript.count({ where: { name: 'x' } })).toBe(0)
     })
 })

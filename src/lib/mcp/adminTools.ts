@@ -104,7 +104,7 @@ const GENERIC_DESCRIPTIONS = {
         + 'administer, as cityId with kind recording. Use it when the recording has no public URL that the task '
         + 'server can read. A file of up to partSize bytes goes up in one PUT, and `completion` is null. A bigger '
         + 'file goes up in parts, one PUT per part, and complete_upload then joins them. The answer\'s `next` gives '
-        + 'the steps. Then pass `publicUrl` as videoUrl to start_task.',
+        + 'the steps. Then pass `publicUrl` as videoUrl to create_transcript, or to start_task.',
     inspectMedia:
         'Optionally inspect a public media URL before you transcribe it. No task or callback is created. The '
         + 'lookup can take up to 150 seconds. Use reason, retryable and hint to choose another URL. A transient '

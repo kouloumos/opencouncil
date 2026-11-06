@@ -42,4 +42,4 @@ Transcription:
 - \`start_task\` with type \`transcribe\` transcribes a transcript from its recording, or from \`videoUrl\`. It costs money on the task server and takes minutes: confirm with the user before you call. \`force\` replaces the existing transcript and every edit to it: say so, and get an explicit confirmation.
 - After \`start_task\`, poll \`list_transcripts\`: the latest task of the transcript carries its status.
 - \`create_upload_url\` and \`complete_upload\` upload a recording that has no public URL. \`inspect_media\` checks a media URL before you transcribe it.
-- No tool creates a transcript: a user creates one on the page of the workspace.`;
+- For a new recording, \`create_transcript\` creates the transcript, and \`start_task\` then transcribes it. Confirm the name with the user, and check \`list_transcripts\` first, so that you do not create a second transcript of the same recording.`;

@@ -168,7 +168,7 @@ export async function mcpStartTask(identity: McpIdentity, args: StartTaskToolArg
 const UPLOAD_NEXT_STEP: Record<CreateUploadUrlToolArgs['kind'], string> = isGenericMode()
     ? {
         agenda: 'a transcript has no agenda.',
-        recording: 'pass publicUrl as videoUrl to start_task with type transcribe.',
+        recording: 'pass publicUrl as videoUrl to create_transcript for a new transcript, or to start_task with type transcribe.',
     }
     : {
         agenda: 'pass publicUrl as agendaUrl to create_meeting or update_meeting.',

@@ -230,7 +230,7 @@ describe('/api/mcp route in generic mode (OpenTranscripts)', () => {
         mockRights.mockResolvedValue(ALL_RIGHTS);
 
         expect(await toolNames({ authorization: 'Bearer mcp_test123' })).toEqual([
-            'list_workspaces', 'list_transcripts', 'get_transcript',
+            'list_workspaces', 'list_transcripts', 'create_transcript', 'get_transcript',
             'create_upload_url', 'complete_upload', 'inspect_media', 'start_task',
         ]);
     });
