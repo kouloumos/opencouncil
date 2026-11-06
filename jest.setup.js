@@ -1,9 +1,11 @@
 require('@testing-library/jest-dom');
 
-// The nix shell exports .env, which on an OpenTranscripts checkout sets
-// generic mode. Every test runs in council mode, as in CI, unless it mocks
-// generic mode itself.
-delete process.env.NEXT_PUBLIC_APP_MODE;
+// On an OpenTranscripts checkout, .env sets generic mode: the nix shell
+// exports it, and src/lib/ai.ts loads it again with dotenv. Every test runs in
+// council mode, as in CI, unless it mocks generic mode itself. The variable is
+// set rather than deleted, because dotenv fills in a missing variable but
+// never overwrites one that is set.
+process.env.NEXT_PUBLIC_APP_MODE = 'council';
 
 // jsdom (used by the .test.tsx component project) doesn't expose
 // TextEncoder/TextDecoder, which some libraries reference. Node provides them

@@ -1,5 +1,8 @@
 import { assertEmptyTestDb, ensureTestDb } from './helpers/test-db'
 
+// As in jest.setup.js: every test runs in council mode, as in CI.
+process.env.NEXT_PUBLIC_APP_MODE = 'council'
+
 // Replace the Prisma singleton with a lazy version that defers PrismaClient
 // creation until first use. This is necessary because Jest loads modules
 // (and the PrismaClient constructor fires) BEFORE beforeAll/ensureTestDb()
