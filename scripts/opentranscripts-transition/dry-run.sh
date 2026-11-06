@@ -50,7 +50,7 @@ done
     for db in ot_dry_snapshot ot_dry_target ot_dry_reference; do
         psql "$SERVER_URL" -X -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE $db"
     done
-    pg_restore --no-owner --no-acl --exit-on-error --dbname="$(db_url ot_dry_snapshot)" "$DUMP"
+    "$DIR/restore-dump.sh" "$DUMP" "$(db_url ot_dry_snapshot)"
 
     echo "== Production at a glance"
     psql "$(db_url ot_dry_snapshot)" -X -At -F': ' -v ON_ERROR_STOP=1 -c "

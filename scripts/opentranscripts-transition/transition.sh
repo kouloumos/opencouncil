@@ -63,7 +63,7 @@ pg_dump --format=custom --no-owner --no-acl --file="$DUMP" "$SOURCE_URL"
 echo "   $(du -h "$DUMP" | cut -f1). Keep this file until the new version has run for a while."
 
 echo "== 1. Restore into the target and undo the old fork migrations"
-pg_restore --no-owner --no-acl --exit-on-error --dbname="$TARGET_URL" "$DUMP"
+"$DIR/restore-dump.sh" "$DUMP" "$TARGET_URL"
 psql "$TARGET_URL" -X -q -v ON_ERROR_STOP=1 -f "$DIR/1-unfork.sql"
 
 if [[ -n "$REFERENCE_URL" ]]; then
