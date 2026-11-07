@@ -17,6 +17,12 @@ try {
 
 const withNextIntl = createNextIntlPlugin();
 
+// The Valkey cache handler shares one cache between the instances of a
+// long-running server. Vercel (OpenTranscripts) runs each route as its own
+// short-lived function, so the handler's in-memory fallback would keep one cache
+// per function and miss the revalidations of the others: Vercel keeps its own cache.
+const useCacheHandler = process.env.NODE_ENV === 'production' && !process.env.VERCEL;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: false,
@@ -31,10 +37,10 @@ const nextConfig = {
         '/api/og': ['./node_modules/next/dist/compiled/@vercel/og/**/*'],
         '/api/share/story': ['./node_modules/next/dist/compiled/@vercel/og/**/*'],
     },
-    cacheHandler: process.env.NODE_ENV === 'production'
+    cacheHandler: useCacheHandler
         ? new URL('./cache-handler.mjs', import.meta.url).pathname
         : undefined,
-    cacheMaxMemorySize: process.env.NODE_ENV === 'production' ? 0 : undefined,
+    cacheMaxMemorySize: useCacheHandler ? 0 : undefined,
     // Deterministic build id (commit-based when available) so the Valkey cache
     // namespace distinguishes different code and is stable across the instances
     // of one deploy. Falls back to Next's default (random per build) otherwise.
