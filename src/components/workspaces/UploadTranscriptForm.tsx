@@ -11,6 +11,10 @@ import { Loader2, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { fieldClass, primaryPillClass } from './styles';
 import { captureEvent } from '@/lib/analytics/capture';
+import { mp4HasIndex } from '@/lib/utils/mp4Index';
+
+/** The recording formats that keep their index in an MP4 box, which mp4HasIndex reads. */
+const MP4_FAMILY = /\.(mp4|mov|m4a)$/i;
 
 interface UploadTranscriptFormProps {
   workspaceId: string;
@@ -133,6 +137,8 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
             id="video"
             value={videoUrl}
             onUrlChange={setVideoUrl}
+            checkFile={async (file) =>
+              MP4_FAMILY.test(file.name) && (await mp4HasIndex(file)) === false ? t('errors.incompleteFile') : null}
             placeholder={t('linkPlaceholder')}
             disabled={isCreating}
             inputClassName={fieldClass}

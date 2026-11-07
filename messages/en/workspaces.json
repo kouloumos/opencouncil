@@ -59,7 +59,8 @@
     "errors": {
       "nameRequired": "Name is required",
       "fileOrLinkRequired": "Please upload a file or provide a link",
-      "uploadFailed": "Upload failed. Please try again."
+      "uploadFailed": "Upload failed. Please try again.",
+      "incompleteFile": "The file is incomplete: it has no index, so it cannot be transcribed. This happens when an export or a merge (for example in LosslessCut) did not finish. Export it again, wait for the export to finish, and check that the file plays to the end before you upload it."
     },
     "success": {
       "title": "Transcript created!",

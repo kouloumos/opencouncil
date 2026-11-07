@@ -18,6 +18,8 @@ export interface LinkOrDropProps
     onProgress?: (percentage: number) => void
     /** What the file is for. Its kind decides which files the upload takes. */
     config: UploadConfig
+    /** Refuses a picked file before its upload starts: returns why, or null to upload it. */
+    checkFile?: (file: File) => Promise<string | null>
 }
 
 /** The message of a refused request: the one the route gave, or one for a refused sign-in. */
@@ -98,7 +100,7 @@ async function uploadFile(file: File, config: UploadConfig, onProgress: (percent
 }
 
 const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
-    ({ className, inputClassName, onUrlChange, onProgress, config, ...props }, ref) => {
+    ({ className, inputClassName, onUrlChange, onProgress, config, checkFile, ...props }, ref) => {
         const accept = uploadAccept(config.kind)
         const [isDragging, setIsDragging] = React.useState(false)
         const [isUploading, setIsUploading] = React.useState(false)
@@ -128,6 +130,12 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                 setUploadError(`This file type is not accepted (${accept})`)
                 return
             }
+            const problem = await checkFile?.(file)
+            if (problem) {
+                setShowCheck(false)
+                setUploadError(problem)
+                return
+            }
             setIsUploading(true)
             setUploadProgress(0)
             setUploadError(null)
@@ -154,7 +162,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                 // Reset progress after a short delay
                 setTimeout(() => setUploadProgress(0), 500)
             }
-        }, [combinedRef, onUrlChange, onProgress, config, accept])
+        }, [combinedRef, onUrlChange, onProgress, config, accept, checkFile])
 
         const handleDrop = React.useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
             e.preventDefault()

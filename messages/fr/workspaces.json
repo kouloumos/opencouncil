@@ -59,7 +59,8 @@
     "errors": {
       "nameRequired": "Le nom est obligatoire",
       "fileOrLinkRequired": "Téléversez un fichier ou indiquez un lien",
-      "uploadFailed": "Échec du téléversement. Veuillez réessayer."
+      "uploadFailed": "Échec du téléversement. Veuillez réessayer.",
+      "incompleteFile": "Le fichier est incomplet : il n'a pas d'index et ne peut donc pas être transcrit. Cela arrive quand une exportation ou une fusion (par exemple dans LosslessCut) ne s'est pas terminée. Exportez-le à nouveau, attendez la fin de l'exportation et vérifiez que le fichier se lit jusqu'au bout avant de l'envoyer."
     },
     "success": {
       "title": "Transcription créée !",
