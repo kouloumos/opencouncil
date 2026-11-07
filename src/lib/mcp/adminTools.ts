@@ -100,7 +100,7 @@ export function registerGenericAdminTools(server: McpServer) {
 /** The descriptions of generic mode (OpenTranscripts), where a workspace is the cityId and a transcript the meetingId. */
 const GENERIC_DESCRIPTIONS = {
     createUploadUrl:
-        'Get short-lived URLs to upload a recording (an mp4, .mov or .mp3, at most 40 GiB) of a workspace that you '
+        'Get short-lived URLs to upload a recording (a video: .mp4, .mov, .mkv; or audio: .mp3, .wav, .m4a, .aac; at most 40 GiB) of a workspace that you '
         + 'administer, as cityId with kind recording. Use it when the recording has no public URL that the task '
         + 'server can read. A file of up to partSize bytes goes up in one PUT, and `completion` is null. A bigger '
         + 'file goes up in parts, one PUT per part, and complete_upload then joins them. The answer\'s `next` gives '
