@@ -20,12 +20,11 @@ import prisma from '@/lib/db/prisma'
 import { handlePollDecisionsResult, requestPollDecisions } from '@/lib/tasks/pollDecisions'
 import { getAdaLookupOutcome } from '@/lib/db/adaLookups'
 import { ADA_LOOKUP_SETTLE_MS } from '@/lib/db/types/adaLookups'
-import { startTask } from '@/lib/tasks/tasks'
+import { startTask, taskStatusWithMeetingInclude } from '@/lib/tasks/tasks'
 import { resetDatabase } from '../helpers/test-db'
 import { createAdministrativeBody, createCity, createMeeting, createSubject, createTaskStatus } from '../helpers/factories'
 import { makeExtractedDecision, makePollDecisionsResult } from '../helpers/builders'
 import { PollDecisionsReadDecision } from '@/lib/apiTypes'
-import { meetingNameSelect } from '@/lib/db/types'
 
 const mockStartTask = jest.mocked(startTask)
 const cityId = 'c1'
@@ -37,9 +36,8 @@ describe('requestPollDecisions', () => {
         mockStartTask.mockImplementation(async (_type, _body, meetingId, city) =>
             prisma.taskStatus.create({
                 data: { type: 'pollDecisions', requestBody: '{}', councilMeetingId: meetingId, cityId: city },
-                // Matches taskStatusWithMeetingInclude in lib/tasks/tasks.ts: startTask's real
-                // return shape, so the mock satisfies the same type without an `any` escape hatch.
-                include: { transcript: { include: { councilMeeting: { select: { ...meetingNameSelect, city: { select: { name_en: true, timezone: true } } } } } } },
+                // startTask's real return shape, so the mock satisfies the same type without an `any` escape hatch.
+                include: taskStatusWithMeetingInclude,
             }))
         await createCity({ id: cityId, diavgeiaUid: '6104' })
         const body = await createAdministrativeBody(cityId, { notificationBehavior: 'NOTIFICATIONS_DISABLED' })

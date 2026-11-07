@@ -90,8 +90,10 @@ export interface TaskVersionsFilter {
     versionMax?: number;
 }
 
-const taskStatusWithMeetingInclude = {
-    transcript: { include: { councilMeeting: {
+export const taskStatusWithMeetingInclude = {
+    transcript: { include: {
+        workspace: { select: { name: true } },
+        councilMeeting: {
         select: {
             ...meetingNameSelect,
             city: {
@@ -108,12 +110,12 @@ type TaskStatusWithMeeting = Prisma.TaskStatusGetPayload<{ include: typeof taskS
 
 /** The task fields that every task admin alert carries. */
 function taskAlertTarget(task: TaskStatusWithMeeting) {
-    // A task of a transcript that is not a meeting names the workspace and the transcript ids.
+    // A task of a transcript that is not a meeting names the workspace and the transcript.
     const meeting = task.transcript.councilMeeting;
     return {
         taskType: task.type,
-        cityName: meeting ? meeting.city.name_en : task.cityId,
-        meetingName: meeting ? meetingLabelInCity(meeting, 'en') : task.councilMeetingId,
+        cityName: meeting ? meeting.city.name_en : task.transcript.workspace.name,
+        meetingName: meeting ? meetingLabelInCity(meeting, 'en') : task.transcript.name,
         taskId: task.id,
         cityId: task.cityId,
         meetingId: task.councilMeetingId,

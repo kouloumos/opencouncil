@@ -217,10 +217,25 @@ describe('alert links in generic mode (OpenTranscripts)', () => {
         (isGenericMode as jest.Mock).mockReturnValue(false);
     });
 
-    it('links a task of a transcript to the tasks page of its workspace, on the configured host', async () => {
+    it('links a task of a transcript to the transcript and to the tasks page of its workspace, on the configured host', async () => {
         await sendTaskAdminAlert(transcription);
 
-        expect(postedLinks()).toEqual(['https://opentranscripts.xyz/workspaces/ws1/admin/tasks']);
+        expect(postedLinks()).toEqual([
+            'https://opentranscripts.xyz/workspaces/ws1/transcripts/t1',
+            'https://opentranscripts.xyz/workspaces/ws1/admin/tasks',
+        ]);
         expect(mockGetCityRealm).not.toHaveBeenCalled();
+    });
+
+    it('names the workspace and the transcript, not their ids', async () => {
+        await sendTaskAdminAlert(transcription);
+
+        const embed = postedEmbed();
+        expect(embed.title).toContain('transcribe - Oral history');
+        expect(embed.description).toContain('Interview');
+        expect(embed.fields.slice(1, 3)).toEqual([
+            { name: 'Workspace', value: 'Oral history', inline: true },
+            { name: 'Transcript', value: 'Interview', inline: false },
+        ]);
     });
 });

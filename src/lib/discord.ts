@@ -115,12 +115,17 @@ export async function sendTaskAdminAlert(data: {
     details?: { name: string; value: string; inline?: boolean }[];
 }): Promise<void> {
     const config = TASK_STATUS_CONFIG[data.status];
+    // A transcript of OpenTranscripts has an id that says nothing, so the alert names it.
+    const generic = isGenericMode();
 
     const meetingAdminUrl = await meetingUrl(data, '/admin');
+    const links = generic
+        ? `[Open transcript](${await meetingUrl(data)}) · [Workspace tasks](${meetingAdminUrl})`
+        : `[Open Meeting Admin](${meetingAdminUrl})`;
 
     await sendAdminAlert({
-        title: `${config.emoji} ${data.taskType} - ${data.cityId}`,
-        description: `${config.prefix}: ${data.meetingId}`,
+        title: `${config.emoji} ${data.taskType} - ${generic ? data.cityName : data.cityId}`,
+        description: `${config.prefix}: ${generic ? data.meetingName : data.meetingId}`,
         color: config.color,
         fields: [
             {
@@ -129,12 +134,12 @@ export async function sendTaskAdminAlert(data: {
                 inline: true,
             },
             {
-                name: 'Municipality',
+                name: generic ? 'Workspace' : 'Municipality',
                 value: data.cityName,
                 inline: true,
             },
             {
-                name: 'Meeting',
+                name: generic ? 'Transcript' : 'Meeting',
                 value: data.meetingName,
                 inline: false,
             },
@@ -150,8 +155,8 @@ export async function sendTaskAdminAlert(data: {
                 inline: false,
             }] : []),
             {
-                name: 'Admin Panel',
-                value: `[Open Meeting Admin](${meetingAdminUrl})`,
+                name: generic ? 'Links' : 'Admin Panel',
+                value: links,
                 inline: false,
             },
         ],
