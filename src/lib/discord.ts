@@ -12,6 +12,8 @@ import { formatDurationMs } from '@/lib/formatters/time';
 import { getCityRealm } from '@/lib/db/cityRealm';
 import { hasGoogleAccount } from '@/lib/db/accounts';
 import { realmBaseUrl } from '@/lib/utils/realmBaseUrl';
+import { isGenericMode } from '@/lib/genericMode';
+import { meetingAdminPath, meetingPagePath } from '@/lib/meetingPaths';
 import { sendAdminAlert, truncateField } from '@/lib/discord-core';
 import type { ReviewerInfo } from '@/lib/db/reviews';
 import type { PollDecisionsMeetingResult } from '@/lib/tasks/pollDecisions';
@@ -42,7 +44,12 @@ async function cityRealm(cityId: string): Promise<Realm | null> {
  * omission would silently produce a dead link.
  */
 async function meetingUrl(ref: MeetingRef, path: MeetingPath = ''): Promise<string> {
-    return `${realmBaseUrl(await cityRealm(ref.cityId))}/${ref.cityId}/${ref.meetingId}${path}`;
+    // A workspace transcript (generic mode) has no realm, and its tasks are on the tasks page of the workspace.
+    if (isGenericMode()) {
+        const page = path === '/admin' ? meetingAdminPath(ref.cityId, ref.meetingId) : meetingPagePath(ref.cityId, ref.meetingId);
+        return `${realmBaseUrl(null)}${page}`;
+    }
+    return `${realmBaseUrl(await cityRealm(ref.cityId))}${meetingPagePath(ref.cityId, ref.meetingId)}${path}`;
 }
 
 /**

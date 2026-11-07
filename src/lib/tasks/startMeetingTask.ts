@@ -9,6 +9,7 @@ import { requestTranscribeInternal } from './transcribeInternal';
 import { requestFixTranscriptInternal } from './fixTranscriptInternal';
 import { requestTranscribeTranscript } from './transcribeGeneric';
 import { isGenericMode } from '@/lib/genericMode';
+import { meetingAdminPath } from '@/lib/meetingPaths';
 import { requestSummarizeInternal } from './summarizeInternal';
 import { PipelineBusyError, TaskAlreadyExistsError } from './types';
 import type { MeetingTaskRequest } from './startableTasks';
@@ -29,9 +30,8 @@ export type { MeetingTaskRequest, StartableMeetingTask } from './startableTasks'
  * assistant has no way out but to wait.
  */
 function stuckTaskHint(cityId: string, meetingId: string): string {
-    const adminPage = isGenericMode() ? `/workspaces/${cityId}/admin/tasks` : `/${cityId}/${meetingId}/admin`;
     return `If it shows no progress for 10 minutes, an administrator can delete the stuck task on `
-        + `${adminPage} and start the step again.`;
+        + `${meetingAdminPath(cityId, meetingId)} and start the step again.`;
 }
 
 /** The tool that lists the tasks of a meeting, or in generic mode of a transcript. */

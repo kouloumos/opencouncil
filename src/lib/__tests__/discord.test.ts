@@ -10,6 +10,8 @@ jest.mock('@/env.mjs', () => ({ env: mockEnv }));
 const mockGetCityRealm = jest.fn<Promise<Realm | null>, [string]>();
 jest.mock('@/lib/db/cityRealm', () => ({ getCityRealm: (cityId: string) => mockGetCityRealm(cityId) }));
 
+jest.mock('@/lib/genericMode', () => ({ ...jest.requireActual('@/lib/genericMode'), isGenericMode: jest.fn().mockReturnValue(false) }));
+
 const mockHasGoogleAccount = jest.fn<Promise<boolean>, [string]>();
 jest.mock('@/lib/db/accounts', () => ({ hasGoogleAccount: (userId: string) => mockHasGoogleAccount(userId) }));
 
@@ -28,6 +30,7 @@ import {
     sendUserOnboardedAdminAlert,
 } from '../discord';
 import { sendErrorAdminAlert } from '../discord-core';
+import { isGenericMode } from '@/lib/genericMode';
 
 /** The embed of the single Discord message the call under test posted. */
 function postedEmbed() {
@@ -190,5 +193,34 @@ describe('error alert footer', () => {
         await sendErrorAdminAlert({ source: 'App Router render', error: 'boom', host: 'pr-42.opencouncil.dev' });
         // The instance already names this host, so `via` adds nothing.
         expect(postedEmbed().footer.text).toBe('pr-42 · commit abcdef1 · https://pr-42.opencouncil.dev');
+    });
+});
+
+describe('alert links in generic mode (OpenTranscripts)', () => {
+    const transcription = {
+        status: 'completed' as const,
+        taskType: 'transcribe',
+        cityName: 'Oral history',
+        meetingName: 'Interview',
+        taskId: 'task-1',
+        cityId: 'ws1',
+        meetingId: 't1',
+    };
+
+    beforeEach(() => {
+        (isGenericMode as jest.Mock).mockReturnValue(true);
+        mockEnv.NEXTAUTH_URL = 'https://opentranscripts.xyz';
+        mockGetCityRealm.mockClear();
+    });
+
+    afterEach(() => {
+        (isGenericMode as jest.Mock).mockReturnValue(false);
+    });
+
+    it('links a task of a transcript to the tasks page of its workspace, on the configured host', async () => {
+        await sendTaskAdminAlert(transcription);
+
+        expect(postedLinks()).toEqual(['https://opentranscripts.xyz/workspaces/ws1/admin/tasks']);
+        expect(mockGetCityRealm).not.toHaveBeenCalled();
     });
 });
