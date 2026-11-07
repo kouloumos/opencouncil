@@ -55,7 +55,9 @@ git -c rerere.enabled=true rebase origin/main
 
 Resolve each conflict by the fork rules. Keep each fork commit about one thing, as it was.
 
-Done when: the rebase ends, and `git log --oneline origin/main..HEAD` shows the fork's commits on the new main.
+Never resolve a file wholesale. In a rebase, `--ours` is the new main and `--theirs` is the fork commit that git replays. A conflict usually holds a large upstream change and a small fork edit, so `git checkout --theirs` keeps the fork's few lines and silently drops upstream's new code. The August 2026 attempt lost upstream features in 28 files this way (`.context/2026-08-rebase-lessons.md` in the OpenTranscripts worktree). Start from upstream's side of the file and apply the fork's edit to it.
+
+Done when: the rebase ends, `git log --oneline origin/main..HEAD` shows the fork's commits on the new main, and the fork's diff is about as large as before. Compare `git diff --shortstat $(git merge-base fork/opentranscripts origin/main) fork/opentranscripts` with `git diff --shortstat origin/main HEAD`: a large change in size means that a resolution dropped or duplicated code.
 
 ### 3. Run the checks
 
