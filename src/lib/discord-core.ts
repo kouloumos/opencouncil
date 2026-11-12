@@ -11,6 +11,7 @@
 
 import "server-only";
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import { env } from '@/env.mjs';
 
 export interface DiscordEmbed {
@@ -43,6 +44,12 @@ const WEBHOOK_TIMEOUT_MS = 4000;
 
 /**
  * Send a message to Discord via webhook
+ *
+ * Most callers fire and forget. A serverless platform (Vercel) may freeze the
+ * function once the response is sent, which drops a post still in flight, so
+ * the post is registered with `after()` to keep the request alive until it
+ * settles. Outside a request scope `after()` throws, and the caller's await is
+ * all there is.
  */
 async function sendDiscordMessage(payload: DiscordWebhookPayload): Promise<void> {
     // Skip if webhook URL is not configured
@@ -51,8 +58,19 @@ async function sendDiscordMessage(payload: DiscordWebhookPayload): Promise<void>
         return;
     }
 
+    const post = postDiscordMessage(env.DISCORD_WEBHOOK_URL, payload);
     try {
-        const response = await fetch(env.DISCORD_WEBHOOK_URL, {
+        after(post);
+    } catch {
+        // Not in a request scope.
+    }
+    await post;
+}
+
+/** Never rejects: a failed post is logged, not thrown. */
+async function postDiscordMessage(webhookUrl: string, payload: DiscordWebhookPayload): Promise<void> {
+    try {
+        const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

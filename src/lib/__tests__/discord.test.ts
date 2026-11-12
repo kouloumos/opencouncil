@@ -23,6 +23,15 @@ jest.mock('next/headers', () => ({
     },
 }));
 
+// null: outside a request scope, where after() throws.
+let afterTasks: Array<Promise<unknown>> | null = null;
+jest.mock('next/server', () => ({
+    after: (task: Promise<unknown>) => {
+        if (afterTasks === null) throw new Error('after() outside a request scope');
+        afterTasks.push(task);
+    },
+}));
+
 import {
     sendMeetingCreatedAdminAlert,
     sendTaskAdminAlert,
@@ -48,6 +57,7 @@ function postedLinks(): string[] {
 beforeEach(() => {
     mockEnv.NEXTAUTH_URL = 'https://opencouncil.gr';
     requestHost = null;
+    afterTasks = null;
     // The shared fixture below is a French city; tests that need another realm say so.
     mockGetCityRealm.mockResolvedValue('france');
     mockHasGoogleAccount.mockReset();
@@ -149,6 +159,42 @@ describe('user onboarded alert', () => {
         await sendUserOnboardedAdminAlert({ cityId: 'athens', cityName: 'Athens', onboardingSource: 'petition', signedInUserId: 'u1' });
         expect(field('Google Account')).toBeUndefined();
         expect(field('Onboarding Source')?.value).toBe('Petition');
+    });
+});
+
+describe('alert delivery after the response', () => {
+    it('keeps the request alive until the webhook post settles, for a caller that does not await', async () => {
+        afterTasks = [];
+        let respond: (value: { ok: boolean; statusText: string }) => void = () => {};
+        global.fetch = jest.fn().mockReturnValue(new Promise(resolve => { respond = resolve; }));
+
+        void sendErrorAdminAlert({ source: 'Workspaces', error: 'boom' });
+        await new Promise(setImmediate);
+
+        expect(afterTasks).toHaveLength(1);
+        let settled = false;
+        void afterTasks[0].then(() => { settled = true; });
+        await new Promise(setImmediate);
+        expect(settled).toBe(false);
+
+        respond({ ok: true, statusText: 'OK' });
+        await afterTasks[0];
+        expect(settled).toBe(true);
+    });
+
+    it('still posts outside a request scope, where after() throws', async () => {
+        await sendErrorAdminAlert({ source: 'Cron', error: 'boom' });
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('never rejects the registered task when the post fails', async () => {
+        afterTasks = [];
+        global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        await sendErrorAdminAlert({ source: 'Workspaces', error: 'boom' });
+
+        await expect(afterTasks[0]).resolves.toBeUndefined();
     });
 });
 
