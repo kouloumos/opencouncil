@@ -10,6 +10,9 @@
  *   npm run voiceprints:delete-without-consent -- --city athens     # one city, list only
  *   DEPLOYMENT_ENV=production npm run voiceprints:delete-without-consent -- --delete
  *
+ * --city takes the rows of the city's people and the clips in the city's
+ * folder, which holds the clips cut from the city's meetings.
+ *
  * Reads DATABASE_URL and the Spaces settings from the environment; the list
  * needs a database user that can read VoicePrintConsent. --delete runs only
  * with DEPLOYMENT_ENV=production set explicitly: elsewhere the people can
@@ -20,7 +23,7 @@ import 'dotenv/config';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import prisma from '@/lib/db/prisma';
-import { planVoiceDataSweep, runVoiceDataSweep, voiceprintClipFolder } from '@/lib/db/voiceprintsDelete';
+import { planVoiceDataDeletion, runVoiceDataDeletion, voiceprintClipFolder } from '@/lib/db/voiceprintsDelete';
 
 async function main() {
     const argv = await yargs(hideBin(process.argv))
@@ -39,26 +42,34 @@ async function main() {
         return;
     }
 
-    const sweep = await planVoiceDataSweep({ cityId: argv.city });
+    const plan = await planVoiceDataDeletion({ cityId: argv.city });
 
     const byCity = new Map<string, number>();
-    for (const voicePrint of sweep.voicePrints) {
+    for (const voicePrint of plan.voicePrints) {
         console.log(`row\t${voicePrint.person.cityId}\t${voicePrint.person.name}\t${voicePrint.id}\t${voicePrint.sourceAudioUrl}`);
         byCity.set(voicePrint.person.cityId, (byCity.get(voicePrint.person.cityId) ?? 0) + 1);
     }
-    for (const clip of sweep.clips) console.log(`clip\t${clip.bucket}\t${clip.key}`);
+    for (const clip of plan.clips) console.log(`clip\t${clip.bucket}\t${clip.key}`);
     for (const [cityId, count] of byCity) console.log(`${cityId}: ${count}`);
-    for (const failure of sweep.listFailures) console.error(`Not listed: ${failure.clip} (${failure.error})`);
-    if (sweep.listFailures.length > 0) process.exitCode = 1;
+    if (!plan.listed) console.error('No storage keys: the clips were not listed.');
+    for (const failure of plan.listFailures) console.error(`Not listed: ${failure.item} (${failure.error})`);
+    const complete = plan.listed && plan.listFailures.length === 0;
+    if (!complete) process.exitCode = 1;
 
-    const found = `${sweep.voicePrints.length} voiceprint row(s) and ${sweep.clips.length} clip(s) of people without a consent in force`;
+    const found = `${plan.voicePrints.length} voiceprint row(s) and ${plan.clips.length} clip(s) of people without a consent in force`;
     if (!argv.delete) {
         console.log(`${found}: not deleted (run with --delete)`);
         return;
     }
+    // The rows name the buckets that the next run lists, so they stay until
+    // every clip folder could be listed.
+    if (!complete) {
+        console.error(`${found}: not deleted, because the clip listing is incomplete.`);
+        return;
+    }
 
-    const failures = await runVoiceDataSweep(sweep);
-    for (const failure of failures) console.error(`Not deleted: ${failure.clip} (${failure.error})`);
+    const failures = await runVoiceDataDeletion(plan);
+    for (const failure of failures) console.error(`Not deleted: ${failure.item} (${failure.error})`);
     console.log(`${found}: deleted, ${failures.length} failure(s)`);
     if (failures.length > 0) process.exitCode = 1;
 }
