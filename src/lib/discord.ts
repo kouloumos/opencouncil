@@ -1069,6 +1069,21 @@ export async function sendAgendaReadingAlert(data: {
 }
 
 /**
+ * Send admin alert when a sign-in creates an account (OpenTranscripts, which
+ * has no onboarding form). Reads nothing before the post, so the post is
+ * registered with after() before the sign-in response is sent.
+ */
+export async function sendUserSignedUpAdminAlert(): Promise<void> {
+    await sendAdminAlert({
+        title: '👋 New User Signed Up',
+        description: 'A sign-in has created a new account.',
+        color: 0x3498db, // Blue
+        fields: [],
+        footer: { text: 'PII not transmitted for privacy' },
+    });
+}
+
+/**
  * Send admin alert when a user creates a personal workspace.
  */
 export async function sendWorkspaceCreatedAdminAlert(data: {

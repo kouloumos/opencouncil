@@ -37,6 +37,7 @@ import {
     sendTaskAdminAlert,
     sendPollDecisionsBatchCompletedAlert,
     sendUserOnboardedAdminAlert,
+    sendUserSignedUpAdminAlert,
 } from '../discord';
 import { sendErrorAdminAlert } from '../discord-core';
 import { isGenericMode } from '@/lib/genericMode';
@@ -159,6 +160,16 @@ describe('user onboarded alert', () => {
         await sendUserOnboardedAdminAlert({ cityId: 'athens', cityName: 'Athens', onboardingSource: 'petition', signedInUserId: 'u1' });
         expect(field('Google Account')).toBeUndefined();
         expect(field('Onboarding Source')?.value).toBe('Petition');
+    });
+});
+
+describe('user signed up alert', () => {
+    it('posts without reading the database, so the post starts before the response', async () => {
+        await sendUserSignedUpAdminAlert();
+        const embed = postedEmbed();
+        expect(embed.title).toBe('👋 New User Signed Up');
+        expect(embed.footer.text).toBe('PII not transmitted for privacy');
+        expect(mockHasGoogleAccount).not.toHaveBeenCalled();
     });
 });
 

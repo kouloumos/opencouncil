@@ -5,6 +5,7 @@ jest.mock('@/lib/db/prisma', () => ({ __esModule: true, default: {} }));
 jest.mock('@/auth.config', () => ({ __esModule: true, default: {}, authProviders: () => [] }));
 jest.mock('@/lib/db/consultationComments', () => ({ pendingCommentQuote: jest.fn() }));
 jest.mock('@/lib/auth/sessionMirror', () => ({ usesSecureCookies: () => false }));
+jest.mock('@/lib/discord', () => ({ sendUserSignedUpAdminAlert: jest.fn() }));
 import { authOptions } from '@/auth';
 type SignIn = (p: { user: unknown; account: unknown; profile: unknown }) => boolean;
 const signIn = authOptions.callbacks.signIn as unknown as SignIn;

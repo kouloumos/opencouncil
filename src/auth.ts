@@ -6,6 +6,8 @@ import { isTrustedExternalRedirect } from "@/lib/auth/trustedRedirect"
 import { signInAllowed } from "@/lib/auth/signInGuard"
 import { usesSecureCookies } from "@/lib/auth/sessionMirror"
 import { pendingCommentQuote } from "@/lib/db/consultationComments"
+import { sendUserSignedUpAdminAlert } from "@/lib/discord"
+import { isGenericMode } from "@/lib/genericMode"
 
 declare module "next-auth" {
     interface Session {
@@ -75,6 +77,16 @@ export const authOptions = {
                 }
             }
         }
+    },
+    events: {
+        // OpenTranscripts has no onboarding form, so the new account is the
+        // signup. OpenCouncil alerts at onboarding instead.
+        async createUser() {
+            if (!isGenericMode()) return;
+            sendUserSignedUpAdminAlert().catch((error) => {
+                console.error('Failed to send user signed up admin alert:', error);
+            });
+        },
     },
     ...authConfig,
     // The same providers as the proxy's, plus the quote of the comment a confirmation link publishes.
