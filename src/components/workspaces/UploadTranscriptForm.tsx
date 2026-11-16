@@ -24,12 +24,15 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
   const [name, setName] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations('workspaces.upload');
   const tCommon = useTranslations('workspaces.common');
 
   async function handleCreate() {
+    if (isUploading || isCreating) return;
+
     if (!name.trim()) {
       toast({
         title: t('errors.nameRequired'),
@@ -113,13 +116,13 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
       </div>
 
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="grid grid-cols-1 items-start gap-x-3 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] lg:gap-y-1.5"
         onSubmit={(e) => {
           e.preventDefault();
           handleCreate();
         }}
       >
-        <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5 lg:row-span-2 lg:grid lg:grid-rows-subgrid">
           <Label htmlFor="name" className="text-[13px] font-medium">{t('transcriptName')}</Label>
           <Input
             id="name"
@@ -131,27 +134,30 @@ export function UploadTranscriptForm({ workspaceId }: UploadTranscriptFormProps)
           />
         </div>
 
-        <div className="flex min-w-[280px] flex-[2] flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5 lg:row-span-2 lg:grid lg:grid-rows-subgrid">
           <Label htmlFor="video" className="text-[13px] font-medium">{t('videoLabel')}</Label>
-          <LinkOrDrop
-            id="video"
-            value={videoUrl}
-            onUrlChange={setVideoUrl}
-            checkFile={async (file) =>
-              MP4_FAMILY.test(file.name) && (await mp4HasIndex(file)) === false ? t('errors.incompleteFile') : null}
-            placeholder={t('linkPlaceholder')}
-            disabled={isCreating}
-            inputClassName={fieldClass}
-            // A workspace admin passes the city check of the upload: the
-            // admin row of a workspace names it in cityId.
-            config={{ cityId: workspaceId, kind: 'recording' }}
-          />
+          <div className="min-h-[5.5rem] min-w-0">
+            <LinkOrDrop
+              id="video"
+              value={videoUrl}
+              onUrlChange={setVideoUrl}
+              onUploadingChange={setIsUploading}
+              checkFile={async (file) =>
+                MP4_FAMILY.test(file.name) && (await mp4HasIndex(file)) === false ? t('errors.incompleteFile') : null}
+              placeholder={t('linkPlaceholder')}
+              disabled={isCreating}
+              inputClassName={fieldClass}
+              // A workspace admin passes the city check of the upload: the
+              // admin row of a workspace names it in cityId.
+              config={{ cityId: workspaceId, kind: 'recording' }}
+            />
+          </div>
         </div>
 
         <Button
           type="submit"
-          disabled={isCreating || !name.trim() || !videoUrl.trim()}
-          className={primaryPillClass}
+          disabled={isCreating || isUploading || !name.trim() || !videoUrl.trim()}
+          className={`${primaryPillClass} w-full lg:col-start-3 lg:row-start-2 lg:w-auto`}
         >
           {isCreating ? (
             <>

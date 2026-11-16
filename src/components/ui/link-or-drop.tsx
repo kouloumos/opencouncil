@@ -16,6 +16,7 @@ export interface LinkOrDropProps
     inputClassName?: string;
     onUrlChange?: (url: string) => void
     onProgress?: (percentage: number) => void
+    onUploadingChange?: (isUploading: boolean) => void
     /** What the file is for. Its kind decides which files the upload takes. */
     config: UploadConfig
     /** Refuses a picked file before its upload starts: returns why, or null to upload it. */
@@ -100,7 +101,7 @@ async function uploadFile(file: File, config: UploadConfig, onProgress: (percent
 }
 
 const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
-    ({ className, inputClassName, onUrlChange, onProgress, config, checkFile, ...props }, ref) => {
+    ({ className, inputClassName, onUrlChange, onProgress, onUploadingChange, config, checkFile, ...props }, ref) => {
         const accept = uploadAccept(config.kind)
         const [isDragging, setIsDragging] = React.useState(false)
         const [isUploading, setIsUploading] = React.useState(false)
@@ -124,6 +125,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
         }, [])
 
         const handleFileUpload = React.useCallback(async (file: File) => {
+            if (props.disabled || isUploading) return
             // A dropped file skips the picker's filter, so both paths check it.
             if (!uploadFormatOfFile(config.kind, file.name)) {
                 setShowCheck(false)
@@ -137,6 +139,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                 return
             }
             setIsUploading(true)
+            onUploadingChange?.(true)
             setUploadProgress(0)
             setUploadError(null)
             setShowCheck(false) // Clear any previous errors
@@ -159,10 +162,11 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                 onProgress?.(0)
             } finally {
                 setIsUploading(false)
+                onUploadingChange?.(false)
                 // Reset progress after a short delay
                 setTimeout(() => setUploadProgress(0), 500)
             }
-        }, [combinedRef, onUrlChange, onProgress, config, accept, checkFile])
+        }, [combinedRef, onUrlChange, onProgress, onUploadingChange, config, accept, checkFile, props.disabled, isUploading])
 
         const handleDrop = React.useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
             e.preventDefault()
@@ -218,6 +222,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                     <Input
                         ref={combinedRef}
                         {...props}
+                        disabled={props.disabled || isUploading}
                         onChange={handleInputChange}
                         className={cn(
                             "pr-20",
@@ -257,6 +262,7 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                         </AnimatePresence>
                         <button
                             type="button"
+                            disabled={props.disabled || isUploading}
                             className="inline-flex h-6 w-6 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
                             onClick={() => fileInputRef.current?.click()}
                         >
@@ -297,9 +303,9 @@ const LinkOrDrop = React.forwardRef<HTMLInputElement, LinkOrDropProps>(
                         className="mt-2 flex items-start gap-2 text-sm text-destructive"
                     >
                         <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
+                        <div className="min-w-0 flex-1 break-words">
                             <p>{uploadError}</p>
-                            <div className="mt-2 flex gap-2">
+                            <div className="mt-2 flex flex-wrap gap-2">
                                 <button
                                     type="button"
                                     onClick={retryUpload}
